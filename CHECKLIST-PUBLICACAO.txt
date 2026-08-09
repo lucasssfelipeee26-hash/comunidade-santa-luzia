@@ -1,0 +1,21 @@
+CHECKLIST DE PUBLICAÇÃO — COMUNIDADE SANTA LUZIA
+
+[ ] Código enviado a um repositório PRIVADO no GitHub
+[ ] AUTH_SECRET configurado no Railway
+[ ] INITIAL_ADMIN_NAME configurado
+[ ] INITIAL_ADMIN_USERNAME configurado
+[ ] INITIAL_ADMIN_EMAIL configurado
+[ ] INITIAL_ADMIN_PASSWORD configurado com senha forte
+[ ] Volume criado e montado em /app/data
+[ ] Primeiro deploy concluído
+[ ] Domínio *.up.railway.app gerado
+[ ] NEXT_PUBLIC_SITE_URL definido com o domínio gerado
+[ ] Redeploy executado
+[ ] Login do moderador testado
+[ ] Cadastro de membro testado
+[ ] Escala do Dia testada
+[ ] Formação e upload testados
+[ ] Biblioteca testada
+[ ] Liturgia e Santo do Dia testados
+[ ] Tema do site testado
+[ ] Backup da pasta data local preservado

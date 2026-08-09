@@ -1,0 +1,6 @@
+IMPORTANTE
+
+Ao aplicar esta atualização, NÃO apague nem substitua a pasta `data` que já existe no seu projeto.
+Ela guarda cadastros, registros, escalas, formações, anexos e a configuração de tema.
+
+Este pacote foi propositalmente criado sem a pasta `data` para proteger suas informações.

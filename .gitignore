@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env.*.local
+*.log
+next-panic-*.log
+.DS_Store
+Thumbs.db
+
+# Dados privados/persistentes: ficam no Volume do Railway, nunca no GitHub.
+data/
+
+# Arquivos temporários do Windows/OneDrive
+~$*

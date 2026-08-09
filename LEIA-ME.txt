@@ -1,0 +1,34 @@
+UPDATE - FUNÇÕES DA ESCALA DO DIA
+
+Este update altera apenas a montagem/publicação da Escala do Dia.
+
+Funções disponíveis:
+- 1º Cerimoniário
+- 2º Cerimoniário
+- Cruciferário
+- 1º Ceroferário
+- 2º Ceroferário
+- 1º Mestre de Procissão
+- 2º Mestre de Procissão
+- Turiferário
+- Naviculário
+- Librífero
+- Auxiliar de Credência
+
+Melhorias:
+- impede atribuir a mesma função a duas pessoas na mesma escala;
+- valida as funções também no servidor;
+- mostra as funções na ordem litúrgica na escala pública;
+- corrige a nomenclatura Naviculário.
+
+INSTALAÇÃO
+1. Pare o site com Ctrl + C.
+2. Extraia este ZIP.
+3. Copie app, components e lib para a pasta principal do projeto.
+4. Escolha "Substituir os arquivos no destino".
+5. Execute:
+   Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue
+   npm run dev
+
+Não é necessário executar npm install.
+Este update não altera a pasta data nem apaga escalas/cadastros existentes.

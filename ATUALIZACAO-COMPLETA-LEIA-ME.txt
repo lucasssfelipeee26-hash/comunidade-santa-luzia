@@ -1,0 +1,29 @@
+ATUALIZAÇÃO COMPLETA — COMUNIDADE SANTA LUZIA
+
+Principais revisões desta versão:
+
+- consolida as atualizações anteriores em uma única base;
+- mantém login por usuário e e-mail de recuperação;
+- mantém aprovação de membros pelo moderador;
+- mantém Escala do Dia, Formação, Biblioteca e Liturgia Diária;
+- mantém o menu ☰ do moderador;
+- mantém o gerenciador de temas de Santa Luzia;
+- a Área Restrita agora é SEMPRE CLARA, independentemente do tema público;
+- fundo da Área Restrita branco, cartões brancos, texto escuro e destaques rubi/dourado;
+- login, cadastro e recuperação de senha também foram clareados;
+- prévia de tema agora ocorre dentro do gerenciador e não escurece a Área Restrita;
+- menu público ajustado para não apertar em telas intermediárias;
+- tema visual do hero ajustado para rubi/dourado, removendo o tom esverdeado do overlay;
+- npm run dev passa a usar Webpack para evitar o erro interno do Turbopack/HMR;
+- gravação do banco JSON e da configuração do tema simplificada para melhor compatibilidade no Windows;
+- seed dos moderadores deixa de regravar o banco a cada carregamento quando não há alteração;
+- banco corrompido recebe cópia .bak antes de uma recuperação;
+- validações de cadastro, perfil, registros e Formação reforçadas;
+- datas do membro usam o fuso America/Cuiaba;
+- páginas de erro e página não encontrada adicionadas;
+- referências de arquivos/imagens locais verificadas;
+- imports locais verificados;
+- arquivos TypeScript/TSX revisados por parser de sintaxe.
+
+IMPORTANTE:
+Este pacote NÃO contém seus arquivos reais da pasta data. Copie por cima do projeto existente sem apagar a pasta data.
