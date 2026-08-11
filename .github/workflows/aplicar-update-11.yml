@@ -3,7 +3,7 @@ name: Aplicar Update 11
 on:
   push:
     paths:
-      - 'deploy/TRIGGER-UPDATE-11.txt'
+      - 'PATCH-SERVIDOR-SANTA-LUZIA-UPDATE-11.zip'
   workflow_dispatch:
 
 permissions:
@@ -19,28 +19,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extrair Update 11
+      - name: Aplicar patch do servidor
         shell: bash
         run: |
           set -euo pipefail
-          base64 -d deploy/update11-server-overlay.tar.gz.b64 > /tmp/update11.tar.gz
-          mkdir -p /tmp/update11
-          tar -xzf /tmp/update11.tar.gz -C /tmp/update11
+          rm -rf /tmp/santa-luzia-update-11
+          mkdir -p /tmp/santa-luzia-update-11
+          unzip -q PATCH-SERVIDOR-SANTA-LUZIA-UPDATE-11.zip -d /tmp/santa-luzia-update-11
 
-          rm -rf app components lib
-          cp -a /tmp/update11/app ./app
-          cp -a /tmp/update11/components ./components
-          cp -a /tmp/update11/lib ./lib
+          while IFS= read -r arquivo; do
+            [ -z "$arquivo" ] && continue
+            rm -f "$arquivo"
+          done < /tmp/santa-luzia-update-11/DELETE-LIST.txt
+          rm -f /tmp/santa-luzia-update-11/DELETE-LIST.txt
 
-          mkdir -p public
-          rm -rf public/sounds
-          cp -a /tmp/update11/public/sounds public/sounds
+          cp -a /tmp/santa-luzia-update-11/. ./
 
-          for f in package.json tsconfig.json next.config.mjs postcss.config.mjs components.json .gitignore .env.example; do
-            cp "/tmp/update11/$f" "$f"
-          done
-
-          rm -f deploy/TRIGGER-UPDATE-11.txt deploy/update11-server-overlay.tar.gz.b64
+          rm -f PATCH-SERVIDOR-SANTA-LUZIA-UPDATE-11.zip
+          rm -f deploy/TRIGGER-UPDATE-11.txt
+          rm -f deploy/update11-server-overlay.tar.gz.b64
 
       - name: Commitar Update 11
         shell: bash
