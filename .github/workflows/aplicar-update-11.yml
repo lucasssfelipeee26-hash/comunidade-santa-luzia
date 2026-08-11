@@ -1,0 +1,57 @@
+name: Aplicar Update 11
+
+on:
+  push:
+    paths:
+      - 'deploy/TRIGGER-UPDATE-11.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extrair Update 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d deploy/update11-server-overlay.tar.gz.b64 > /tmp/update11.tar.gz
+          mkdir -p /tmp/update11
+          tar -xzf /tmp/update11.tar.gz -C /tmp/update11
+
+          rm -rf app components lib
+          cp -a /tmp/update11/app ./app
+          cp -a /tmp/update11/components ./components
+          cp -a /tmp/update11/lib ./lib
+
+          mkdir -p public
+          rm -rf public/sounds
+          cp -a /tmp/update11/public/sounds public/sounds
+
+          for f in package.json tsconfig.json next.config.mjs postcss.config.mjs components.json .gitignore .env.example; do
+            cp "/tmp/update11/$f" "$f"
+          done
+
+          rm -f deploy/TRIGGER-UPDATE-11.txt deploy/update11-server-overlay.tar.gz.b64
+
+      - name: Commitar Update 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Nenhuma alteracao para publicar.'
+            exit 0
+          fi
+          git commit -m 'Publicar Santa Luzia 0.11.0 - acesso, visitante e sincronizacao'
+          git push origin HEAD:main
