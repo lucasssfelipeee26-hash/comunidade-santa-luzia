@@ -41,7 +41,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "Liturgia Diária",
         short_name: "Liturgia",
-        url: "/visitante#liturgia",
+        url: "/liturgia",
       },
       {
         name: "Biblioteca",
