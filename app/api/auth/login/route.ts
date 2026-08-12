@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
-import { buscarUsuarioPorLogin } from "@/lib/db"
-import { criarSessao, verificarSenha } from "@/lib/auth"
+import { buscarUsuarioPorLogin, db } from "@/lib/db"
+import { criarSessao, hashSenha, verificarSenha } from "@/lib/auth"
 import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
+
+function normalizar(value: unknown) {
+  return String(value ?? "").trim().toLowerCase()
+}
 
 export async function POST(req: Request) {
   const limite = limitar("login:" + ipDaRequisicao(req), 12, 15 * 60 * 1000)
@@ -27,7 +31,24 @@ export async function POST(req: Request) {
   }
 
   const conta = buscarUsuarioPorLogin(login)
-  const senhaValida = conta?.senha_hash ? verificarSenha(senha, conta.senha_hash) : false
+  let senhaValida = conta?.senha_hash ? verificarSenha(senha, conta.senha_hash) : false
+
+  // Em produção, o moderador inicial pode ter sua senha corrigida pelo Railway
+  // sem apagar o volume. A senha continua somente em INITIAL_ADMIN_PASSWORD
+  // e nunca é gravada no GitHub em texto puro.
+  if (conta && conta.tipo === "moderador" && !senhaValida) {
+    const adminUsuario = normalizar(process.env.INITIAL_ADMIN_USERNAME)
+    const adminEmail = normalizar(process.env.INITIAL_ADMIN_EMAIL)
+    const adminSenha = String(process.env.INITIAL_ADMIN_PASSWORD ?? "")
+    const contaEhAdminInicial =
+      (adminUsuario && normalizar(conta.usuario) === adminUsuario) ||
+      (adminEmail && normalizar(conta.email) === adminEmail)
+
+    if (contaEhAdminInicial && adminSenha.length >= 8 && senha === adminSenha) {
+      const atualizou = db.prepare("UPDATE usuarios SET senha_hash = ? WHERE id = ?").run(hashSenha(adminSenha), conta.id)
+      senhaValida = atualizou.changes > 0
+    }
+  }
 
   if (!conta || !senhaValida) {
     return NextResponse.json(
