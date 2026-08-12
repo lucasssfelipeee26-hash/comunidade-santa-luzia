@@ -61,6 +61,7 @@ export function documentoHoraTemporal(data:Date,hora:HoraLiturgica){
 }
 
 export function documentoHoraSanto(chave:string|undefined|null,hora:HoraLiturgica){
- if(!chave||hora==="completas")return ""
+ if(!chave||hora==="completas"||hora==="vigilia")return ""
+ if(hora==="leituras")return `oficio/proprio/oficiodasleituras/${chave}.htm`
  return `oficio/proprio/horas/${chave}_${hora}.htm`
 }
