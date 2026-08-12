@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { BrainCircuit, Clock3, Crown, Medal, Send, ShieldCheck, Sparkles, TimerReset, Trophy } from "lucide-react"
+import { BookOpen, BrainCircuit, Clock3, Crown, Medal, Send, ShieldCheck, Sparkles, TimerReset, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,8 @@ type QuizAuto = {
 
 function letra(i: number) { return String.fromCharCode(65 + i) }
 function tempo(segundos: number) { return `${String(Math.floor(segundos / 60)).padStart(2, "0")}:${String(segundos % 60).padStart(2, "0")}` }
+function hojeCuiaba() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba" }).format(new Date()) }
+function chaveLeituraHoje() { return `santa-luzia:liturgia-lida:${hojeCuiaba()}` }
 
 function Posicao({ valor }: { valor: number }) {
   return (
@@ -52,6 +55,7 @@ export function RankingInterativo() {
   const [atrasoAlvo, setAtrasoAlvo] = useState("")
   const [dataMissa, setDataMissa] = useState("")
   const [horarioMissa, setHorarioMissa] = useState("18:00")
+  const [leituraLiberada, setLeituraLiberada] = useState<boolean | null>(null)
   const tentativaAtiva = useRef(false)
 
   async function carregarDados() {
@@ -97,8 +101,13 @@ export function RankingInterativo() {
 
   useEffect(() => {
     void carregarDados()
-    void carregarQuizAutomatico()
+    try { setLeituraLiberada(localStorage.getItem(chaveLeituraHoje()) === "1") }
+    catch { setLeituraLiberada(false) }
   }, [])
+
+  useEffect(() => {
+    if (leituraLiberada === true) void carregarQuizAutomatico()
+  }, [leituraLiberada])
 
   useEffect(() => {
     if (!quizAuto) return
@@ -115,6 +124,7 @@ export function RankingInterativo() {
 
   useEffect(() => {
     const visibilidade = () => {
+      if (leituraLiberada !== true) return
       if (document.visibilityState === "hidden" && tentativaAtiva.current) {
         tentativaAtiva.current = false
         setQuizAuto(null)
@@ -125,7 +135,7 @@ export function RankingInterativo() {
     }
     document.addEventListener("visibilitychange", visibilidade)
     return () => document.removeEventListener("visibilitychange", visibilidade)
-  }, [autoConcluido])
+  }, [autoConcluido, leituraLiberada])
 
   async function responderAuto() {
     if (!quizAuto || respostasAuto.some((x) => x < 0)) return
@@ -179,12 +189,12 @@ export function RankingInterativo() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff8e5_0%,#fff_42%,#faf7f1_100%)]">
-      <AreaHeader titulo="Quiz Litúrgico" subtitulo="Competição diária de perguntas e respostas" voltarHref={isMod ? "/area-restrita/moderador" : "/area-restrita/membro"} menu={isMod ? <ModeradorMenu /> : <MembroMenu />} />
+      <AreaHeader titulo="Quiz Litúrgico" subtitulo="Leia a Liturgia e depois participe da competição" voltarHref={isMod ? "/area-restrita/moderador" : "/area-restrita/membro"} menu={isMod ? <ModeradorMenu /> : <MembroMenu />} />
       <main className="mx-auto max-w-6xl px-3 py-4 pb-24 sm:px-4 sm:py-8">
         <section className="mb-5 overflow-hidden rounded-3xl border border-white/70 bg-white/70 p-5 shadow-[0_18px_50px_rgba(82,49,25,.10)] backdrop-blur-2xl">
           <div className="flex items-center gap-3">
             <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg"><BrainCircuit className="size-6" /></span>
-            <div><h1 className="font-serif text-2xl font-semibold text-primary">Competição do Quiz</h1><p className="text-sm text-muted-foreground">A pontuação considera o Quiz da Liturgia Diária. A classificação mostra claramente 1º, 2º, 3º, 4º, 5º e todas as demais posições.</p></div>
+            <div><h1 className="font-serif text-2xl font-semibold text-primary">Competição do Quiz</h1><p className="text-sm text-muted-foreground">O quiz diário usa a mesma Liturgia apresentada no aplicativo. A classificação mostra 1º, 2º, 3º e todas as demais posições.</p></div>
           </div>
         </section>
 
@@ -201,7 +211,16 @@ export function RankingInterativo() {
 
           <TabsContent value="hoje" className="mt-4">
             <section className="rounded-3xl border border-white/70 bg-white/75 p-4 shadow-xl backdrop-blur-2xl sm:p-6">
-              {autoConcluido ? (
+              {leituraLiberada === null ? (
+                <div className="py-8 text-center text-muted-foreground">Verificando a leitura da Liturgia de hoje…</div>
+              ) : leituraLiberada === false ? (
+                <div className="py-8 text-center">
+                  <BookOpen className="mx-auto size-12 text-primary" />
+                  <h2 className="mt-3 font-serif text-2xl font-semibold text-primary">Primeiro, leia a Liturgia de hoje</h2>
+                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">O quiz não aparece automaticamente no login. Leia as leituras e o Evangelho e, no final da Liturgia, toque em “Concluir leitura e ir ao Quiz”.</p>
+                  <Button asChild className="mt-4"><Link href="/visitante#liturgia">Abrir Liturgia Diária</Link></Button>
+                </div>
+              ) : autoConcluido ? (
                 <div className="py-8 text-center"><ShieldCheck className="mx-auto size-12 text-primary" /><h2 className="mt-3 font-serif text-2xl text-primary">Quiz de hoje concluído</h2><p className="mt-2 text-muted-foreground">Você marcou {autoConcluido.pontos} ponto(s) e {autoConcluido.acertos} acerto(s). Sua posição já foi atualizada na classificação.</p></div>
               ) : quizAuto ? (
                 <>
@@ -221,7 +240,7 @@ export function RankingInterativo() {
                     ))}
                   </div>
                   <Button className="mt-5 w-full sm:w-auto" disabled={respostasAuto.some((x) => x < 0)} onClick={responderAuto}>Enviar respostas</Button>
-                  <p className="mt-3 text-xs text-muted-foreground">Se você sair do aplicativo durante a tentativa, esta rodada é descartada e o sistema gera novas perguntas.</p>
+                  <p className="mt-3 text-xs text-muted-foreground">Se você sair do aplicativo, trocar de aplicativo ou ocultar a tela durante a tentativa, esta rodada é descartada e novas perguntas são geradas.</p>
                 </>
               ) : <div className="py-8 text-center text-muted-foreground">Gerando perguntas e respostas da Liturgia de hoje…</div>}
             </section>
@@ -239,7 +258,7 @@ export function RankingInterativo() {
           </TabsContent>
 
           <TabsContent value="avulsos" className="mt-4 space-y-3">
-            {isMod && <a href="/area-restrita/moderador/ranking" className="block rounded-2xl border border-accent/40 bg-white/75 p-4 font-semibold text-primary shadow-sm backdrop-blur-xl">Gerenciar quizzes avulsos →</a>}
+            {isMod && <Link href="/area-restrita/moderador/ranking" className="block rounded-2xl border border-accent/40 bg-white/75 p-4 font-semibold text-primary shadow-sm backdrop-blur-xl">Gerenciar quizzes avulsos →</Link>}
             {quizzes.length === 0 && <div className="rounded-2xl bg-white/75 p-5 text-muted-foreground backdrop-blur-xl">Nenhum quiz avulso publicado.</div>}
             {quizzes.map((q) => <div key={q.id} className="rounded-2xl border border-white/70 bg-white/75 p-4 shadow-sm backdrop-blur-xl"><h3 className="font-serif text-lg font-semibold text-primary">{q.titulo}</h3><p className="mt-1 text-sm text-muted-foreground">{q.descricao}</p><Button className="mt-3" disabled={q.respondido} onClick={() => { setQuizManual(q); setRespostasManual(Array(q.perguntas.length).fill(-1)) }}>{q.respondido ? "Já respondido" : "Responder"}</Button></div>)}
             {quizManual && <section className="rounded-3xl border border-accent/40 bg-white/90 p-4 shadow-xl backdrop-blur-2xl"><h3 className="font-serif text-xl font-semibold text-primary">{quizManual.titulo}</h3><div className="mt-4 space-y-5">{quizManual.perguntas.map((p, i) => <fieldset key={p.id}><legend className="mb-2 font-semibold">{i + 1}. {p.enunciado}</legend><div className="grid gap-2">{p.opcoes.map((op, j) => <button type="button" key={j} onClick={() => setRespostasManual((old) => old.map((v, k) => k === i ? j : v))} className={`flex items-center gap-3 rounded-xl border p-3 text-left ${respostasManual[i] === j ? "border-primary bg-primary/5" : "border-border"}`}><b>{letra(j)}</b>{op}</button>)}</div></fieldset>)}</div><div className="mt-4 flex gap-2"><Button disabled={respostasManual.some((x) => x < 0)} onClick={responderManual}>Enviar</Button><Button variant="outline" onClick={() => setQuizManual(null)}>Fechar</Button></div></section>}
