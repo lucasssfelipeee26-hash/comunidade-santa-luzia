@@ -14,16 +14,18 @@ function limparPerguntas(input: unknown): QuizPergunta[] {
   if (!Array.isArray(input)) return []
   return input.slice(0, 30).map((raw, i) => {
     const p = (raw || {}) as Record<string, unknown>
-    const opcoes = Array.isArray(p.opcoes) ? p.opcoes.map((x) => String(x).trim()).filter(Boolean).slice(0, 3) : []
+    const opcoes = Array.isArray(p.opcoes) ? p.opcoes.map((x) => String(x).trim()).slice(0, 3) : []
+    const corretaRaw = Number(p.correta)
+    const correta = Number.isInteger(corretaRaw) && corretaRaw >= 0 && corretaRaw < 3 ? corretaRaw : -1
     return {
       id: String(p.id || `p-${i + 1}`),
       enunciado: String(p.enunciado || "").trim().slice(0, 800),
       opcoes,
-      correta: Math.max(0, Math.min(opcoes.length - 1, Number(p.correta) || 0)),
+      correta,
       pontos: Math.max(1, Math.min(100, Number(p.pontos) || 10)),
       explicacao: String(p.explicacao || "").trim().slice(0, 1000) || undefined,
     }
-  }).filter((p) => p.enunciado.length >= 3 && p.opcoes.length === 3)
+  }).filter((p) => p.enunciado.length >= 3 && p.opcoes.length === 3 && p.opcoes.every(Boolean) && p.correta >= 0)
 }
 
 export async function GET(req: NextRequest) {
@@ -59,7 +61,9 @@ export async function POST(req: NextRequest) {
   const origem = String(body.origem || "manual") as QuizOrigem
   if (!["formacao", "liturgia", "manual"].includes(origem)) return NextResponse.json({ erro: "Origem inválida." }, { status: 400 })
   const perguntas = limparPerguntas(body.perguntas)
-  if (String(body.titulo || "").trim().length < 3 || perguntas.length < 1) return NextResponse.json({ erro: "Informe o título, a pergunta e exatamente três alternativas A, B e C." }, { status: 400 })
+  if (String(body.titulo || "").trim().length < 3 || perguntas.length < 1) {
+    return NextResponse.json({ erro: "Informe o título, a pergunta, as alternativas A/B/C e marque exatamente uma alternativa como Verdadeira." }, { status: 400 })
+  }
 
   const dados = {
     titulo: String(body.titulo || "").trim().slice(0, 180),
