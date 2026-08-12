@@ -11,6 +11,7 @@ import { prefaciosProprios, prefaciosTempo } from "@/lib/iliturgia-prefacios"
 import { documentoCatequeseDoDia, documentoEvangelhoDaReferencia } from "@/lib/iliturgia-conteudo-dia"
 import { documentoMissalProprio } from "@/lib/iliturgia-missal-proprio"
 import { comentariosILiturgia, indiceGeralILiturgia, invitatorioILiturgia, oracoesILiturgia, vigiliaILiturgia } from "@/lib/iliturgia-menus"
+import { documentoLeituraBienal, tituloLeituraBienal } from "@/lib/iliturgia-bienal"
 
 type Modulo="hoje"|"oficio"|"liturgia"|"missal"|"mais"
 type Tela={id:string;titulo:string;categoria?:string;busca?:string;documento?:string;tipo?:"liturgia"|"acervo"}
@@ -54,11 +55,15 @@ export function CentralLiturgicaILiturgia(){
  const santo:SantoHoje=hoje?.santoDoDia||(celebracao?{nome:celebracao.nome,imagem:imagemCelebracao(celebracao)}:null)
  const chave=hoje?.santoDoDia?chaveSanto(hoje.santoDoDia):(celebracao?.chave||"")
  const documentoSanto=chave?`oficio/proprio/oficiodasleituras/${chave}.htm`:""
+ const documentoBienal=documentoLeituraBienal(agora)
  const horas=useMemo<Tela[]>(()=>[
   {...invitatorioILiturgia,categoria:"oficio"},
-  ...horasBase.map(h=>({id:h.id,titulo:h.titulo,categoria:"oficio",documento:documentoHoraSanto(chave,h.id)||documentoHoraTemporal(agora,h.id)})),
+  ...horasBase.flatMap(h=>h.id==="leituras"?[
+    {id:h.id,titulo:h.titulo,categoria:"oficio",documento:documentoHoraSanto(chave,h.id)||documentoHoraTemporal(agora,h.id)},
+    ...(documentoBienal?[{id:"leituras-bienais",titulo:tituloLeituraBienal(agora),categoria:"oficio",documento:documentoBienal}]:[]),
+  ]:[{id:h.id,titulo:h.titulo,categoria:"oficio",documento:documentoHoraSanto(chave,h.id)||documentoHoraTemporal(agora,h.id)}]),
   {id:"vigilia",titulo:"Vigília"},
- ],[agora,chave])
+ ],[agora,chave,documentoBienal])
  const vigilia=useMemo<Tela[]>(()=>vigiliaILiturgia(agora).map(x=>({...x,categoria:"oficio"})),[agora])
  const evangelho=hoje?.leituras?.evangelho?.[0]
  const documentoEvangelho=documentoEvangelhoDaReferencia(evangelho?.referencia,evangelho?.titulo)
