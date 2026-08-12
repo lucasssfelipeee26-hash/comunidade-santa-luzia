@@ -11,6 +11,9 @@ const propriosExistentes=new Set([
  "NSAparecida","NSCarmo","NSDores","NSGuadalupe","NSRainha","NSRosario","andreeambrosio","anjos","antoniogalvao","anunciacao","apresentacao","apresentacaoNS","arcanjos","ascensaodosenhor","assuncao","basilioegregorio","batismo","carlosborromeu","catedra","cinzas","conversaosaopaulo","cornelioecipriano","corpuschristi","cristoreidouniverso","divinamisericordia","epifania","exaltacao","franciscoxavier","icvm","imaculada","inaciodeantioquia","inaciodeazevedo","isabeldahungria","joaoevangelista","josedeanchieta","latrao","maedaigreja","martiriobatista","natividade","paixaodosenhor","pedroepaulo","pentecostes","policarpo","roquegonzalez","sagradafamilia","santaagueda","santacatarina","santacecilia","santaclara","santaescolastica","santaines","santaluzia","santamaria","santamarta","santamonica","santapaulina","santarosa","santateresa","santateresinha","santissimatrindade","santoafonso","santoagostinho","santoalberto","santoambrosio","santoandre","santoandrekim","santoantao","santoantonio","santoatanasio","santoestevao","santoinacio","santosinocentes","santotomas","saobarnabe","saobartolomeu","saobento","saobernardo","saoboaventura","saobonifacio","saocarloslwanga","saociriloemetodio","saodomingos","saofilipeetiago","saofilipeneri","saofrancisco","saofranciscosales","saogregorio","saojeronimo","saojmvianney","saojoao","saojoaobosco","saojoaocrisostomo","saojoaodacruz","saojoaquimesantana","saojosafa","saojose","saojustino","saoleao","saolourenco","saolucas","saoluisgonzaga","saomarcos","saomartinho","saomateus","saomatias","saomaximiliano","saopaulomiki","saopio","saopiox","saotiago","saotimoteoetito","saotome","saovicentedepaulo","scj","simaoejudas","stamariamadalena","todosossantos","transfiguracao","visitacao"
 ])
 
+const natalAntesEpifania=new Set(["terca","quarta","quinta","sexta","sabado"])
+const natalAteBatismo=new Set(["segunda","terca","quarta","quinta","sexta","sabado"])
+
 export function documentoMissalProprio(data:Date,chaveCelebracao?:string|null){
   if(chaveCelebracao&&propriosExistentes.has(chaveCelebracao))return `missal/proprio/proprio/${chaveCelebracao}.htm`
 
@@ -50,7 +53,8 @@ export function documentoMissalProprio(data:Date,chaveCelebracao?:string|null){
   if(tempo==="natal"){
     const mes=data.getMonth()+1,d=data.getDate()
     if(mes===12&&d>=29&&d<=31)return `missal/proprio/natal/${d}dezembroNA.htm`
-    if(mes===1&&data.getDay()!==0){const sufixo=d<=6?"antesdaepifania":"ateobatismo";return `missal/proprio/natal/${dia}_${sufixo}.htm`}
+    if(mes===1&&d<=6&&natalAntesEpifania.has(dia))return `missal/proprio/natal/${dia}_antesdaepifania.htm`
+    if(mes===1&&d>=7&&natalAteBatismo.has(dia))return `missal/proprio/natal/${dia}_ateobatismo.htm`
   }
   return ""
 }
