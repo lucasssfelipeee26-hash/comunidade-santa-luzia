@@ -6,7 +6,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const sessao = await lerSessao()
   if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
   const usuario = buscarUsuario(sessao.sub)
-  if (!usuario || usuario.tipo !== "membro" || usuario.status !== "aprovado") return NextResponse.json({ erro: "Quiz disponível apenas para membros aprovados." }, { status: 403 })
+  if (!usuario || (usuario.tipo === "membro" && usuario.status !== "aprovado")) return NextResponse.json({ erro: "Quiz disponível apenas para perfis autorizados." }, { status: 403 })
 
   const { id } = await context.params
   const quiz = buscarQuiz(id)
