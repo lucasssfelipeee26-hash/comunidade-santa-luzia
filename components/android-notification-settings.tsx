@@ -154,7 +154,7 @@ export function AndroidNotificationSettings() {
             title: "Liturgia do Dia",
             body: "Comece o dia com a Palavra. A Liturgia de hoje já está no Santa Luzia.",
             schedule: { at: d },
-            extra: { rota: "/visitante#liturgia" },
+            extra: { rota: "/liturgia" },
           }, prefs),
         )
       }
