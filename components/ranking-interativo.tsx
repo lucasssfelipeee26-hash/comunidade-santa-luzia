@@ -2,9 +2,10 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { BookOpen, BrainCircuit, Clock3, Crown, Medal, Send, ShieldCheck, Sparkles, TimerReset, Trophy } from "lucide-react"
+import { BookOpen, BrainCircuit, Clock3, Crown, Medal, Send, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
+import { QuizCountdown } from "@/components/quiz-countdown"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -224,7 +225,10 @@ export function RankingInterativo() {
                 <div className="py-8 text-center"><ShieldCheck className="mx-auto size-12 text-primary" /><h2 className="mt-3 font-serif text-2xl text-primary">Quiz de hoje concluído</h2><p className="mt-2 text-muted-foreground">Você marcou {autoConcluido.pontos} ponto(s) e {autoConcluido.acertos} acerto(s). Sua posição já foi atualizada na classificação.</p></div>
               ) : quizAuto ? (
                 <>
-                  <div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="font-serif text-xl font-semibold text-primary">{quizAuto.titulo}</h2><p className="text-sm text-muted-foreground">{quizAuto.descricao}</p></div><span className={`flex items-center gap-1 rounded-full px-3 py-1.5 font-mono text-sm font-bold ${restante <= 20 ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}><TimerReset className="size-4" />{tempo(restante)}</span></div>
+                  <div className="mb-5 flex items-center justify-between gap-3">
+                    <div><h2 className="font-serif text-xl font-semibold text-primary">{quizAuto.titulo}</h2><p className="text-sm text-muted-foreground">{quizAuto.descricao}</p></div>
+                    <QuizCountdown restante={restante} duracao={quizAuto.duracaoSegundos} texto={tempo(restante)} />
+                  </div>
                   <div className="space-y-5">
                     {quizAuto.perguntas.map((p, i) => (
                       <fieldset key={p.id}>
