@@ -1,10 +1,11 @@
 {
   "name": "comunidade-santa-luzia",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -H 0.0.0.0",
     "build": "node scripts/build-next.cjs",
+    "prestart": "node scripts/bootstrap-acervo.cjs",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
     "android:sync": "npx cap sync android",
