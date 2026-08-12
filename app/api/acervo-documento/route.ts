@@ -48,6 +48,12 @@ function chaveDoProprio(documento:string){
  return horas?.[1]||""
 }
 function amanha(data:Date){const d=new Date(data);d.setDate(d.getDate()+1);return d}
+function excecoesProprio(chave:string,hora:HoraLiturgica|null){
+ const itens:string[]=[]
+ // A Catedra de Sao Pedro usa nomes especiais para as Horas medias no APK.
+ if(chave==="catedra"&&hora&&["terca","sexta","nona"].includes(hora))itens.push(`oficio/proprio/horas/catedra_comum_${hora}.htm`)
+ return itens
+}
 
 export async function GET(req:NextRequest){
  const categoria=req.nextUrl.searchParams.get("categoria")||""
@@ -61,7 +67,8 @@ export async function GET(req:NextRequest){
   const hora=horaDoProprio(alternativas[0])
   const chave=chaveDoProprio(alternativas[0])
 
-  // Vésperas da véspera de uma solenidade: prioriza as I Vésperas próprias.
+  // No dia anterior a uma solenidade, Vesperas tenta primeiro as I Vesperas
+  // efetivamente existentes no acervo. Se nao houver Proprio, usa o Comum.
   if(categoria==="oficio"&&hora==="vesperas"){
    const prox=celebracaoDoDia(amanha(data))
    if(prox?.grau==="solenidade"&&prox.chave){
@@ -77,11 +84,15 @@ export async function GET(req:NextRequest){
    }
   }
 
-  // Primeiro tenta o Próprio exato solicitado pela Central.
+  // Primeiro tenta o Proprio exato solicitado pela Central.
   for(const alternativa of alternativas){const encontrado=procurar(docs,alternativa);if(encontrado)return resposta(encontrado)}
 
-  // Se a celebração não possui aquela parte no Próprio, usa o Comum adequado
-  // do mesmo modo que o iLiturgia completa várias memórias e festas.
+  // Depois trata excecoes de nomenclatura confirmadas no APK.
+  if(categoria==="oficio"&&chave){
+    for(const caminho of excecoesProprio(chave,hora)){const encontrado=procurar(docs,caminho);if(encontrado)return resposta(encontrado)}
+  }
+
+  // Se a celebracao nao possui aquela parte no Proprio, usa o Comum adequado.
   if(categoria==="oficio"&&hora&&hora!=="completas"&&hora!=="vigilia"&&chave){
     const comum=comumDaCelebracao(chave)
     if(comum){
@@ -91,8 +102,7 @@ export async function GET(req:NextRequest){
     }
   }
 
-  // Por fim, quando não houver Próprio nem Comum específico, abre o Temporal
-  // calculado para a mesma data e Hora.
+  // Por fim, abre o Temporal calculado para a mesma data e Hora.
   if(categoria==="oficio"&&hora){
    const temporal=documentoHoraTemporal(data,hora)
    const encontrado=procurar(docs,temporal)
