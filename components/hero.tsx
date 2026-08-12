@@ -29,7 +29,7 @@ export function Hero() {
             Formando corações para o altar e para a vida, com reverência, fé e amor a Jesus Eucarístico.
           </p>
           <div className="mt-6 grid max-w-sm grid-cols-1 gap-2.5 sm:mt-8 sm:flex sm:max-w-none sm:flex-wrap sm:gap-3">
-            <a href="/visitante#liturgia" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d4af37] bg-[#7b1326]/92 px-4 py-3 text-xs font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-[#922039] sm:px-5 sm:text-sm">
+            <a href="/liturgia" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d4af37] bg-[#7b1326]/92 px-4 py-3 text-xs font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-[#922039] sm:px-5 sm:text-sm">
               <BookOpenText className="size-4" /> Liturgia diária
             </a>
             <Link prefetch={false} href="/escala" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#fff8e9] px-4 py-3 text-xs font-bold uppercase tracking-wide text-[#7c5810] shadow-lg transition hover:bg-white sm:px-5 sm:text-sm">
