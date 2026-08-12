@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "offline": true,
+  "imagensImportadas": false,
+  "total": 5431,
+  "origem": "Acervo iLiturgia fornecido pelo responsável do projeto com autorização declarada para redistribuição",
+  "categorias": [
+    {"id":"catequeses","nome":"Catequeses","total":56,"arquivos":["catequeses.json.gz"]},
+    {"id":"comentarios","nome":"Comentários","total":25,"arquivos":["comentarios.json.gz"]},
+    {"id":"evangelho","nome":"Evangelhos e Lectio Divina","total":469,"arquivos":["evangelho.json.gz"]},
+    {"id":"geral","nome":"Documentos gerais","total":4,"arquivos":["geral.json.gz"]},
+    {"id":"lecionario","nome":"Lecionário","total":736,"arquivos":["lecionario.json.gz"]},
+    {"id":"missal","nome":"Missal e ritos","total":387,"arquivos":["missal.json.gz"]},
+    {"id":"oficio","nome":"Liturgia das Horas / Ofício","total":3749,"arquivos":["oficio-1.json.gz","oficio-2.json.gz","oficio-3.json.gz","oficio-4.json.gz","oficio-5.json.gz"]},
+    {"id":"rosario","nome":"Santo Rosário","total":4,"arquivos":["rosario.json.gz"]},
+    {"id":"salterio","nome":"Saltério","total":1,"arquivos":["salterio.json.gz"]}
+  ]
+}
