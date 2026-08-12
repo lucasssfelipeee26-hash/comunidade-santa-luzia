@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Church,
   Clock3,
+  ExternalLink,
+  Library,
   Minus,
   Moon,
   Plus,
@@ -20,10 +22,17 @@ import {
 import type { Liturgia } from "@/app/api/liturgia/route"
 import { CalendarioLiturgico } from "@/components/calendario-liturgico"
 import { LiturgiaDiaria } from "@/components/liturgia-diaria"
-import { horasCanonicas, misteriosRosario, partesMissa, recursosCentro } from "@/lib/centro-liturgico"
+import {
+  fontesLiturgicas,
+  horasCanonicas,
+  misteriosRosario,
+  modulosLiturgicos,
+  partesMissa,
+  recursosCentro,
+} from "@/lib/centro-liturgico"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
-type Aba = "inicio" | "liturgia" | "horas" | "rosario" | "missa" | "calendario" | "leitura"
+type Aba = "inicio" | "liturgia" | "horas" | "biblioteca" | "rosario" | "missa" | "calendario" | "leitura"
 
 function misterioDoDia() {
   const dia = new Date().getDay()
@@ -33,6 +42,16 @@ function misterioDoDia() {
   return "Gloriosos"
 }
 
+function IconeRecurso({ id }: { id: string }) {
+  if (id === "liturgia") return <BookOpenText className="size-5" />
+  if (id === "horas") return <Clock3 className="size-5" />
+  if (id === "biblioteca") return <Library className="size-5" />
+  if (id === "missa") return <Church className="size-5" />
+  if (id === "calendario") return <CalendarDays className="size-5" />
+  if (id === "leitura") return <Settings2 className="size-5" />
+  return <Sparkles className="size-5" />
+}
+
 export function CentroLiturgico() {
   const [aba, setAba] = useState<Aba>("inicio")
   const [misterio, setMisterio] = useState(misterioDoDia)
@@ -40,7 +59,7 @@ export function CentroLiturgico() {
   const [aveMarias, setAveMarias] = useState(0)
   const [fonte, setFonte] = useState(17)
   const [noturno, setNoturno] = useState(false)
-  const { data } = useSWR<Liturgia>("/api/liturgia", fetcher, { revalidateOnFocus: false })
+  const { data } = useSWR<Liturgia>("/api/liturgia-local", fetcher, { revalidateOnFocus: false })
 
   useEffect(() => {
     const font = Number(localStorage.getItem("centro-liturgico-fonte"))
@@ -74,12 +93,10 @@ export function CentroLiturgico() {
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[#f1d77e]">Comunidade Santa Luzia</p>
           <h1 className="mt-1 font-serif text-2xl font-semibold sm:text-3xl">Centro Litúrgico</h1>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-white/80 sm:text-sm">Oração, Palavra, calendário e preparação litúrgica reunidos em um só lugar.</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-white/80 sm:text-sm">Oração, Palavra, calendário, Missal, formação e preparação litúrgica reunidos em um só lugar.</p>
         </div>
         {aba !== "inicio" && (
-          <button type="button" onClick={() => setAba("inicio")} className="rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-xs font-bold hover:bg-white/20">
-            ← Voltar ao menu
-          </button>
+          <button type="button" onClick={() => setAba("inicio")} className="rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-xs font-bold hover:bg-white/20">← Voltar ao menu</button>
         )}
       </div>
 
@@ -93,6 +110,7 @@ export function CentroLiturgico() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#aa8126]">Hoje na Igreja</p>
                   <h2 className="mt-1 font-serif text-xl font-semibold">{data.liturgia}</h2>
                   <p className="mt-1 text-sm opacity-75">{data.data} · Cor litúrgica: {data.cor}</p>
+                  <p className="mt-1 text-xs opacity-65">Fonte: {data.fonte?.nome || "Edições CNBB — Igreja em Oração"}</p>
                 </div>
               </div>
             </div>
@@ -100,9 +118,7 @@ export function CentroLiturgico() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recursosCentro.map((recurso) => (
               <button key={recurso.id} type="button" onClick={() => setAba(recurso.id as Aba)} className={`rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#d4af37] ${card}`}>
-                <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-[#073b29] text-[#f2cf62]">
-                  {recurso.id === "liturgia" ? <BookOpenText className="size-5" /> : recurso.id === "horas" ? <Clock3 className="size-5" /> : recurso.id === "missa" ? <Church className="size-5" /> : recurso.id === "calendario" ? <CalendarDays className="size-5" /> : recurso.id === "leitura" ? <Settings2 className="size-5" /> : <Sparkles className="size-5" />}
-                </span>
+                <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-[#073b29] text-[#f2cf62]"><IconeRecurso id={recurso.id} /></span>
                 <h2 className="font-serif text-xl font-semibold text-[#8f182e]">{recurso.titulo}</h2>
                 <p className="mt-2 text-sm leading-6 opacity-75">{recurso.descricao}</p>
               </button>
@@ -117,7 +133,7 @@ export function CentroLiturgico() {
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#aa8126]">Oração da Igreja</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold text-[#8f182e]">Liturgia das Horas</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 opacity-75">Organização das horas canônicas para acompanhar a oração da Igreja ao longo do dia.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 opacity-75">Invitatório, Ofício das Leituras, Laudes, Horas Médias, Vésperas e Completas, com estrutura preparada para ciclos e próprios litúrgicos.</p>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {horasCanonicas.map((hora) => (
               <article key={hora.id} className={`rounded-2xl border p-4 ${card} ${hora.destaque ? "ring-1 ring-[#d4af37]/60" : ""}`}>
@@ -130,7 +146,46 @@ export function CentroLiturgico() {
             ))}
           </div>
           <div className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${card}`}>
-            <strong>Estrutura de apoio:</strong> abertura, hino, salmodia, leitura, responsório, cântico quando previsto, preces, Pai-Nosso e oração conclusiva. Os textos próprios devem ser consultados em fonte litúrgica autorizada.
+            <strong>Estrutura:</strong> abertura, hino, salmodia, leitura, responsório, cântico quando previsto, preces, Pai-Nosso e oração conclusiva. Os textos completos serão alimentados por fonte litúrgica autorizada, sem importar imagens do aplicativo de referência.
+          </div>
+        </div>
+      )}
+
+      {aba === "biblioteca" && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#aa8126]">Conteúdo mapeado do aplicativo de referência</p>
+          <h2 className="mt-1 font-serif text-3xl font-semibold text-[#8f182e]">Biblioteca Litúrgica</h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 opacity-75">Esta área reúne a mesma abrangência funcional encontrada no iLiturgia, sem copiar imagens ou código do aplicativo. Os textos litúrgicos são ligados a fontes autorizadas.</p>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {modulosLiturgicos.map((modulo) => (
+              <article key={modulo.id} className={`rounded-2xl border p-4 ${card}`}>
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[#073b29] text-[#f2cf62]"><Library className="size-5" /></span>
+                  <div>
+                    <h3 className="font-serif text-xl font-semibold text-[#8f182e]">{modulo.titulo}</h3>
+                    <p className="mt-1 text-sm leading-6 opacity-75">{modulo.descricao}</p>
+                  </div>
+                </div>
+                <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {modulo.itens.map((item) => <li key={item} className="rounded-xl bg-black/[.035] px-3 py-2 text-sm">• {item}</li>)}
+                </ul>
+                {modulo.referencia && <p className="mt-3 text-xs italic opacity-60">{modulo.referencia}</p>}
+              </article>
+            ))}
+          </div>
+
+          <div className={`mt-5 rounded-2xl border p-4 ${card}`}>
+            <h3 className="font-serif text-xl font-semibold text-[#8f182e]">Fontes litúrgicas</h3>
+            <p className="mt-1 text-sm leading-6 opacity-75">A Canção Nova não é mais a fonte padrão da Liturgia Diária.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {fontesLiturgicas.map((fonteItem) => (
+                <a key={fonteItem.nome} href={fonteItem.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#d4af37]/35 p-3 transition hover:border-[#d4af37]">
+                  <span className="inline-flex items-center gap-1 font-semibold text-[#8f182e]">{fonteItem.nome}<ExternalLink className="size-3.5" /></span>
+                  <p className="mt-1 text-xs leading-5 opacity-70">{fonteItem.descricao}</p>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -138,16 +193,11 @@ export function CentroLiturgico() {
       {aba === "rosario" && (
         <div>
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[.18em] text-[#aa8126]">Devoção mariana</p>
-              <h2 className="mt-1 font-serif text-3xl font-semibold text-[#8f182e]">Santo Rosário</h2>
-            </div>
+            <div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#aa8126]">Devoção mariana</p><h2 className="mt-1 font-serif text-3xl font-semibold text-[#8f182e]">Santo Rosário</h2></div>
             <button type="button" onClick={() => { setMisterio(misterioDoDia()); setIndice(0); setAveMarias(0) }} className="inline-flex items-center gap-2 rounded-xl border border-[#d4af37]/50 px-3 py-2 text-xs font-bold"><RotateCcw className="size-4" /> Mistérios de hoje</button>
           </div>
           <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-            {misteriosRosario.map((item) => (
-              <button key={item.grupo} type="button" onClick={() => { setMisterio(item.grupo); setIndice(0); setAveMarias(0) }} className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold ${misterio === item.grupo ? "bg-[#7b1326] text-white" : "bg-[#f6e7b7] text-[#6b4a10]"}`}>{item.grupo}</button>
-            ))}
+            {misteriosRosario.map((item) => <button key={item.grupo} type="button" onClick={() => { setMisterio(item.grupo); setIndice(0); setAveMarias(0) }} className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold ${misterio === item.grupo ? "bg-[#7b1326] text-white" : "bg-[#f6e7b7] text-[#6b4a10]"}`}>{item.grupo}</button>)}
           </div>
           <div className={`rounded-3xl border p-5 text-center ${card}`}>
             <p className="text-xs font-bold uppercase tracking-wider text-[#aa8126]">{indice + 1}º mistério · {grupo.grupo}</p>
@@ -169,12 +219,7 @@ export function CentroLiturgico() {
           <p className="text-xs font-bold uppercase tracking-[.18em] text-[#aa8126]">Preparação para servir</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold text-[#8f182e]">Guia da Santa Missa</h2>
           <div className="mt-5 space-y-3">
-            {partesMissa.map((parte) => (
-              <article key={parte.etapa} className={`rounded-2xl border p-4 ${card}`}>
-                <h3 className="font-serif text-xl font-semibold text-[#8f182e]">{parte.etapa}</h3>
-                <ul className="mt-2 grid gap-2 sm:grid-cols-2">{parte.itens.map((item) => <li key={item} className="rounded-xl bg-black/[.035] px-3 py-2 text-sm">• {item}</li>)}</ul>
-              </article>
-            ))}
+            {partesMissa.map((parte) => <article key={parte.etapa} className={`rounded-2xl border p-4 ${card}`}><h3 className="font-serif text-xl font-semibold text-[#8f182e]">{parte.etapa}</h3><ul className="mt-2 grid gap-2 sm:grid-cols-2">{parte.itens.map((item) => <li key={item} className="rounded-xl bg-black/[.035] px-3 py-2 text-sm">• {item}</li>)}</ul></article>)}
           </div>
         </div>
       )}
