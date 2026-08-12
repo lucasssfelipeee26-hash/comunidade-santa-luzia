@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import { atualizarQuiz, buscarQuiz, buscarRespostaQuiz, buscarUsuario, excluirQuiz, listarQuizzes, salvarQuiz, type QuizPergunta, type QuizOrigem } from "@/lib/db"
+import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
+import { garantirQuizLiturgiaOffline } from "@/lib/quiz-liturgia-offline"
 
 async function contexto() {
   const sessao = await lerSessao()
@@ -31,20 +33,34 @@ function limparPerguntas(input: unknown): QuizPergunta[] {
 export async function GET(req: NextRequest) {
   const ctx = await contexto()
   if (!ctx) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  const admin = req.nextUrl.searchParams.get("admin") === "1" && ctx.usuario.tipo === "moderador"
-  const quizzes = listarQuizzes(admin)
-  if (admin) return NextResponse.json({ quizzes })
 
-  return NextResponse.json({ quizzes: quizzes.map((q) => ({
-    id: q.id,
-    titulo: q.titulo,
-    descricao: q.descricao,
-    origem: q.origem,
-    data_referencia: q.data_referencia,
-    ativo: q.ativo,
-    respondido: Boolean(buscarRespostaQuiz(q.id, ctx.usuario.id)),
-    perguntas: q.perguntas.map((p) => ({ id: p.id, enunciado: p.enunciado, opcoes: p.opcoes, pontos: p.pontos })),
-  })) })
+  const hoje = dataCuiabaIso()
+  const liturgiaHoje = obterLiturgiaLocal(hoje)
+  if (liturgiaHoje) garantirQuizLiturgiaOffline(hoje)
+
+  const admin = req.nextUrl.searchParams.get("admin") === "1" && ctx.usuario.tipo === "moderador"
+  let quizzes = listarQuizzes(admin)
+
+  // Um Quiz Litúrgico só existe para o usuário quando a Liturgia da mesma data existe offline.
+  quizzes = quizzes.filter((q) => q.origem !== "liturgia" || Boolean(q.data_referencia && obterLiturgiaLocal(q.data_referencia)))
+  if (!admin) quizzes = quizzes.filter((q) => q.origem !== "liturgia" || q.data_referencia === hoje)
+
+  if (admin) return NextResponse.json({ quizzes, liturgiaOfflineHoje: Boolean(liturgiaHoje), dataLiturgia: liturgiaHoje ? hoje : null })
+
+  return NextResponse.json({
+    quizzes: quizzes.map((q) => ({
+      id: q.id,
+      titulo: q.titulo,
+      descricao: q.descricao,
+      origem: q.origem,
+      data_referencia: q.data_referencia,
+      ativo: q.ativo,
+      respondido: Boolean(buscarRespostaQuiz(q.id, ctx.usuario.id)),
+      perguntas: q.perguntas.map((p) => ({ id: p.id, enunciado: p.enunciado, opcoes: p.opcoes, pontos: p.pontos })),
+    })),
+    liturgiaOfflineHoje: Boolean(liturgiaHoje),
+    dataLiturgia: liturgiaHoje ? hoje : null,
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -60,6 +76,12 @@ export async function POST(req: NextRequest) {
 
   const origem = String(body.origem || "manual") as QuizOrigem
   if (!["formacao", "liturgia", "manual"].includes(origem)) return NextResponse.json({ erro: "Origem inválida." }, { status: 400 })
+
+  const dataReferencia = body.data_referencia ? String(body.data_referencia) : null
+  if (origem === "liturgia" && (!dataReferencia || !obterLiturgiaLocal(dataReferencia))) {
+    return NextResponse.json({ erro: "Não é permitido publicar Quiz Litúrgico sem a Liturgia offline da mesma data." }, { status: 400 })
+  }
+
   const perguntas = limparPerguntas(body.perguntas)
   if (String(body.titulo || "").trim().length < 3 || perguntas.length < 1) {
     return NextResponse.json({ erro: "Informe o título, a pergunta, as alternativas A/B/C e marque exatamente uma alternativa como Verdadeira." }, { status: 400 })
@@ -69,8 +91,8 @@ export async function POST(req: NextRequest) {
     titulo: String(body.titulo || "").trim().slice(0, 180),
     descricao: String(body.descricao || "").trim().slice(0, 1200),
     origem,
-    referencia_id: body.referencia_id ? String(body.referencia_id) : null,
-    data_referencia: body.data_referencia ? String(body.data_referencia) : null,
+    referencia_id: origem === "liturgia" ? `liturgia-offline:${dataReferencia}` : (body.referencia_id ? String(body.referencia_id) : null),
+    data_referencia: dataReferencia,
     ativo: body.ativo !== false,
     perguntas,
   }
