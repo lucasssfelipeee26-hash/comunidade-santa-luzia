@@ -22,6 +22,7 @@ const secoes:Secao[]=[
  {id:"prefacios",titulo:"Prefácios",categoria:"missal",busca:"Prefácio"},
  {id:"eucaristicas",titulo:"Orações Eucarísticas",categoria:"missal",busca:"Oração Eucarística"},
  {id:"proprios",titulo:"Próprios e Comuns",categoria:"oficio",busca:"Próprio Comum"},
+ {id:"santos",titulo:"Santos, Memórias e Festas",categoria:"oficio",busca:"santo"},
  {id:"lecionario",titulo:"Lecionário",categoria:"lecionario",busca:""},
  {id:"lectio",titulo:"Evangelhos e Lectio Divina",categoria:"evangelho",busca:""},
  {id:"rosario",titulo:"Santo Rosário",categoria:"rosario",busca:""},
@@ -55,13 +56,13 @@ export function CentralLiturgicaILiturgia(){
    <div className="absolute inset-0 opacity-[.09] [background-image:radial-gradient(circle_at_20%_20%,#6d4b2a_0,transparent_28%),radial-gradient(circle_at_75%_55%,#6d4b2a_0,transparent_25%)]"/>
    <div className="relative p-5 sm:p-8">
      <div className="mb-7 flex items-center justify-between gap-4 border-b border-[#9b7a4c]/25 pb-4">
-       <div><p className="text-xs font-bold uppercase tracking-[.22em] text-[#9a762d]">Comunidade Santa Luzia</p><h1 className="mt-1 font-serif text-3xl font-bold text-[#583b28] sm:text-4xl">Central Litúrgica</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#6b5947]">Liturgia, Liturgia das Horas, Missal, orações e documentos litúrgicos incorporados ao aplicativo.</p></div>
+       <div><p className="text-xs font-bold uppercase tracking-[.22em] text-[#9a762d]">Comunidade Santa Luzia</p><h1 className="mt-1 font-serif text-3xl font-bold text-[#583b28] sm:text-4xl">Central Litúrgica</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#6b5947]">Liturgia, Liturgia das Horas, Missal, orações, santos e documentos incorporados ao aplicativo.</p></div>
        <span className="hidden size-14 items-center justify-center rounded-full border-2 border-[#9a762d] text-[#6a4a2a] sm:flex"><Church className="size-7"/></span>
      </div>
      <div className="max-w-3xl space-y-1">
        {secoes.map((s,i)=><div key={s.id}>{i===7||i===10?<div className="my-4 h-px bg-[#8e6e43]/30"/>:null}<button onClick={()=>setSecao(s)} className="group flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition hover:bg-white/35"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg text-[#6c472b] transition group-hover:bg-[#6c472b] group-hover:text-[#fff4d6]"><Icone id={s.id}/></span><span className="font-serif text-[1.35rem] font-semibold italic text-[#5a3c28] sm:text-[1.55rem]">{s.titulo}</span></button></div>)}
      </div>
-     <div className="mt-8 flex items-center gap-2 rounded-xl border border-[#9b7a4c]/30 bg-white/25 px-3 py-2 text-sm text-[#67513c]"><Search className="size-4"/><span>Use “Índice geral” para pesquisar em cada área do acervo incorporado.</span></div>
+     <div className="mt-8 flex items-center gap-2 rounded-xl border border-[#9b7a4c]/30 bg-white/25 px-3 py-2 text-sm text-[#67513c]"><Search className="size-4"/><span>Use “Índice geral” para pesquisar em cada área da Central Litúrgica.</span></div>
    </div>
  </section>
 }
