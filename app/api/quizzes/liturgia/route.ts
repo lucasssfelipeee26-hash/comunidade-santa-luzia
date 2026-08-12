@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { GET as obterLiturgiaResponse } from "@/app/api/liturgia/route"
+import { GET as obterLiturgiaResponse } from "@/app/api/liturgia-local/route"
 import { lerSessao } from "@/lib/auth"
 import { buscarRespostaQuiz, buscarUsuario } from "@/lib/db"
 import { criarTentativa, gerarPerguntasLiturgia, quizDiarioId } from "@/lib/quiz-liturgia"
@@ -38,7 +38,7 @@ export async function GET() {
     quiz: {
       token: tentativa.token,
       titulo: "Quiz da Liturgia de Hoje",
-      descricao: "Perguntas geradas automaticamente a partir da Liturgia Diária.",
+      descricao: "Perguntas geradas automaticamente a partir da mesma Liturgia Diária apresentada no aplicativo.",
       expiraEm: tentativa.expiraEm,
       duracaoSegundos: tentativa.duracaoSegundos,
       perguntas: perguntas.map((p) => ({ id: p.id, enunciado: p.enunciado, opcoes: p.opcoes, pontos: p.pontos })),
