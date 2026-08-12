@@ -1,4 +1,5 @@
 import { tempoLiturgico } from "@/lib/iliturgia-calendario"
+import { celebracaoDoDia } from "@/lib/iliturgia-sanctoral"
 
 export type ItemILiturgia={id:string;titulo:string;documento:string}
 
@@ -43,7 +44,15 @@ export const comentariosILiturgia:ItemILiturgia[]=comentariosArquivos.map((nome,
 export const invitatorioILiturgia:ItemILiturgia={id:"invitatorio",titulo:"Invitatório",documento:"oficio/invitatorio.html"}
 export const indiceGeralILiturgia:ItemILiturgia={id:"indice-geral",titulo:"Instrução Geral sobre a Liturgia das Horas",documento:"IGLH.htm"}
 
+const vigiliasProprias=new Set([
+ "NSAparecida","anunciacao","apresentacao","arcanjos","ascensaodosenhor","assuncao","batismo","corpuschristi","cristoreidouniverso","epifania","exaltacao","imaculada","joaoevangelista","natal","paixaodosenhor","pedroepaulo","pentecostes","ramos","sabadosanto","sagradafamilia","santamaria","santissimatrindade","santoandre","saojoao","saojose","scj","simaoejudas","todosossantos","transfiguracao"
+])
+
 export function vigiliaILiturgia(data:Date):ItemILiturgia[]{
+ const celebracao=celebracaoDoDia(data)
+ if(celebracao?.chave&&vigiliasProprias.has(celebracao.chave)){
+  return [{id:"vigilia-propria",titulo:`Vigília · ${celebracao.nome}`,documento:`oficio/proprio/horas/${celebracao.chave}_vigilia.htm`}]
+ }
  const tempo=tempoLiturgico(data)
  const pasta=tempo==="tempocomum"?"tempocomum":tempo==="advento"?"advento":tempo==="quaresma"?"quaresma":tempo==="pascoa"?"pascoa":"natal"
  const quantidades:Record<string,number>={tempocomum:8,advento:4,quaresma:5,pascoa:6,natal:0}
