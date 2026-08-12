@@ -4,24 +4,16 @@ import { useEffect, useMemo, useState } from "react"
 import { BookOpenText, ChevronLeft, Church, Clock3, Menu, MoonStar, MoreHorizontal, ScrollText, Sun, Sunrise, Sunset } from "lucide-react"
 import { AcervoLiturgicoOffline } from "@/components/acervo-liturgico-offline"
 import { LiturgiaDiaria } from "@/components/liturgia-diaria"
+import { documentoHoraSanto, documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
 
 type Modulo="hoje"|"oficio"|"liturgia"|"missal"|"mais"
 type Tela={id:string;titulo:string;categoria?:string;busca?:string;documento?:string;tipo?:"liturgia"|"acervo"}
 type SantoHoje={nome:string;resumo?:string;imagem?:string|null}|null
 type LiturgiaHoje={data?:string;liturgia?:string;tempoLiturgicoAtual?:string;santoDoDia?:SantoHoje}
 
-const horas:Tela[]=[
- {id:"invitatorio",titulo:"Invitatório",categoria:"oficio",documento:"oficio/invitatorio.html"},
- {id:"oficio-leituras",titulo:"Ofício das Leituras",categoria:"oficio",busca:"Ofício das Leituras"},
- {id:"laudes",titulo:"Laudes",categoria:"oficio",busca:"Laudes"},
- {id:"terca",titulo:"Hora Terça",categoria:"oficio",busca:"Terça"},
- {id:"sexta",titulo:"Hora Sexta",categoria:"oficio",busca:"Sexta"},
- {id:"nona",titulo:"Hora Nona",categoria:"oficio",busca:"Nona"},
- {id:"vesperas",titulo:"Vésperas",categoria:"oficio",busca:"Vésperas"},
- {id:"completas",titulo:"Completas",categoria:"oficio",busca:"Completas"},
- {id:"vigilia",titulo:"Vigília",categoria:"oficio",busca:"Vigília"},
+const horasBase:{id:HoraLiturgica;titulo:string}[]=[
+ {id:"leituras",titulo:"Ofício das Leituras"},{id:"laudes",titulo:"Laudes"},{id:"terca",titulo:"Hora Terça"},{id:"sexta",titulo:"Hora Sexta"},{id:"nona",titulo:"Hora Nona"},{id:"vesperas",titulo:"Vésperas"},{id:"completas",titulo:"Completas"},{id:"vigilia",titulo:"Vigília"},
 ]
-
 const ordinario:Tela[]=[
  {id:"ritos-iniciais",titulo:"Ritos Iniciais",categoria:"missal",documento:"missal/ordinario/ritosiniciais.htm"},
  {id:"liturgia-palavra",titulo:"Liturgia da Palavra",categoria:"missal",documento:"missal/ordinario/liturgiapalavra.htm"},
@@ -30,62 +22,28 @@ const ordinario:Tela[]=[
  {id:"rito-comunhao",titulo:"Rito da Comunhão",categoria:"missal",documento:"missal/ordinario/ritocomunhao.htm"},
  {id:"ritos-finais",titulo:"Ritos Finais",categoria:"missal",documento:"missal/ordinario/ritosfinais.htm"},
 ]
-
-const eucaristicas:Tela[]=[
- "I","II","III","IV","V","VI-A","VI-B","VI-C","VI-D","VII","VIII","IX","X","XI",
-].map(n=>({id:`oe-${n}`,titulo:`Oração Eucarística ${n}`,categoria:"missal",documento:`missal/oracaoeucaristica/oracaoeucaristica${n}.htm`}))
-
-const missal:Tela[]=[
- {id:"ordinario",titulo:"Ordinário da Missa"},
- {id:"prefacios",titulo:"Prefácios",categoria:"missal",busca:"prefacio/"},
- {id:"eucaristicas",titulo:"Orações Eucarísticas"},
- {id:"proprio",titulo:"Próprio",categoria:"missal",busca:"missal/proprio/"},
-]
-
+const eucaristicas:Tela[]=["I","II","III","IV","V","VI-A","VI-B","VI-C","VI-D","VII","VIII","IX","X","XI"].map(n=>({id:`oe-${n}`,titulo:`Oração Eucarística ${n}`,categoria:"missal",documento:`missal/oracaoeucaristica/oracaoeucaristica${n}.htm`}))
+const missal:Tela[]=[{id:"ordinario",titulo:"Ordinário da Missa"},{id:"prefacios",titulo:"Prefácios",categoria:"missal",busca:"prefacio/"},{id:"eucaristicas",titulo:"Orações Eucarísticas"},{id:"proprio",titulo:"Próprio",categoria:"missal",busca:"missal/proprio/"}]
 const mais:Tela[]=[
- {id:"evangelho",titulo:"Evangelho e Lectio Divina",categoria:"evangelho",busca:""},
- {id:"lecionario",titulo:"Lecionário",categoria:"lecionario",busca:""},
- {id:"rosario",titulo:"Santo Rosário",categoria:"rosario",busca:"misterios_"},
- {id:"salterio",titulo:"Saltério",categoria:"salterio",busca:""},
- {id:"catequeses",titulo:"Catequeses",categoria:"catequeses",busca:""},
- {id:"comentarios",titulo:"Comentários",categoria:"comentarios",busca:""},
- {id:"oracoes",titulo:"Orações",categoria:"geral",busca:"oração"},
- {id:"indice",titulo:"Índice Geral",categoria:"oficio",busca:""},
+ {id:"evangelho",titulo:"Evangelho e Lectio Divina",categoria:"evangelho",busca:""},{id:"lecionario",titulo:"Lecionário",categoria:"lecionario",busca:""},{id:"rosario",titulo:"Santo Rosário",categoria:"rosario",busca:"misterios_"},{id:"salterio",titulo:"Saltério",categoria:"salterio",busca:""},{id:"catequeses",titulo:"Catequeses",categoria:"catequeses",busca:""},{id:"comentarios",titulo:"Comentários",categoria:"comentarios",busca:""},{id:"oracoes",titulo:"Orações",categoria:"geral",busca:"oração"},{id:"indice",titulo:"Índice Geral",categoria:"oficio",busca:""},
 ]
-
-function chaveDeImagem(imagem?:string|null){
- if(!imagem)return ""
- const nome=imagem.split("/").pop()||""
- return nome.replace(/\.(jpg|jpeg|png|webp|gif)$/i,"")
-}
+function chaveDeImagem(imagem?:string|null){if(!imagem)return "";const nome=imagem.split("/").pop()||"";return nome.replace(/\.(jpg|jpeg|png|webp|gif)$/i,"")}
 function normalizarNome(nome:string){return nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\b(sao|santo|santa)\b/g,"").replace(/[^a-z0-9]/g,"")}
-function documentoDoSanto(s:SantoHoje){
- if(!s)return ""
- const chave=chaveDeImagem(s.imagem)||normalizarNome(s.nome)
- return `oficio/proprio/oficiodasleituras/${chave}.htm`
-}
-function imagemPublica(imagem?:string|null){
- if(!imagem)return ""
- const nome=imagem.split("/").pop()||imagem
- return nome.startsWith("/")?nome:`/${nome}`
-}
-function IconeHora({id}:{id:string}){if(id==="laudes")return <Sunrise className="size-5"/>;if(["terca","sexta","nona"].includes(id))return <Sun className="size-5"/>;if(id==="vesperas")return <Sunset className="size-5"/>;if(id==="completas")return <MoonStar className="size-5"/>;if(id==="invitatorio")return <Church className="size-5"/>;return <BookOpenText className="size-5"/>}
+function chaveSanto(s:SantoHoje){return s?(chaveDeImagem(s.imagem)||normalizarNome(s.nome)):""}
+function documentoDoSanto(s:SantoHoje){const chave=chaveSanto(s);return chave?`oficio/proprio/oficiodasleituras/${chave}.htm`:""}
+function imagemPublica(imagem?:string|null){if(!imagem)return "";const nome=imagem.split("/").pop()||imagem;return nome.startsWith("/")?nome:`/${nome}`}
+function IconeHora({id}:{id:string}){if(id==="laudes")return <Sunrise className="size-5"/>;if(["terca","sexta","nona"].includes(id))return <Sun className="size-5"/>;if(id==="vesperas")return <Sunset className="size-5"/>;if(id==="completas")return <MoonStar className="size-5"/>;return <BookOpenText className="size-5"/>}
 function ListaModulo({itens,abrir}:{itens:Tela[];abrir:(t:Tela)=>void}){return <div className="overflow-hidden rounded-xl border border-[#6f5a43]/30 bg-[#f7edcf]">{itens.map((item,i)=><button key={item.id} onClick={()=>abrir(item)} className={`flex w-full items-center gap-4 px-4 py-3.5 text-left transition hover:bg-[#eadbb4] ${i?"border-t border-[#806b50]/20":""}`}><span className="flex size-8 shrink-0 items-center justify-center text-[#6e4d31]"><IconeHora id={item.id}/></span><span className="font-serif text-xl font-semibold italic text-[#5b3d29]">{item.titulo}</span></button>)}</div>}
 
 export function CentralLiturgicaILiturgia(){
  const[modulo,setModulo]=useState<Modulo>("hoje"),[tela,setTela]=useState<Tela|null>(null),[submenu,setSubmenu]=useState<"ordinario"|"eucaristicas"|null>(null),[hoje,setHoje]=useState<LiturgiaHoje|null>(null)
  useEffect(()=>{let vivo=true;fetch("/api/liturgia-local",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{if(vivo)setHoje(j)}).catch(()=>{});return()=>{vivo=false}},[])
- const dataCompleta=useMemo(()=>new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}).format(new Date()),[])
- const santo=hoje?.santoDoDia||null
- const documentoSanto=documentoDoSanto(santo)
-
- function abrir(t:Tela){
-  if(t.id==="ordinario"){setSubmenu("ordinario");return}
-  if(t.id==="eucaristicas"){setSubmenu("eucaristicas");return}
-  setTela(t)
- }
+ const agora=useMemo(()=>new Date(),[])
+ const dataCompleta=useMemo(()=>new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}).format(agora),[agora])
+ const santo=hoje?.santoDoDia||null, chave=chaveSanto(santo), documentoSanto=documentoDoSanto(santo)
+ const horas=useMemo<Tela[]>(()=>horasBase.map(h=>{const proprio=documentoHoraSanto(chave,h.id);const temporal=documentoHoraTemporal(agora,h.id);return{id:h.id,titulo:h.titulo,categoria:"oficio",documento:proprio||temporal}}),[agora,chave])
+ function abrir(t:Tela){if(t.id==="ordinario"){setSubmenu("ordinario");return}if(t.id==="eucaristicas"){setSubmenu("eucaristicas");return}setTela(t)}
  if(tela)return <section className="min-h-[78vh] bg-[#f2e6c6] pb-24"><div className="sticky top-0 z-20 flex items-center gap-3 border-b border-[#715b40]/30 bg-[#62412d] px-3 py-3 text-[#fff4d7] shadow-sm"><button onClick={()=>setTela(null)} className="flex size-9 items-center justify-center rounded-full hover:bg-white/10" aria-label="Voltar"><ChevronLeft className="size-6"/></button><h1 className="font-serif text-xl font-semibold">{tela.titulo}</h1></div><div className="mx-auto max-w-4xl p-3 sm:p-5">{tela.tipo==="liturgia"?<LiturgiaDiaria/>:<AcervoLiturgicoOffline categoriaInicial={tela.categoria} buscaInicial={tela.busca} documentoInicial={tela.documento} embutido titulo={tela.titulo}/>}</div></section>
-
  return <section className="relative min-h-[82vh] overflow-hidden rounded-2xl border border-[#745a3d]/30 bg-[#efe2bf] pb-20 shadow-sm">
   <header className="bg-[#62412d] px-4 py-4 text-[#fff5dc] shadow-sm"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><div className="flex items-center gap-3"><Menu className="size-6"/><div><h1 className="font-serif text-2xl font-bold">Central Litúrgica</h1><p className="text-[11px] capitalize text-[#e9d6ad]">{hoje?.data||dataCompleta}</p>{hoje?.liturgia&&<p className="mt-0.5 text-[11px] text-[#f1dfb8]">{hoje.liturgia}</p>}</div></div><Church className="size-7 text-[#f1d28a]"/></div></header>
   <div className="mx-auto max-w-4xl p-3 sm:p-5">
