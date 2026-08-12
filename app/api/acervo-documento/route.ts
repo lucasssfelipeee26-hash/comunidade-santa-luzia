@@ -4,6 +4,7 @@ import path from "node:path"
 import { gunzipSync } from "node:zlib"
 import { documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
 import { celebracaoDoDia } from "@/lib/iliturgia-sanctoral"
+import { comumDaCelebracao, documentoComum } from "@/lib/iliturgia-comuns"
 
 type Documento={id:string;path:string;title:string;text?:string;html?:string}
 type Pacote={category:string;documents:Documento[]}
@@ -39,6 +40,13 @@ function horaDoProprio(documento:string):HoraLiturgica|null{
  const m=p.match(/_(laudes|terca|sexta|nona|vesperas|completas)\.html?$/i)
  return (m?.[1] as HoraLiturgica|undefined)||null
 }
+function chaveDoProprio(documento:string){
+ const p=norm(documento)
+ const leituras=p.match(/\/proprio\/oficiodasleituras\/([^/]+)\.html?$/i)
+ if(leituras?.[1])return leituras[1]
+ const horas=p.match(/\/proprio\/horas\/([^/]+?)_(?:laudes|terca|sexta|nona|vesperas|completas|ivesperas)\.html?$/i)
+ return horas?.[1]||""
+}
 function amanha(data:Date){const d=new Date(data);d.setDate(d.getDate()+1);return d}
 
 export async function GET(req:NextRequest){
@@ -51,6 +59,7 @@ export async function GET(req:NextRequest){
   const docs=(await Promise.all(arquivos.map(pacote))).flatMap(p=>p.documents)
   const data=dataLocal(req.nextUrl.searchParams.get("data"))
   const hora=horaDoProprio(alternativas[0])
+  const chave=chaveDoProprio(alternativas[0])
 
   // Vésperas da véspera de uma solenidade: prioriza as I Vésperas próprias.
   if(categoria==="oficio"&&hora==="vesperas"){
@@ -59,13 +68,31 @@ export async function GET(req:NextRequest){
     const primeira=`oficio/proprio/horas/${prox.chave}_Ivesperas.htm`
     const docPrimeira=procurar(docs,primeira)
     if(docPrimeira)return resposta(docPrimeira)
+    const comumProx=comumDaCelebracao(prox.chave)
+    if(comumProx){
+      const comumPrimeira=documentoComum(comumProx,"vesperas",true)
+      const docComumPrimeira=procurar(docs,comumPrimeira)
+      if(docComumPrimeira)return resposta(docComumPrimeira)
+    }
    }
   }
 
+  // Primeiro tenta o Próprio exato solicitado pela Central.
   for(const alternativa of alternativas){const encontrado=procurar(docs,alternativa);if(encontrado)return resposta(encontrado)}
 
-  // Nem toda memória possui todas as Horas próprias. Se não houver Próprio,
-  // abre automaticamente o Temporal calculado para a mesma data e Hora.
+  // Se a celebração não possui aquela parte no Próprio, usa o Comum adequado
+  // do mesmo modo que o iLiturgia completa várias memórias e festas.
+  if(categoria==="oficio"&&hora&&hora!=="completas"&&hora!=="vigilia"&&chave){
+    const comum=comumDaCelebracao(chave)
+    if(comum){
+      const caminho=documentoComum(comum,hora)
+      const encontrado=procurar(docs,caminho)
+      if(encontrado)return resposta(encontrado)
+    }
+  }
+
+  // Por fim, quando não houver Próprio nem Comum específico, abre o Temporal
+  // calculado para a mesma data e Hora.
   if(categoria==="oficio"&&hora){
    const temporal=documentoHoraTemporal(data,hora)
    const encontrado=procurar(docs,temporal)
