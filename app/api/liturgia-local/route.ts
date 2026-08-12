@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { ciclosLiturgicos, dataIsoParaDate } from "@/lib/ciclo-liturgico"
 import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
+import { liturgiaDoArquivoLecionario } from "@/lib/iliturgia-lecionario-offline"
 
 export const dynamic = "force-dynamic"
 
@@ -17,15 +18,29 @@ function dataPorExtenso(dataIso: string) {
 export async function GET() {
   const dataIso = dataCuiabaIso()
   const ciclos = ciclosLiturgicos(dataIsoParaDate(dataIso))
-  const local = obterLiturgiaLocal(dataIso)
+  const localOriginal = obterLiturgiaLocal(dataIso)
 
-  if (!local) {
+  if (!localOriginal) {
     return NextResponse.json({
       erro: "A Liturgia de hoje ainda não está disponível na base offline.",
       offline: true,
       dataIso,
       quizDisponivel: false,
     }, { status: 404, headers: { "Cache-Control": "no-store" } })
+  }
+
+  let local = localOriginal
+  const arquivoOrigem = localOriginal.fonte?.arquivoOrigem?.replace(/^assets\/Resources\//, "")
+  if (arquivoOrigem?.toLowerCase().startsWith("lecionario/")) {
+    try {
+      const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, {
+        ...localOriginal,
+        leituras: undefined as never,
+      })
+      if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) local = extraida
+    } catch (error) {
+      console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
+    }
   }
 
   return NextResponse.json({
