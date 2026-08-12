@@ -31,3 +31,19 @@ export function documentoEvangelhoDaReferencia(referencia?:string,titulo?:string
     .replace(/\./g,"")
   return `evangelho/${livro}X${nome}.htm`
 }
+
+function chaveLeitura(referencia?:string){
+  if(!referencia)return ""
+  // Os nomes do Lecionário no APK concatenam livro/capítulo/versículos sem
+  // espaços e sinais tipográficos: "Ez 9,1-7; 10,18-22" -> "Ez917101822".
+  return referencia
+    .replace(/\([^)]*\)/g,"")
+    .replace(/\bR\.?\s*.*$/i,"")
+    .replace(/[^0-9A-Za-zÀ-ÿ]/g,"")
+}
+
+type LeituraRef={referencia?:string}
+export function documentoLecionarioDasLeituras(primeira?:LeituraRef[],segunda?:LeituraRef[],evangelho?:LeituraRef[]){
+  const partes=[primeira?.[0]?.referencia,segunda?.[0]?.referencia,evangelho?.[0]?.referencia].map(chaveLeitura).filter(Boolean)
+  return partes.length>=2?`lecionario/${partes.join("")}.htm`:""
+}
