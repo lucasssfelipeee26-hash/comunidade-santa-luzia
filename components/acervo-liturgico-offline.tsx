@@ -11,7 +11,8 @@ type Props={categoriaInicial?:string;buscaInicial?:string;embutido?:boolean;titu
 
 const MANIFESTO="/offline/iliturgia/manifest.json"
 const pacoteUrl=(nome:string)=>`/api/acervo-embutido?nome=${encodeURIComponent(nome)}`
-const documentoUrl=(categoria:string,documento:string)=>`/api/acervo-documento?categoria=${encodeURIComponent(categoria)}&documento=${encodeURIComponent(documento)}`
+function dataLocalIso(){const d=new Date();const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),dia=String(d.getDate()).padStart(2,"0");return `${y}-${m}-${dia}`}
+const documentoUrl=(categoria:string,documento:string)=>`/api/acervo-documento?categoria=${encodeURIComponent(categoria)}&documento=${encodeURIComponent(documento)}&data=${encodeURIComponent(dataLocalIso())}`
 
 async function abrir(res:Response):Promise<Pacote>{
   if(!res.ok)throw new Error("Pacote litúrgico interno não encontrado.")
@@ -39,15 +40,24 @@ function sanitizar(h:string,documentPath=""){
       if(img){img.setAttribute("src",`/${imgsRosario[i-1]}`);img.setAttribute("alt",`Mistério ${i}`);img.setAttribute("loading","lazy")}
     }
   }
-  const ok=new Set(["DIV","P","BR","SPAN","FONT","B","STRONG","I","EM","U","SUP","SUB","H1","H2","H3","H4","H5","H6","CENTER","BLOCKQUOTE","HR","OL","UL","LI","TABLE","TBODY","THEAD","TFOOT","TR","TD","TH","IMG"])
+  for(const img of Array.from(d.body.querySelectorAll("img"))){
+    const src=(img.getAttribute("src")||"").trim()
+    if(src&& !src.startsWith("/") && !src.startsWith("data:")){
+      const nome=src.replace(/\\/g,"/").split("/").pop()||""
+      if(nome)img.setAttribute("src",`/${nome}`)
+    }
+  }
+  const ok=new Set(["DIV","P","BR","SPAN","FONT","B","STRONG","I","EM","U","SUP","SUB","H1","H2","H3","H4","H5","H6","CENTER","BLOCKQUOTE","HR","OL","UL","LI","TABLE","TBODY","THEAD","TFOOT","TR","TD","TH","IMG","A"])
   for(const el of Array.from(d.body.querySelectorAll("*"))){
     if(!ok.has(el.tagName)){if(["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META"].includes(el.tagName))el.remove();else el.replaceWith(...Array.from(el.childNodes));continue}
     for(const a of Array.from(el.attributes)){
       const n=a.name.toLowerCase(),v=a.value.trim()
       const imgPermitido=el.tagName==="IMG"&&["src","alt","width","height","align","id","loading"].includes(n)
-      const permitido=imgPermitido||(el.tagName==="FONT"&&["color","face","size"].includes(n))||(["DIV","P","CENTER","TD","TH"].includes(el.tagName)&&n==="align")||(["TD","TH"].includes(el.tagName)&&["colspan","rowspan"].includes(n))||n==="class"||n==="style"
+      const linkPermitido=el.tagName==="A"&&["href","id","name","title"].includes(n)
+      const permitido=imgPermitido||linkPermitido||(el.tagName==="FONT"&&["color","face","size"].includes(n))||(["DIV","P","CENTER","TD","TH"].includes(el.tagName)&&n==="align")||(["TD","TH"].includes(el.tagName)&&["colspan","rowspan"].includes(n))||n==="id"||n==="class"||n==="style"
       if(!permitido||n.startsWith("on")){el.removeAttribute(a.name);continue}
       if(el.tagName==="IMG"&&n==="src"&&!/^\/[a-z0-9_.-]+$/i.test(v)){el.removeAttribute("src");continue}
+      if(el.tagName==="A"&&n==="href"&&!/^#[a-z0-9_.:-]+$/i.test(v)){el.removeAttribute("href");continue}
       if(n==="style"){const s=v.split(";").map(x=>x.trim()).filter(x=>/^(color|text-align|font-weight|font-style|text-decoration|vertical-align|float|margin|width|max-width|height)\s*:/i.test(x));s.length?el.setAttribute("style",s.join("; ")):el.removeAttribute("style")}
     }
   }
@@ -92,7 +102,7 @@ export function AcervoLiturgicoOffline({categoriaInicial="",buscaInicial="",embu
     {!documentoInicial&&<p className="text-xs font-bold uppercase tracking-[.16em] text-[#9a731d]">{aberto.path}</p>}
     {aberto.title&&<h2 className="mt-2 font-serif text-2xl font-semibold text-[#8f182e] sm:text-3xl">{aberto.title}</h2>}
     {!aberto.path.toLowerCase().startsWith("rosario/")&&<ImagemDocumento doc={aberto}/>} 
-    {html?<div className="liturgical-document mt-5 text-[1.04rem] leading-8 text-[#2f2924] [&_font[color=red]]:text-[#b42332] [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_sup]:text-[#b42332] [&_img]:mr-4 [&_img]:mb-3 [&_img]:max-w-[42%] [&_img]:rounded-lg sm:[&_img]:max-w-[220px]" dangerouslySetInnerHTML={{__html:html}}/>:<div className="mt-5 whitespace-pre-line text-[1.04rem] leading-8">{aberto.text}</div>}
+    {html?<div className="liturgical-document mt-5 text-[1.04rem] leading-8 text-[#2f2924] [&_font[color=red]]:text-[#b42332] [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_sup]:text-[#b42332] [&_a]:text-[#8f182e] [&_a]:underline [&_img]:mr-4 [&_img]:mb-3 [&_img]:max-w-[42%] [&_img]:rounded-lg sm:[&_img]:max-w-[220px]" dangerouslySetInnerHTML={{__html:html}}/>:<div className="mt-5 whitespace-pre-line text-[1.04rem] leading-8">{aberto.text}</div>}
   </article>
 
   return <div>
