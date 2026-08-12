@@ -33,10 +33,8 @@ export async function GET() {
   const arquivoOrigem = localOriginal.fonte?.arquivoOrigem?.replace(/^assets\/Resources\//, "")
   if (arquivoOrigem?.toLowerCase().startsWith("lecionario/")) {
     try {
-      const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, {
-        ...localOriginal,
-        leituras: undefined as never,
-      })
+      const { leituras: _leituras, ...base } = localOriginal
+      const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, base)
       if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) local = extraida
     } catch (error) {
       console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
