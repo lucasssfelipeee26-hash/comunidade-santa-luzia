@@ -27,8 +27,8 @@ export function tempoLiturgico(data:Date){
 function semanaDesde(inicio:Date,data:Date){return Math.max(1,Math.floor(diasEntre(domingoAnteriorOuIgual(inicio),data)/7)+1)}
 
 export function semanaTempoComum(data:Date){
- const ano=data.getFullYear(),p=pascoa(ano),cinzas=add(p,-46),pentecostes=add(p,49),epifania=new Date(ano,0,6),batismo=domingoDepoisOuIgual(epifania)
- if(data<cinzas){return Math.max(1,semanaDesde(add(batismo,1),data)+1)}
+ const ano=data.getFullYear(),p=pascoa(ano),cinzas=add(p,-46),epifania=new Date(ano,0,6),batismo=domingoDepoisOuIgual(epifania)
+ if(data<cinzas)return Math.max(1,semanaDesde(add(batismo,1),data)+1)
  const domingoCristoRei=add(inicioAdvento(ano),-7)
  const semanasRestantes=Math.floor(diasEntre(domingoAnteriorOuIgual(data),domingoCristoRei)/7)
  return Math.max(1,34-semanasRestantes)
@@ -45,6 +45,11 @@ export function semanaSalterio(data:Date){
 
 export function documentoHoraTemporal(data:Date,hora:HoraLiturgica){
  const tempo=tempoLiturgico(data),dia=nomesDia[data.getDay()],semana=semanaSalterio(data)
+ if(hora==="completas"){
+  if(tempo==="tempocomum")return `oficio/tempocomum/horas/completas_${dia}.htm`
+  if(tempo==="advento")return `oficio/advento/horas/completas${dia}.htm`
+  if(tempo==="natal")return `oficio/natal/horas/completas_${dia==="domingo"?"domingoI":dia}.htm`
+ }
  if(tempo==="tempocomum")return `oficio/tempocomum/horas/${semana}${dia}_${hora}.htm`
  if(tempo==="advento")return `oficio/advento/horas/${semana}${dia}_${hora}.htm`
  if(tempo==="quaresma")return `oficio/quaresma/horas/${semana}${dia}quaresma_${hora}.htm`
@@ -56,6 +61,6 @@ export function documentoHoraTemporal(data:Date,hora:HoraLiturgica){
 }
 
 export function documentoHoraSanto(chave:string|undefined|null,hora:HoraLiturgica){
- if(!chave)return ""
+ if(!chave||hora==="completas")return ""
  return `oficio/proprio/horas/${chave}_${hora}.htm`
 }
