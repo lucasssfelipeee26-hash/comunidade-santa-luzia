@@ -75,7 +75,7 @@ export function ModeradorDashboard() {
       <AreaHeader
         titulo="Área Restrita"
         subtitulo="Acólitos e Coroinhas"
-        voltarHref="/"
+        voltarHref="/visitante"
         menu={<ModeradorMenu />}
         badge={
           <Badge className="gap-1.5 bg-sidebar-primary text-sidebar-primary-foreground">
@@ -85,10 +85,10 @@ export function ModeradorDashboard() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-3 py-4 sm:px-4 sm:py-8">
         <ProfileSettings />
         {/* Resumo da equipe — um retrato rápido do estado atual, não decoração */}
-        <dl className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="mb-6 grid grid-cols-2 gap-2.5 sm:mb-8 sm:gap-3 sm:grid-cols-4">
           <EstatCard label="Acólitos" valor={acolitos.length} />
           <EstatCard label="Coroinhas" valor={coroinhas.length} />
           <EstatCard label="Aguardando aprovação" valor={pendentes.length} destaque={pendentes.length > 0} />
@@ -114,7 +114,7 @@ export function ModeradorDashboard() {
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-foreground">{m.nome}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="break-words text-xs leading-5 text-muted-foreground sm:text-sm">
                       {m.funcao} · usuário: {m.usuario} · e-mail: {m.email}
                     </p>
                   </div>

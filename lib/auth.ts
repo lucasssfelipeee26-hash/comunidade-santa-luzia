@@ -3,6 +3,7 @@ import "server-only"
 import { SignJWT, jwtVerify } from "jose"
 import { cookies } from "next/headers"
 import bcrypt from "bcryptjs"
+import { APP_AUTH_RELEASE } from "@/lib/app-release"
 
 const COOKIE_NAME = "santa_luzia_sessao"
 
@@ -19,13 +20,14 @@ function getSecret() {
 export type SessaoPayload = {
   sub: string
   tipo: "moderador" | "membro"
+  versao: string
 }
 
-export async function criarSessao(payload: SessaoPayload) {
-  const token = await new SignJWT(payload)
+export async function criarSessao(payload: Omit<SessaoPayload, "versao">) {
+  const token = await new SignJWT({ ...payload, versao: APP_AUTH_RELEASE })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30d")
+    .setExpirationTime("400d")
     .sign(getSecret())
 
   const store = await cookies()
@@ -34,7 +36,10 @@ export async function criarSessao(payload: SessaoPayload) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    // Mantém o acesso entre aberturas do aplicativo. A sessão também é
+    // vinculada à APP_AUTH_RELEASE e deixa de ser aceita quando uma nova
+    // versão do app altera essa constante.
+    maxAge: 60 * 60 * 24 * 400,
   })
 }
 
@@ -44,10 +49,14 @@ export async function lerSessao(): Promise<SessaoPayload | null> {
   if (!token) return null
   try {
     const { payload } = await jwtVerify(token, getSecret())
-    if (typeof payload.sub !== "string" || (payload.tipo !== "moderador" && payload.tipo !== "membro")) {
+    if (
+      typeof payload.sub !== "string" ||
+      (payload.tipo !== "moderador" && payload.tipo !== "membro") ||
+      payload.versao !== APP_AUTH_RELEASE
+    ) {
       return null
     }
-    return { sub: payload.sub, tipo: payload.tipo }
+    return { sub: payload.sub, tipo: payload.tipo, versao: APP_AUTH_RELEASE }
   } catch {
     return null
   }

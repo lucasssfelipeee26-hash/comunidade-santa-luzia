@@ -11,9 +11,11 @@ import {
   Send,
   Lock,
   BookOpen,
+  Trophy,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProfileSettings } from "@/components/profile-settings"
+import { MeuProximoCompromisso } from "@/components/meu-proximo-compromisso"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -51,7 +53,7 @@ export function MembroDashboard({ membro }: { membro: Membro }) {
       <AreaHeader
         titulo="Meu Perfil"
         subtitulo={`${membro.funcao} · na equipe desde ${membro.desde || "data não informada"}`}
-        voltarHref="/"
+        voltarHref="/visitante"
         menu={<MembroMenu />}
         badge={
           <Badge className="gap-1.5 bg-sidebar-primary text-sidebar-primary-foreground">
@@ -62,8 +64,13 @@ export function MembroDashboard({ membro }: { membro: Membro }) {
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <ProfileSettings />
+        <MeuProximoCompromisso />
         <Link href="/formacao" className="mb-6 flex items-center justify-between rounded-xl border border-accent/45 bg-card p-5 text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md">
           <div><p className="flex items-center gap-2 font-serif text-xl text-primary"><BookOpen className="size-5" /> Central de Formação</p><p className="mt-1 text-sm text-muted-foreground">Veja o tema do próximo encontro, avisos de cancelamento e materiais para download.</p></div>
+          <span className="font-semibold text-primary">Acessar →</span>
+        </Link>
+        <Link href="/area-restrita/ranking" className="mb-6 flex items-center justify-between rounded-xl border border-accent/45 bg-white p-5 text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md">
+          <div><p className="flex items-center gap-2 font-serif text-xl text-primary"><Trophy className="size-5" /> Ranking e Quiz</p><p className="mt-1 text-sm text-muted-foreground">Responda desafios de Formação e Liturgia, veja sua evolução e reconheça atitudes positivas da equipe.</p></div>
           <span className="font-semibold text-primary">Acessar →</span>
         </Link>
 

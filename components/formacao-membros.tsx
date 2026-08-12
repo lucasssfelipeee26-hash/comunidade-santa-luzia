@@ -10,7 +10,23 @@ function tamanho(bytes: number) { return bytes < 1024 * 1024 ? `${Math.ceil(byte
 export function FormacaoMembros() {
   const [itens, setItens] = useState<FormacaoRow[]>([])
   const [erro, setErro] = useState("")
-  useEffect(() => { fetch("/api/formacoes", { cache: "no-store" }).then(async r => { const j=await r.json(); if(!r.ok) throw new Error(j.erro); setItens(j.formacoes || []) }).catch(e => setErro(e.message)) }, [])
+  useEffect(() => {
+    let ativo = true
+    async function carregar() {
+      try {
+        const r = await fetch("/api/formacoes", { cache: "no-store" })
+        const j = await r.json()
+        if (!r.ok) throw new Error(j.erro)
+        if (ativo) { setItens(j.formacoes || []); setErro("") }
+      } catch (e) {
+        if (ativo) setErro(e instanceof Error ? e.message : "Erro ao carregar formações.")
+      }
+    }
+    void carregar()
+    const aoSincronizar = () => void carregar()
+    window.addEventListener("santa-luzia:server-sync", aoSincronizar)
+    return () => { ativo = false; window.removeEventListener("santa-luzia:server-sync", aoSincronizar) }
+  }, [])
   const ordenados = useMemo(() => [...itens].sort((a,b)=>a.data.localeCompare(b.data)), [itens])
   const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba" }).format(new Date())
   const proximos = ordenados.filter(i => i.data >= hoje)

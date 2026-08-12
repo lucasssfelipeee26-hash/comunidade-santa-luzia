@@ -14,3 +14,10 @@ data/
 
 # Arquivos temporários do Windows/OneDrive
 ~$*
+
+# Android / Capacitor local files
+android/.gradle/
+android/local.properties
+android/**/build/
+*.jks
+*.keystore

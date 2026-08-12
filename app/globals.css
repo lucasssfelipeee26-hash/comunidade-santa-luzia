@@ -1,6 +1,5 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -296,4 +295,384 @@ html[data-site-theme="vinho-dourado"] {
 .area-restrita-shell ::selection {
   background: #ead27c;
   color: #501422;
+}
+
+/* ==========================================================
+   ANDROID / MOBILE — RESPONSIVIDADE E FLUIDEZ CONSOLIDADAS
+   Uma única camada responsiva substitui os ajustes antigos para
+   evitar regras duplicadas, conflito de tamanhos e reflows.
+   ========================================================== */
+:root {
+  --app-gutter: clamp(0.7rem, 3.2vw, 1.5rem);
+  --app-header-height: clamp(58px, 8.2svh, 64px);
+  --app-bottom-nav-height: clamp(58px, 8svh, 64px);
+  --app-content-max: 80rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--app-header-height) + env(safe-area-inset-top));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body.app-mobile-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.app-mobile-shell .min-h-screen {
+  min-height: 100dvh;
+}
+
+.app-mobile-shell :where(main, section, article, form, nav, header, footer, div) {
+  min-width: 0;
+}
+
+.app-mobile-shell :where(.flex, .grid) > * {
+  min-width: 0;
+}
+
+.app-mobile-shell :where(img, video, canvas, iframe, svg) {
+  max-width: 100%;
+}
+
+.app-mobile-shell :where(img) {
+  height: auto;
+}
+
+.app-mobile-shell :where(button, a, input, select, textarea) {
+  max-width: 100%;
+}
+
+.app-mobile-shell :where(button, a[href], [role="button"]) {
+  touch-action: manipulation;
+}
+
+.app-mobile-shell :where(pre, code) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.app-safe-header {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.app-header-row {
+  min-height: var(--app-header-height);
+}
+
+.app-mobile-menu-layer {
+  top: calc(var(--app-header-height) + env(safe-area-inset-top));
+}
+
+.mobile-app-bottom-nav {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  contain: layout paint;
+  transform: translateZ(0);
+}
+
+.app-bottom-grid {
+  min-height: var(--app-bottom-nav-height);
+}
+
+.app-bottom-item {
+  font-size: clamp(8px, 2.35vw, 10px);
+  line-height: 1;
+}
+
+.app-nav-panel {
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  overflow: hidden;
+  contain: layout paint;
+}
+
+.app-nav-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.app-nav-tile {
+  min-height: 72px;
+}
+
+.app-hero-frame {
+  min-height: clamp(390px, 62svh, 620px);
+}
+
+.area-restrita-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.area-restrita-shell :where(main, section, form, article) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.area-restrita-shell :where(input, select, textarea) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.area-restrita-shell :where(p, span, a, label) {
+  overflow-wrap: anywhere;
+}
+
+.public-home section {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.public-home :where(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+@media (display-mode: standalone) {
+  body.app-mobile-shell {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* WebView Android: efeitos de blur em superfícies fixas consomem GPU. */
+@media (max-width: 767px) {
+  .app-mobile-shell [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  body.app-mobile-shell {
+    padding-bottom: calc(var(--app-bottom-nav-height) + env(safe-area-inset-bottom));
+  }
+
+  .area-restrita-shell {
+    min-height: calc(100dvh - var(--app-bottom-nav-height));
+    background: #ffffff !important;
+  }
+
+  .area-restrita-shell main {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    padding-left: max(var(--app-gutter), env(safe-area-inset-left)) !important;
+    padding-right: max(var(--app-gutter), env(safe-area-inset-right)) !important;
+  }
+
+  .area-restrita-shell :where(.rounded-3xl, .rounded-2xl, .rounded-xl) {
+    max-width: 100%;
+  }
+
+  .app-mobile-shell :where(input:not([type="range"]), select, textarea) {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .area-restrita-shell textarea {
+    min-height: 96px;
+  }
+
+  .app-mobile-shell :where(button, a[href], [role="button"]) {
+    min-height: 42px;
+  }
+
+  .mobile-app-bottom-nav :where(a, button) {
+    min-height: var(--app-bottom-nav-height);
+  }
+
+  .public-home main > section:not(#inicio) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 620px;
+  }
+
+  .area-restrita-shell main > :where(section, article, div) {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+
+  .area-restrita-shell :where(.overflow-x-auto) {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-hero-frame {
+    min-height: clamp(350px, 58dvh, 560px);
+    padding-top: clamp(2.4rem, 8dvh, 4.5rem);
+    padding-bottom: clamp(1.75rem, 5dvh, 3rem);
+  }
+}
+
+/* Celulares muito estreitos. */
+@media (max-width: 359px) {
+  :root {
+    --app-gutter: 0.52rem;
+    --app-header-height: 56px;
+    --app-bottom-nav-height: 57px;
+  }
+
+  .app-bottom-item {
+    font-size: 7.5px;
+    letter-spacing: -0.02em;
+  }
+
+  .mobile-app-bottom-nav .app-bottom-item > span:first-child {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .app-nav-panel {
+    width: calc(100% - 12px) !important;
+    padding: 0.55rem !important;
+    border-radius: 1.1rem !important;
+  }
+
+  .app-nav-grid {
+    gap: 0.35rem !important;
+  }
+
+  .app-nav-grid a,
+  .app-nav-tile {
+    min-width: 0;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+
+  .app-nav-grid a > span:first-child,
+  .app-nav-tile > span:first-child {
+    width: 2.1rem !important;
+    height: 2.1rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  .app-nav-grid a > span:last-child,
+  .app-nav-tile > span:last-child {
+    min-height: 1.7rem !important;
+    font-size: 7.5px !important;
+    line-height: 0.85rem !important;
+  }
+
+  .app-hero-frame {
+    min-height: 350px;
+  }
+}
+
+/* Celulares médios. */
+@media (min-width: 360px) and (max-width: 599px) {
+  :root {
+    --app-gutter: clamp(0.72rem, 3vw, 1rem);
+  }
+}
+
+/* Celulares grandes e dobráveis fechados. */
+@media (min-width: 600px) and (max-width: 767px) {
+  :root {
+    --app-gutter: clamp(1rem, 3.8vw, 1.4rem);
+  }
+
+  .app-nav-panel {
+    max-width: 560px !important;
+  }
+
+  .app-nav-tile {
+    min-height: 82px;
+  }
+
+  .app-hero-frame > div {
+    max-width: 34rem;
+  }
+}
+
+/* Paisagem em celular: mantém todo o menu visível sem rolagem interna. */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
+  :root {
+    --app-header-height: 50px;
+    --app-bottom-nav-height: 52px;
+  }
+
+  .app-hero-frame {
+    min-height: 310px;
+  }
+
+  .app-nav-panel {
+    max-height: calc(100dvh - 10px);
+    padding: 0.5rem !important;
+  }
+
+  .app-nav-panel > div:first-child {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .app-nav-grid {
+    gap: 0.35rem !important;
+  }
+
+  .app-nav-grid a,
+  .app-nav-tile {
+    min-height: 58px;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+  }
+
+  .app-nav-grid a > span:first-child,
+  .app-nav-tile > span:first-child {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .app-nav-grid a > span:last-child,
+  .app-nav-tile > span:last-child {
+    min-height: 1.4rem !important;
+    font-size: 7.5px !important;
+    line-height: 0.72rem !important;
+  }
+}
+
+/* Tablets e dobráveis abertos. */
+@media (min-width: 768px) and (max-width: 1180px) {
+  :root {
+    --app-gutter: clamp(1.25rem, 4vw, 2rem);
+  }
+
+  .area-restrita-shell main,
+  .public-home main > section > div {
+    width: min(100%, 980px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .app-mobile-shell *,
+  .app-mobile-shell *::before,
+  .app-mobile-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

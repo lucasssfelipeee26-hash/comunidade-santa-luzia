@@ -1,0 +1,170 @@
+import { NextRequest, NextResponse } from "next/server"
+import { lerSessao } from "@/lib/auth"
+import {
+  buscarPontualidadeOcorrencia,
+  buscarUsuario,
+  listarMembrosAprovados,
+  listarPontualidadeOcorrencias,
+  listarPontualidadeReacoes,
+  listarEscalas,
+  moderarPontualidade,
+  obterRankingConfig,
+  reconhecimentoMensalJaFeito,
+  salvarPontualidadeOcorrencia,
+  salvarPontualidadeReacao,
+  salvarRankingAjuste,
+  salvarRankingConfig,
+  salvarReconhecimento,
+  type ReconhecimentoCategoria,
+} from "@/lib/db"
+import { calcularRanking } from "@/lib/ranking"
+
+const categorias: ReconhecimentoCategoria[] = ["companheirismo", "acolhimento", "espirito_servico", "disponibilidade"]
+const emojisPermitidos = ["⏰", "😅", "🙏", "✝️", "💛"]
+
+function nowCuiaba() {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Cuiaba", year: "numeric", month: "numeric" }).formatToParts(new Date())
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value || 0)
+  return { ano: get("year"), mes: get("month") }
+}
+
+function calcularLimite(horario: string, minutosAntes: number) {
+  const [h, m] = horario.split(":").map(Number)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return horario
+  let total = h * 60 + m - minutosAntes
+  while (total < 0) total += 24 * 60
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`
+}
+
+async function contexto() {
+  const sessao = await lerSessao()
+  if (!sessao) return null
+  const usuario = buscarUsuario(sessao.sub)
+  if (!usuario || (usuario.tipo === "membro" && usuario.status !== "aprovado")) return null
+  return { sessao, usuario }
+}
+
+export async function GET(req: NextRequest) {
+  const ctx = await contexto()
+  if (!ctx) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+
+  const anoParam = Number(req.nextUrl.searchParams.get("ano"))
+  const ano = Number.isInteger(anoParam) && anoParam >= 2020 && anoParam <= 2100 ? anoParam : nowCuiaba().ano
+  const { config, ranking } = calcularRanking(ano)
+  const membros = listarMembrosAprovados().map((m) => ({ id: m.id, nome: m.nome, funcao: m.funcao, foto: m.foto || null }))
+  const ocorrencias = listarPontualidadeOcorrencias(ctx.usuario.tipo === "moderador").map((o) => ({
+    id: o.id, usuario_id: o.usuario_id, usuario_nome: buscarUsuario(o.usuario_id)?.nome || "Membro", escala_id: o.escala_id,
+    data_missa: o.data_missa, horario_missa: o.horario_missa, limite_chegada: o.limite_chegada, observacao: o.observacao, status: o.status, criado_em: o.criado_em,
+  }))
+  const reacoes = listarPontualidadeReacoes().map((r) => ({ ocorrencia_id: r.ocorrencia_id, emoji: r.emoji }))
+
+  return NextResponse.json({
+    ano,
+    eu: { id: ctx.usuario.id, nome: ctx.usuario.nome, tipo: ctx.usuario.tipo },
+    config,
+    ranking,
+    membros,
+    ocorrencias,
+    reacoes,
+  })
+}
+
+export async function POST(req: NextRequest) {
+  const ctx = await contexto()
+  if (!ctx) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const action = String(body.action || "")
+
+  if (action === "reconhecer") {
+    const paraId = String(body.paraId || "")
+    const categoria = String(body.categoria || "") as ReconhecimentoCategoria
+    if (!categorias.includes(categoria)) return NextResponse.json({ erro: "Categoria inválida." }, { status: 400 })
+    if (paraId === ctx.usuario.id) return NextResponse.json({ erro: "Você não pode reconhecer o próprio perfil." }, { status: 400 })
+    const alvo = buscarUsuario(paraId)
+    if (!alvo || alvo.tipo !== "membro" || alvo.status !== "aprovado") return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
+    const { ano, mes } = nowCuiaba()
+    if (reconhecimentoMensalJaFeito(ctx.usuario.id, categoria, ano, mes)) {
+      return NextResponse.json({ erro: "Você já usou este reconhecimento neste mês. Cada categoria pode ser concedida uma vez por mês." }, { status: 409 })
+    }
+    const row = salvarReconhecimento({ de_usuario_id: ctx.usuario.id, para_usuario_id: paraId, categoria, ano, mes })
+    return NextResponse.json({ ok: true, reconhecimento: row })
+  }
+
+  if (action === "reportar_atraso") {
+    const usuarioId = String(body.usuarioId || "")
+    const escalaId = body.escalaId ? String(body.escalaId) : null
+    const alvo = buscarUsuario(usuarioId)
+    if (!alvo || alvo.tipo !== "membro" || alvo.status !== "aprovado") return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
+
+    const escala = escalaId ? listarEscalas().find((e) => e.id === escalaId) : undefined
+    const dataMissa = String(body.dataMissa || escala?.data || "")
+    const horarioMissa = String(body.horarioMissa || escala?.horario || "18:00")
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataMissa) || !/^\d{2}:\d{2}$/.test(horarioMissa)) {
+      return NextResponse.json({ erro: "Data ou horário inválido." }, { status: 400 })
+    }
+    const existente = listarPontualidadeOcorrencias(true).some((o) => o.usuario_id === usuarioId && o.data_missa === dataMissa && o.status !== "rejeitado")
+    if (existente) return NextResponse.json({ erro: "Já existe um relato de pontualidade para este perfil nesta data." }, { status: 409 })
+    const ano = Number(dataMissa.slice(0, 4))
+    const config = obterRankingConfig(ano)
+    const row = salvarPontualidadeOcorrencia({
+      usuario_id: usuarioId,
+      escala_id: escalaId,
+      data_missa: dataMissa,
+      horario_missa: horarioMissa,
+      limite_chegada: calcularLimite(horarioMissa, config.minutos_antecedencia),
+      observacao: String(body.observacao || "").trim().slice(0, 300),
+      reportado_por: ctx.usuario.id,
+    })
+    return NextResponse.json({ ok: true, ocorrencia: row, mensagem: "Relato enviado ao moderador para confirmação." })
+  }
+
+  if (action === "reagir") {
+    const ocorrenciaId = String(body.ocorrenciaId || "")
+    const emoji = String(body.emoji || "")
+    if (!emojisPermitidos.includes(emoji)) return NextResponse.json({ erro: "Reação inválida." }, { status: 400 })
+    const ocorrencia = buscarPontualidadeOcorrencia(ocorrenciaId)
+    if (!ocorrencia || ocorrencia.status !== "confirmado") return NextResponse.json({ erro: "Ocorrência não disponível para reações." }, { status: 404 })
+    return NextResponse.json({ ok: true, reacao: salvarPontualidadeReacao(ocorrenciaId, ctx.usuario.id, emoji) })
+  }
+
+  if (action === "moderar_atraso") {
+    if (ctx.usuario.tipo !== "moderador") return NextResponse.json({ erro: "Apenas moderadores." }, { status: 403 })
+    const ocorrenciaId = String(body.ocorrenciaId || "")
+    const status = String(body.status || "")
+    if (status !== "confirmado" && status !== "rejeitado") return NextResponse.json({ erro: "Status inválido." }, { status: 400 })
+    const row = moderarPontualidade(ocorrenciaId, status, ctx.usuario.id)
+    if (!row) return NextResponse.json({ erro: "Ocorrência não encontrada." }, { status: 404 })
+    return NextResponse.json({ ok: true, ocorrencia: row })
+  }
+
+  if (action === "ajustar_pontos") {
+    if (ctx.usuario.tipo !== "moderador") return NextResponse.json({ erro: "Apenas moderadores." }, { status: 403 })
+    const usuarioId = String(body.usuarioId || "")
+    const pontos = Number(body.pontos)
+    const motivo = String(body.motivo || "").trim()
+    const ano = Number(body.ano)
+    if (!buscarUsuario(usuarioId) || !Number.isFinite(pontos) || pontos < -100 || pontos > 100 || motivo.length < 3 || !Number.isInteger(ano)) {
+      return NextResponse.json({ erro: "Dados inválidos para o ajuste." }, { status: 400 })
+    }
+    return NextResponse.json({ ok: true, ajuste: salvarRankingAjuste({ usuario_id: usuarioId, pontos, motivo, ano, criado_por: ctx.usuario.id }) })
+  }
+
+  if (action === "salvar_config") {
+    if (ctx.usuario.tipo !== "moderador") return NextResponse.json({ erro: "Apenas moderadores." }, { status: 403 })
+    const ano = Number(body.ano)
+    const peso_formacao = Number(body.peso_formacao)
+    const peso_liturgia = Number(body.peso_liturgia)
+    const peso_pontualidade = Number(body.peso_pontualidade)
+    const peso_reconhecimento = Number(body.peso_reconhecimento)
+    const minutos_antecedencia = Number(body.minutos_antecedencia)
+    const pesos = [peso_formacao, peso_liturgia, peso_pontualidade, peso_reconhecimento]
+    if (!Number.isInteger(ano) || pesos.some((p) => !Number.isFinite(p) || p < 0 || p > 100) || Math.round(pesos.reduce((a,b)=>a+b,0)) !== 100 || !Number.isFinite(minutos_antecedencia) || minutos_antecedencia < 10 || minutos_antecedencia > 120) {
+      return NextResponse.json({ erro: "Os pesos devem totalizar 100 e a antecedência deve ficar entre 10 e 120 minutos." }, { status: 400 })
+    }
+    const config = salvarRankingConfig({ ano, peso_formacao, peso_liturgia, peso_pontualidade, peso_reconhecimento, minutos_antecedencia, atualizado_em: Date.now() })
+    return NextResponse.json({ ok: true, config })
+  }
+
+  return NextResponse.json({ erro: "Ação desconhecida." }, { status: 400 })
+}

@@ -33,31 +33,36 @@ export function AreaHeader({
   }
 
   return (
-    <header className="border-b-2 border-accent bg-card/95 text-foreground shadow-sm backdrop-blur">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5">
-        <div className="min-w-0">
-          {voltarHref && (
-            <Link
-              href={voltarHref}
-              className="mb-1 inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition hover:text-primary"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden="true" />
-              {voltarLabel}
-            </Link>
-          )}
-          <h1 className="text-pretty font-serif text-2xl font-semibold tracking-tight text-primary">{titulo}</h1>
-          <p className="text-sm text-muted-foreground">{subtitulo ?? site.comunidade}</p>
+    <header className="app-safe-header sticky top-0 z-50 w-full border-b border-accent/75 bg-white text-foreground shadow-sm" data-no-pull-refresh>
+      <div className="app-header-row mx-auto flex w-full max-w-6xl items-center gap-2 px-[var(--app-gutter)] sm:min-h-[78px] sm:py-3">
+        {voltarHref && (
+          <Link
+            href={voltarHref}
+            title={voltarLabel}
+            aria-label={voltarLabel}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-white text-primary active:scale-95 sm:size-10"
+          >
+            <ArrowLeft className="size-[18px]" aria-hidden="true" />
+          </Link>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h1 className="truncate font-serif text-[1.16rem] font-semibold leading-tight tracking-tight text-primary sm:text-2xl">{titulo}</h1>
+            {badge && <div className="hidden shrink-0 sm:block">{badge}</div>}
+          </div>
+          <p className="truncate text-[10px] leading-4 text-muted-foreground sm:text-sm">{subtitulo ?? site.comunidade}</p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5">
           {menu}
-          {badge}
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-white/80 px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/45 hover:bg-primary/5"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-white text-primary shadow-sm transition active:scale-95 sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-sm sm:font-medium"
+            aria-label="Sair da Área Restrita"
           >
-            <LogOut className="size-4" aria-hidden="true" />
+            <LogOut className="size-[17px]" aria-hidden="true" />
             <span className="hidden sm:inline">Sair</span>
           </button>
         </div>

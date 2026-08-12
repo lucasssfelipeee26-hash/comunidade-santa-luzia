@@ -98,14 +98,14 @@ export function LiturgiaDiaria() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-accent/15 px-6 py-2.5 text-sm text-primary">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-accent/15 px-4 py-2.5 sm:px-6 text-sm text-primary">
         <CalendarDays className="size-4 shrink-0 text-accent-foreground" aria-hidden="true" />
         <span className="text-muted-foreground">Tempo litúrgico atual:</span>
         <span className="font-semibold text-foreground">{romanizarLiturgia(data.tempoLiturgicoAtual)}</span>
         <span className="ml-auto text-xs text-muted-foreground">Atualização automática · Canção Nova</span>
       </div>
 
-      <div className="border-b border-border bg-primary px-6 py-6 text-primary-foreground">
+      <div className="border-b border-border bg-primary px-4 py-4 sm:px-6 sm:py-6 text-primary-foreground">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <BookOpen className="size-6 text-accent" aria-hidden="true" />
@@ -119,7 +119,7 @@ export function LiturgiaDiaria() {
       </div>
 
       {data.santoDoDia && (
-        <div className="border-b border-[#d4af37]/30 bg-[#fff9e9] px-6 py-5">
+        <div className="border-b border-[#d4af37]/30 bg-[#fff9e9] px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex gap-4">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#0b4b35] text-[#f2cf62]">
               <Sparkles className="size-5" aria-hidden="true" />
@@ -143,7 +143,7 @@ export function LiturgiaDiaria() {
         </div>
       )}
 
-      <div className="px-6 py-4">
+      <div className="px-4 py-3 sm:px-6 sm:py-4">
         <Accordion defaultValue={["Evangelho"]}>
           <Bloco titulo="Primeira Leitura" itens={data.leituras.primeiraLeitura} />
           <Bloco titulo="Salmo Responsorial" itens={data.leituras.salmo} />

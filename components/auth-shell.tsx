@@ -14,7 +14,7 @@ export function AuthShell({
   icon: React.ReactNode
   titulo: string
   subtitulo?: string
-  voltarHref: string
+  voltarHref?: string
   voltarLabel?: string
   rodape?: React.ReactNode
   children: React.ReactNode
@@ -26,13 +26,15 @@ export function AuthShell({
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -right-16 size-96 rounded-full bg-accent/10 blur-3xl" />
 
       <div className="relative w-full max-w-md">
-        <Link
-          href={voltarHref}
-          className="mb-5 inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {voltarLabel}
-        </Link>
+        {voltarHref && (
+          <Link
+            href={voltarHref}
+            className="mb-5 inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {voltarLabel}
+          </Link>
+        )}
 
         <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-[0_18px_55px_rgba(79,24,35,.10)]">
           <div className="border-b border-border bg-[linear-gradient(180deg,#fff_0%,#fff9f2_100%)] px-8 pb-6 pt-8 text-center">

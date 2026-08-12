@@ -29,9 +29,9 @@ export function SiteFooter() {
 
         <div>
           <h4 className="mb-3 font-serif text-xl text-[#f2cf62]">Serviço ao altar</h4>
-          <p className="text-sm leading-relaxed text-white/78">Formação, escala das celebrações, liturgia diária e área dos membros.</p>
-          <Link href="/area-restrita" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#f2cf62] hover:underline">
-            <Lock className="size-4" /> Área Restrita
+          <p className="text-sm leading-relaxed text-white/78">Liturgia diária, escala das celebrações, biblioteca e acesso dos membros.</p>
+          <Link href="/area-restrita/login" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#f2cf62] hover:underline">
+            <Lock className="size-4" /> Entrar
           </Link>
         </div>
       </div>

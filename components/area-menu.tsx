@@ -5,11 +5,13 @@ import { useState } from "react"
 import { usePathname } from "next/navigation"
 import {
   BookOpen,
+  CalendarCheck2,
   CalendarDays,
   ClipboardPlus,
   LayoutDashboard,
   Menu,
   Palette,
+  Trophy,
   UserRound,
   X,
 } from "lucide-react"
@@ -17,6 +19,7 @@ import {
 type ItemMenu = {
   href: string
   label: string
+  curto: string
   icon: React.ReactNode
 }
 
@@ -25,16 +28,16 @@ function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
   const pathname = usePathname()
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0" data-no-pull-refresh>
       <button
         type="button"
         aria-label={rotulo}
         aria-expanded={aberto}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         onClick={() => setAberto((valor) => !valor)}
-        className="inline-flex size-10 items-center justify-center rounded-md border border-primary/30 bg-white/90 text-primary shadow-sm transition hover:border-primary/50 hover:bg-primary/5"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-white text-primary shadow-sm transition active:scale-95 sm:size-10"
       >
-        {aberto ? <X className="size-5" /> : <Menu className="size-5" />}
+        {aberto ? <X className="size-[18px]" /> : <Menu className="size-[18px]" />}
       </button>
 
       {aberto && (
@@ -42,33 +45,53 @@ function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
           <button
             type="button"
             aria-label="Fechar menu"
-            className="fixed inset-0 z-40 cursor-default bg-transparent"
+            className="fixed inset-0 z-[70] cursor-default bg-black/25 backdrop-blur-[2px]"
             onClick={() => setAberto(false)}
           />
+
           <nav
-            role="menu"
-            className="absolute right-0 top-12 z-50 w-72 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu da Área Restrita"
+            className="app-nav-panel fixed left-1/2 top-1/2 z-[80] w-[calc(100%_-_24px)] max-w-[470px] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-accent/45 bg-white p-3 text-card-foreground shadow-2xl sm:p-4"
           >
-            <div className="border-b border-accent/35 bg-accent/10 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-primary">Menu da Área Restrita</p>
+            <div className="mb-3 flex items-center justify-between gap-3 px-1">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[.13em] text-primary">Navegação</p>
+                <p className="truncate text-xs text-muted-foreground">Escolha uma área do aplicativo</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAberto(false)}
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-primary"
+                aria-label="Fechar menu"
+              >
+                <X className="size-4" />
+              </button>
             </div>
-            <div className="p-2">
+
+            <div className="app-nav-grid grid grid-cols-4 gap-2 sm:gap-3">
               {itens.map((item) => {
-                const ativo = pathname === item.href
+                const ativo = pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`))
                 return (
                   <Link
+                    prefetch={false}
                     key={item.href}
                     href={item.href}
-                    role="menuitem"
                     onClick={() => setAberto(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
+                    className={`app-nav-tile flex min-w-0 flex-col items-center justify-start gap-1.5 rounded-2xl px-1 py-2.5 text-center transition active:scale-95 sm:py-3 ${
                       ativo
-                        ? "bg-primary/10 text-primary ring-1 ring-primary/20"
-                        : "text-foreground hover:bg-secondary/70"
+                        ? "bg-primary/10 text-primary ring-1 ring-primary/25"
+                        : "bg-secondary/55 text-foreground hover:bg-secondary"
                     }`}
+                    title={item.label}
                   >
-                    <span className="text-primary">{item.icon}</span>
-                    {item.label}
+                    <span className={`flex size-10 items-center justify-center rounded-2xl ${ativo ? "bg-primary text-white" : "bg-white text-primary shadow-sm"}`}>
+                      {item.icon}
+                    </span>
+                    <span className="line-clamp-2 min-h-[2.15rem] w-full text-[9px] font-bold leading-[1.05rem] sm:text-[10px]">
+                      {item.curto}
+                    </span>
                   </Link>
                 )
               })}
@@ -82,64 +105,24 @@ function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
 
 export function ModeradorMenu() {
   const itens: ItemMenu[] = [
-    {
-      href: "/area-restrita/moderador",
-      label: "Painel do Moderador",
-      icon: <LayoutDashboard className="size-4" />,
-    },
-    {
-      href: "/area-restrita/moderador/escala",
-      label: "Montar Escala do Dia",
-      icon: <CalendarDays className="size-4" />,
-    },
-    {
-      href: "/area-restrita/moderador/formacao",
-      label: "Gerenciar Formação",
-      icon: <BookOpen className="size-4" />,
-    },
-    {
-      href: "/area-restrita/moderador/registro",
-      label: "Novo Registro",
-      icon: <ClipboardPlus className="size-4" />,
-    },
-    {
-      href: "/area-restrita/moderador/tema",
-      label: "Cores do Site",
-      icon: <Palette className="size-4" />,
-    },
-    {
-      href: "/escala",
-      label: "Ver Escala Publicada",
-      icon: <CalendarDays className="size-4" />,
-    },
-    {
-      href: "/formacao",
-      label: "Ver Central de Formação",
-      icon: <BookOpen className="size-4" />,
-    },
+    { href: "/area-restrita/moderador", label: "Painel do Moderador", curto: "Painel", icon: <LayoutDashboard className="size-5" /> },
+    { href: "/area-restrita/moderador/escala", label: "Montar Escala do Dia", curto: "Montar escala", icon: <CalendarCheck2 className="size-5" /> },
+    { href: "/area-restrita/moderador/formacao", label: "Gerenciar Formação", curto: "Formação", icon: <BookOpen className="size-5" /> },
+    { href: "/area-restrita/moderador/registro", label: "Novo Registro", curto: "Registro", icon: <ClipboardPlus className="size-5" /> },
+    { href: "/area-restrita/moderador/ranking", label: "Gerenciar Ranking e Quiz", curto: "Ranking / Quiz", icon: <Trophy className="size-5" /> },
+    { href: "/area-restrita/moderador/tema", label: "Cores do Site", curto: "Cores", icon: <Palette className="size-5" /> },
+    { href: "/escala", label: "Ver Escala Publicada", curto: "Escala pública", icon: <CalendarDays className="size-5" /> },
+    { href: "/formacao", label: "Ver Central de Formação", curto: "Central", icon: <BookOpen className="size-5" /> },
   ]
-
-  return <MenuArea itens={itens} rotulo="Abrir menu do moderador" />
+  return <MenuArea itens={itens} rotulo="Abrir navegação do moderador" />
 }
 
 export function MembroMenu() {
   const itens: ItemMenu[] = [
-    {
-      href: "/area-restrita/membro",
-      label: "Meu Perfil",
-      icon: <UserRound className="size-4" />,
-    },
-    {
-      href: "/escala",
-      label: "Escala do Dia",
-      icon: <CalendarDays className="size-4" />,
-    },
-    {
-      href: "/formacao",
-      label: "Formação",
-      icon: <BookOpen className="size-4" />,
-    },
+    { href: "/area-restrita/membro", label: "Meu Perfil", curto: "Meu perfil", icon: <UserRound className="size-5" /> },
+    { href: "/area-restrita/ranking", label: "Ranking e Quiz", curto: "Ranking / Quiz", icon: <Trophy className="size-5" /> },
+    { href: "/escala", label: "Escala do Dia", curto: "Escala", icon: <CalendarDays className="size-5" /> },
+    { href: "/formacao", label: "Formação", curto: "Formação", icon: <BookOpen className="size-5" /> },
   ]
-
-  return <MenuArea itens={itens} rotulo="Abrir menu da área restrita" />
+  return <MenuArea itens={itens} rotulo="Abrir navegação da Área Restrita" />
 }

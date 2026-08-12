@@ -4,24 +4,38 @@ import { criarSessao, verificarSenha } from "@/lib/auth"
 import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export async function POST(req: Request) {
-  const limite = limitar("login:" + ipDaRequisicao(req), 10, 15 * 60 * 1000)
+  const limite = limitar("login:" + ipDaRequisicao(req), 12, 15 * 60 * 1000)
   if (!limite.permitido) {
-    return NextResponse.json({ ok: false, erro: "Muitas tentativas. Aguarde alguns minutos e tente novamente." }, { status: 429 })
+    return NextResponse.json(
+      { ok: false, erro: "Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente." },
+      { status: 429 },
+    )
   }
+
   let body: { usuario?: string; email?: string; senha?: string }
-  try { body = await req.json() } catch {
+  try {
+    body = await req.json()
+  } catch {
     return NextResponse.json({ ok: false, erro: "Requisição inválida." }, { status: 400 })
   }
 
-  // `email` permanece aceito apenas para compatibilidade com versões antigas do front-end.
   const login = String(body.usuario ?? body.email ?? "").trim()
   const senha = String(body.senha ?? "")
-  if (!login || !senha) return NextResponse.json({ ok: false, erro: "Informe seu usuário e senha." }, { status: 400 })
+
+  if (!login || !senha) {
+    return NextResponse.json({ ok: false, erro: "Informe seu usuário/e-mail e sua senha." }, { status: 400 })
+  }
 
   const conta = buscarUsuarioPorLogin(login)
-  if (!conta || !verificarSenha(senha, conta.senha_hash)) {
-    return NextResponse.json({ ok: false, erro: "Usuário ou senha inválidos." }, { status: 401 })
+  const senhaValida = conta?.senha_hash ? verificarSenha(senha, conta.senha_hash) : false
+
+  if (!conta || !senhaValida) {
+    return NextResponse.json(
+      { ok: false, erro: "Usuário/e-mail ou senha inválidos. Confira os dados ou use ‘Esqueci minha senha’." },
+      { status: 401 },
+    )
   }
+
   if (conta.tipo === "membro" && conta.status === "pendente") {
     return NextResponse.json({ ok: false, erro: "Seu cadastro aguarda aprovação do moderador." }, { status: 403 })
   }
@@ -31,9 +45,17 @@ export async function POST(req: Request) {
 
   await criarSessao({ sub: conta.id, tipo: conta.tipo })
   const destino = conta.tipo === "moderador" ? "/area-restrita/moderador" : "/area-restrita/membro"
+
   return NextResponse.json({
     ok: true,
     destino,
-    usuario: { id: conta.id, nome: conta.nome, usuario: conta.usuario, tipo: conta.tipo, funcao: conta.funcao },
+    usuario: {
+      id: conta.id,
+      nome: conta.nome,
+      usuario: conta.usuario,
+      email: conta.email,
+      tipo: conta.tipo,
+      funcao: conta.funcao,
+    },
   })
 }

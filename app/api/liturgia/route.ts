@@ -2,10 +2,17 @@ import { NextResponse } from "next/server"
 import { tempoLiturgico } from "@/lib/calendario"
 
 export const revalidate = 1800
-export const dynamic = "force-dynamic"
-
 const LITURGIA_URL = process.env.LITURGIA_SOURCE_URL || "https://liturgia.cancaonova.com/pb/"
 const SANTO_URL = process.env.SANTO_SOURCE_URL || "https://santo.cancaonova.com/"
+const CACHE_MS = 30 * 60 * 1000
+
+type LiturgiaCache = {
+  dataIso: string
+  expiraEm: number
+  payload: Liturgia
+}
+
+let cacheLiturgia: LiturgiaCache | null = null
 
 type Leitura = {
   referencia?: string
@@ -329,6 +336,16 @@ async function fetchHtml(url: string) {
 
 export async function GET() {
   const dataIso = dataCuiabaIso()
+  const agora = Date.now()
+
+  if (cacheLiturgia?.dataIso === dataIso && cacheLiturgia.expiraEm > agora) {
+    return NextResponse.json(cacheLiturgia.payload, {
+      headers: {
+        "Cache-Control": "public, max-age=300, stale-while-revalidate=1500",
+        "X-Santa-Luzia-Cache": "hit",
+      },
+    })
+  }
 
   try {
     const [liturgiaHtml, santoResult] = await Promise.all([
@@ -343,9 +360,27 @@ export async function GET() {
       throw new Error("A estrutura da Liturgia Diária não pôde ser reconhecida.")
     }
 
-    return NextResponse.json({ ...liturgia, santoDoDia })
+    const payload: Liturgia = { ...liturgia, santoDoDia }
+    cacheLiturgia = { dataIso, expiraEm: agora + CACHE_MS, payload }
+
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "public, max-age=300, stale-while-revalidate=1500",
+        "X-Santa-Luzia-Cache": "miss",
+      },
+    })
   } catch (error) {
     console.error("[Liturgia] Falha ao atualizar pela Canção Nova:", error)
+
+    if (cacheLiturgia?.dataIso === dataIso) {
+      return NextResponse.json(cacheLiturgia.payload, {
+        headers: {
+          "Cache-Control": "public, max-age=60, stale-while-revalidate=900",
+          "X-Santa-Luzia-Cache": "stale",
+        },
+      })
+    }
+
     return NextResponse.json(
       { error: "Não foi possível atualizar a Liturgia Diária pela Canção Nova neste momento." },
       { status: 502 },

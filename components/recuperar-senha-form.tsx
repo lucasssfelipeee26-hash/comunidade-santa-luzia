@@ -2,81 +2,106 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { AlertCircle, CheckCircle2, KeyRound, Loader2, Mail } from "lucide-react"
+import { AlertCircle, CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Mail, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useStore } from "@/lib/store"
+import { emitAppFeedback } from "@/lib/sound-preferences"
 
 type Etapa = "solicitar" | "confirmar" | "concluido"
 
 export function RecuperarSenhaForm() {
   const { solicitarRecuperacaoSenha, confirmarRecuperacaoSenha } = useStore()
   const [etapa, setEtapa] = useState<Etapa>("solicitar")
-  const [email, setEmail] = useState("")
+  const [identificador, setIdentificador] = useState("")
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [mensagem, setMensagem] = useState<string | null>(null)
+  const [mostrarSenha, setMostrarSenha] = useState(false)
 
   async function handleSolicitar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setErro(null)
-    setLoading(true)
+    setMensagem(null)
     const form = new FormData(e.currentTarget)
-    const valor = String(form.get("email") ?? "").trim()
-    const res = await solicitarRecuperacaoSenha(valor)
-    setLoading(false)
-    if (!res.ok) {
-      setErro(res.erro ?? "Não foi possível enviar o código.")
+    const valor = String(form.get("identificador") ?? "").trim()
+
+    if (!valor) {
+      setErro("Informe seu usuário ou e-mail.")
       return
     }
-    setEmail(valor)
-    setMensagem(res.mensagem ?? "Se este e-mail estiver cadastrado, enviamos um código de verificação.")
-    setEtapa("confirmar")
+
+    setLoading(true)
+    try {
+      const res = await solicitarRecuperacaoSenha(valor)
+      if (!res.ok) {
+        emitAppFeedback("error")
+        setErro(res.erro ?? "Não foi possível enviar o código.")
+        return
+      }
+      emitAppFeedback("success")
+      setIdentificador(valor)
+      setMensagem(res.mensagem ?? "Código enviado ao e-mail cadastrado.")
+      setEtapa("confirmar")
+    } catch {
+      emitAppFeedback("error")
+      setErro("Não foi possível conectar ao servidor para enviar o código.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleConfirmar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setErro(null)
     const form = new FormData(e.currentTarget)
-    const codigo = String(form.get("codigo") ?? "").trim()
+    const codigo = String(form.get("codigo") ?? "").replace(/\D/g, "")
     const novaSenha = String(form.get("novaSenha") ?? "")
     const confirmar = String(form.get("confirmar") ?? "")
 
-    if (novaSenha.length < 6) {
-      setErro("A nova senha deve ter pelo menos 6 caracteres.")
+    if (codigo.length !== 6) {
+      setErro("Digite os 6 números do código recebido por e-mail.")
+      return
+    }
+    if (novaSenha.length < 8) {
+      setErro("A nova senha deve ter pelo menos 8 caracteres.")
       return
     }
     if (novaSenha !== confirmar) {
-      setErro("As senhas não coincidem.")
+      setErro("As duas senhas não coincidem.")
       return
     }
 
     setLoading(true)
-    const res = await confirmarRecuperacaoSenha(email, codigo, novaSenha)
-    setLoading(false)
-    if (!res.ok) {
-      setErro(res.erro ?? "Não foi possível redefinir a senha.")
-      return
+    try {
+      const res = await confirmarRecuperacaoSenha(identificador, codigo, novaSenha)
+      if (!res.ok) {
+        emitAppFeedback("error")
+        setErro(res.erro ?? "Não foi possível redefinir a senha.")
+        return
+      }
+      emitAppFeedback("success")
+      setEtapa("concluido")
+    } catch {
+      emitAppFeedback("error")
+      setErro("Não foi possível conectar ao servidor para redefinir a senha.")
+    } finally {
+      setLoading(false)
     }
-    setEtapa("concluido")
   }
 
   if (etapa === "concluido") {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-[oklch(0.6_0.08_160)]/15 text-[oklch(0.45_0.08_160)]">
+        <span className="flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700">
           <CheckCircle2 className="size-7" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="font-serif text-2xl text-primary">Senha redefinida!</h2>
-          <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">
-            Sua senha foi alterada com sucesso. Você já pode entrar com a nova senha.
-          </p>
+          <h2 className="font-serif text-2xl text-primary">Senha redefinida</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Sua nova senha já está ativa. Entre novamente usando seu usuário/e-mail e a nova senha.</p>
         </div>
-        <Link href="/area-restrita/login" className="text-sm font-medium text-primary hover:underline">
-          Ir para o login
-        </Link>
+        <Link href="/area-restrita/login" className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/80">Voltar para o login</Link>
       </div>
     )
   }
@@ -84,131 +109,60 @@ export function RecuperarSenhaForm() {
   if (etapa === "confirmar") {
     return (
       <form onSubmit={handleConfirmar} className="space-y-4">
-        {mensagem && (
-          <p className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-muted-foreground">
-            {mensagem}
-          </p>
-        )}
+        {mensagem && <div className="rounded-lg border border-emerald-600/20 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-800">{mensagem}</div>}
 
         <div className="space-y-2">
-          <Label htmlFor="codigo">Código recebido por e-mail</Label>
-          <Input
-            id="codigo"
-            name="codigo"
-            type="text"
-            inputMode="numeric"
-            placeholder="000000"
-            maxLength={6}
-            autoComplete="one-time-code"
-            required
-          />
+          <Label htmlFor="codigo">Código de 6 dígitos</Label>
+          <Input id="codigo" name="codigo" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="000000" maxLength={6} autoComplete="one-time-code" className="text-center text-xl tracking-[0.35em]" required />
+          <p className="text-xs text-muted-foreground">Use somente o código mais recente. Ele expira em 15 minutos.</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="novaSenha">Nova senha</Label>
-            <Input
-              id="novaSenha"
-              name="novaSenha"
-              type="password"
-              placeholder="••••••••"
-              autoComplete="new-password"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmar">Confirmar senha</Label>
-            <Input
-              id="confirmar"
-              name="confirmar"
-              type="password"
-              placeholder="••••••••"
-              autoComplete="new-password"
-              required
-            />
+        <div className="space-y-2">
+          <Label htmlFor="novaSenha">Nova senha</Label>
+          <div className="relative">
+            <Input id="novaSenha" name="novaSenha" type={mostrarSenha ? "text" : "password"} className="pr-11" placeholder="Mínimo de 8 caracteres" autoComplete="new-password" required />
+            <button type="button" onClick={() => setMostrarSenha((v) => !v)} className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted" aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}>
+              {mostrarSenha ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
         </div>
 
-        {erro && (
-          <div
-            role="alert"
-            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <span>{erro}</span>
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="confirmar">Confirme a nova senha</Label>
+          <Input id="confirmar" name="confirmar" type={mostrarSenha ? "text" : "password"} placeholder="Digite novamente" autoComplete="new-password" required />
+        </div>
+
+        {erro && <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{erro}</span></div>}
 
         <Button type="submit" className="w-full gap-2" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Redefinindo…
-            </>
-          ) : (
-            <>
-              <KeyRound className="size-4" aria-hidden="true" />
-              Redefinir senha
-            </>
-          )}
+          {loading ? <><Loader2 className="size-4 animate-spin" />Redefinindo…</> : <><KeyRound className="size-4" />Salvar nova senha</>}
         </Button>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Não recebeu o código?{" "}
-          <button
-            type="button"
-            onClick={() => setEtapa("solicitar")}
-            className="font-medium text-primary hover:underline"
-          >
-            Solicitar novamente
-          </button>
-        </p>
+        <button type="button" onClick={() => { setEtapa("solicitar"); setErro(null); setMensagem(null) }} className="flex w-full items-center justify-center gap-2 text-sm font-medium text-primary hover:underline">
+          <RotateCcw className="size-4" />Solicitar outro código
+        </button>
       </form>
     )
   }
 
   return (
-    <form onSubmit={handleSolicitar} className="space-y-4">
-      <p className="text-pretty text-sm text-muted-foreground">
-        Informe o e-mail cadastrado — vale para membros e moderadores. Vamos enviar um código de
-        verificação para você redefinir sua senha.
-      </p>
-
-      <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
-        <Input id="email" name="email" type="email" placeholder="seu.nome@exemplo.com" autoComplete="username" required />
+    <form onSubmit={handleSolicitar} className="space-y-5">
+      <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-3 text-sm leading-relaxed text-muted-foreground">
+        Digite seu <strong className="text-foreground">usuário ou e-mail</strong>. O código será enviado somente para o e-mail de recuperação cadastrado na sua conta.
       </div>
 
-      {erro && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <span>{erro}</span>
-        </div>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="identificador">Usuário ou e-mail</Label>
+        <Input id="identificador" name="identificador" type="text" placeholder="seu.usuario ou seu@email.com" autoCapitalize="none" autoCorrect="off" autoComplete="username" spellCheck={false} required />
+      </div>
+
+      {erro && <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{erro}</span></div>}
 
       <Button type="submit" className="w-full gap-2" disabled={loading}>
-        {loading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" />
-            Enviando…
-          </>
-        ) : (
-          <>
-            <Mail className="size-4" aria-hidden="true" />
-            Enviar código
-          </>
-        )}
+        {loading ? <><Loader2 className="size-4 animate-spin" />Enviando…</> : <><Mail className="size-4" />Enviar código por e-mail</>}
       </Button>
 
-      <p className="text-center text-sm text-muted-foreground">
-        Lembrou a senha?{" "}
-        <Link href="/area-restrita/login" className="font-medium text-primary hover:underline">
-          Voltar ao login
-        </Link>
-      </p>
+      <p className="text-center text-sm text-muted-foreground">Lembrou a senha? <Link href="/area-restrita/login" className="font-medium text-primary hover:underline">Voltar ao login</Link></p>
     </form>
   )
 }

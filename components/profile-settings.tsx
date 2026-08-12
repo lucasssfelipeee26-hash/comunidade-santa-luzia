@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SoundPreferencesPanel } from "@/components/sound-preferences"
+import { emitAppFeedback } from "@/lib/sound-preferences"
 
 const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
 
@@ -87,8 +89,10 @@ export function ProfileSettings() {
       if (!resposta.ok || !json.ok) throw new Error(json.erro || "Não foi possível atualizar o perfil.")
 
       setMensagem("Perfil atualizado com sucesso.")
+      emitAppFeedback("success")
       await Promise.all([mutate("/api/perfil"), mutate("/api/auth/me"), mutate("/api/membros")])
     } catch (erro) {
+      emitAppFeedback("error")
       setMensagem(erro instanceof Error ? erro.message : "Erro ao atualizar o perfil.")
     } finally {
       setSalvando(false)
@@ -96,15 +100,15 @@ export function ProfileSettings() {
   }
 
   return (
-    <section className="mb-8 rounded-2xl border border-border bg-white p-5 shadow-sm sm:p-6">
+    <section className="mb-6 w-full max-w-full overflow-hidden rounded-2xl border border-border bg-white p-4 shadow-sm sm:mb-8 sm:p-6">
       <div className="mb-5">
         <h2 className="font-serif text-2xl font-semibold text-primary">Meu perfil</h2>
         <p className="mt-1 text-sm text-muted-foreground">Atualize seus dados pessoais e a foto exibida na Área Restrita.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[160px_1fr]">
-        <div className="flex flex-col items-center gap-3">
-          <Avatar className="size-24 border-2 border-accent/55 shadow-sm">
+      <div className="grid min-w-0 gap-5 md:grid-cols-[150px_minmax(0,1fr)] md:gap-6">
+        <div className="flex min-w-0 flex-col items-center gap-3">
+          <Avatar className="size-20 border-2 border-accent/55 shadow-sm sm:size-24">
             <AvatarImage src={foto || undefined} />
             <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
               {iniciais(nome || perfil.nome)}
@@ -124,25 +128,25 @@ export function ProfileSettings() {
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="perfil-nome">Nome</Label>
-            <Input id="perfil-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <Input className="w-full min-w-0" id="perfil-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="perfil-email">E-mail</Label>
-            <Input id="perfil-email" value={perfil.email} disabled />
+            <Input className="w-full min-w-0 text-[13px] sm:text-sm" id="perfil-email" value={perfil.email} disabled />
           </div>
 
           {perfil.tipo === "membro" && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="perfil-nascimento">Data de nascimento</Label>
-                <Input id="perfil-nascimento" type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} />
+                <Input className="w-full min-w-0" id="perfil-nascimento" type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="perfil-votos">Profissão dos votos (opcional)</Label>
-                <Input id="perfil-votos" type="date" value={votos} onChange={(e) => setVotos(e.target.value)} />
+                <Input className="w-full min-w-0" id="perfil-votos" type="date" value={votos} onChange={(e) => setVotos(e.target.value)} />
               </div>
             </>
           )}
@@ -155,6 +159,7 @@ export function ProfileSettings() {
           </div>
         </div>
       </div>
+      <SoundPreferencesPanel />
     </section>
   )
 }

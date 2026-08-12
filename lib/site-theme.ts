@@ -12,19 +12,31 @@ type ConfiguracaoSite = {
   atualizado_em?: number
 }
 
+let cacheConfiguracao: ConfiguracaoSite | null = null
+let cacheMtimeMs = -1
+
 function garantirPasta() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 }
 
 function lerConfiguracao(): ConfiguracaoSite {
   garantirPasta()
-  if (!fs.existsSync(CONFIG_PATH)) return {}
+  if (!fs.existsSync(CONFIG_PATH)) {
+    cacheConfiguracao = {}
+    cacheMtimeMs = 0
+    return cacheConfiguracao
+  }
 
   try {
+    const mtimeMs = fs.statSync(CONFIG_PATH).mtimeMs
+    if (cacheConfiguracao && cacheMtimeMs === mtimeMs) return cacheConfiguracao
+
     const parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as ConfiguracaoSite
-    return parsed && typeof parsed === "object" ? parsed : {}
+    cacheConfiguracao = parsed && typeof parsed === "object" ? parsed : {}
+    cacheMtimeMs = mtimeMs
+    return cacheConfiguracao
   } catch {
-    return {}
+    return cacheConfiguracao || {}
   }
 }
 
@@ -42,6 +54,26 @@ export function salvarTemaSite(tema: TemaSite) {
     atualizado_em: Date.now(),
   }
 
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(novo, null, 2), "utf8")
+  const temporario = `${CONFIG_PATH}.tmp`
+  fs.writeFileSync(temporario, JSON.stringify(novo, null, 2), "utf8")
+  fs.renameSync(temporario, CONFIG_PATH)
+
+  cacheConfiguracao = novo
+  try {
+    cacheMtimeMs = fs.statSync(CONFIG_PATH).mtimeMs
+  } catch {
+    cacheMtimeMs = -1
+  }
+
   return novo
+}
+
+export function obterRevisaoTemaSite() {
+  try {
+    if (!fs.existsSync(CONFIG_PATH)) return "tema-padrao"
+    const stat = fs.statSync(CONFIG_PATH)
+    return `${Math.trunc(stat.mtimeMs)}-${stat.size}`
+  } catch {
+    return "tema-indisponivel"
+  }
 }

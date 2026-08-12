@@ -22,7 +22,12 @@ export function GerenciadorFormacoes() {
     catch (e) { setErro(e instanceof Error ? e.message : "Erro ao carregar formações.") }
     finally { setLoading(false) }
   }
-  useEffect(() => { carregar() }, [])
+  useEffect(() => {
+    void carregar()
+    const aoSincronizar = () => void carregar()
+    window.addEventListener("santa-luzia:server-sync", aoSincronizar)
+    return () => window.removeEventListener("santa-luzia:server-sync", aoSincronizar)
+  }, [])
 
   async function criar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setSaving(true); setErro("")
