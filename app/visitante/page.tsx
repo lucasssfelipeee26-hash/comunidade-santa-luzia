@@ -8,10 +8,10 @@ import { SiteFooter } from "@/components/site-footer"
 const atalhos = [
   {
     icon: BookOpenText,
-    title: "Liturgia Diária",
-    text: "Acompanhe as leituras, o Evangelho e o Santo do Dia.",
-    href: "/visitante#liturgia",
-    cta: "Ver liturgia",
+    title: "Centro Litúrgico",
+    text: "Liturgia diária, Liturgia das Horas, Rosário, guia da Missa e calendário.",
+    href: "/liturgia",
+    cta: "Abrir centro",
   },
   {
     icon: CalendarDays,
@@ -43,7 +43,7 @@ export default function VisitantePage() {
       <main>
         <div className="border-b border-[#d4af37]/45 bg-[#fff7e5] px-4 py-2.5 text-center text-xs font-semibold text-[#6d4d0f]">
           <span className="mr-1">Modo visitante</span>
-          <span className="text-[#756b5f]">· Liturgia, Escala do Dia e Biblioteca</span>
+          <span className="text-[#756b5f]">· Centro Litúrgico, Escala do Dia e Biblioteca</span>
           <Link href="/area-restrita/login" className="ml-2 inline-flex items-center gap-1 font-bold text-[#7b1326] hover:underline">
             <LogIn className="size-3.5" /> Entrar
           </Link>
