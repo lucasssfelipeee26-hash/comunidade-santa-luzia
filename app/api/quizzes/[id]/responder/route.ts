@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import { buscarQuiz, buscarRespostaQuiz, buscarUsuario, salvarRespostaQuiz } from "@/lib/db"
+import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
@@ -11,6 +12,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const { id } = await context.params
   const quiz = buscarQuiz(id)
   if (!quiz || !quiz.ativo) return NextResponse.json({ erro: "Quiz não encontrado." }, { status: 404 })
+
+  if (quiz.origem === "liturgia") {
+    const hoje = dataCuiabaIso()
+    if (!quiz.data_referencia || quiz.data_referencia !== hoje || !obterLiturgiaLocal(quiz.data_referencia)) {
+      return NextResponse.json({ erro: "Este Quiz Litúrgico não está alinhado com a Liturgia offline disponível hoje." }, { status: 409 })
+    }
+  }
+
   const existente = buscarRespostaQuiz(id, usuario.id)
   if (existente) return NextResponse.json({ erro: "Este quiz já foi respondido.", resultado: existente }, { status: 409 })
 
