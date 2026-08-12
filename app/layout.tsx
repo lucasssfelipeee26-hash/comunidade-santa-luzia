@@ -3,35 +3,22 @@ import { Cormorant_Garamond, Inter } from "next/font/google"
 import "./globals.css"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { AppRuntime } from "@/components/app-runtime"
+import { OfflineLiturgiaRuntime } from "@/components/offline-liturgia-runtime"
 import { lerTemaSite } from "@/lib/site-theme"
 
 export const dynamic = "force-dynamic"
 
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-cormorant",
-})
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-})
-
+const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "600", "700"], variable: "--font-cormorant" })
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "Comunidade Santa Luzia · Acólitos e Coroinhas São Padre Pio",
-  description:
-    "Comunidade Santa Luzia · Acólitos e Coroinhas São Padre Pio, Paróquia Nossa Senhora das Graças, Várzea Grande - MT.",
+  description: "Comunidade Santa Luzia · Acólitos e Coroinhas São Padre Pio, Paróquia Nossa Senhora das Graças, Várzea Grande - MT.",
   applicationName: "Santa Luzia",
   manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    title: "Santa Luzia",
-    statusBarStyle: "default",
-  },
+  appleWebApp: { capable: true, title: "Santa Luzia", statusBarStyle: "default" },
   icons: {
     icon: [
       { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
@@ -44,24 +31,14 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport: Viewport = {
-  colorScheme: "light",
-  themeColor: "#7b1326",
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-}
+export const viewport: Viewport = { colorScheme: "light", themeColor: "#7b1326", width: "device-width", initialScale: 1, viewportFit: "cover" }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      suppressHydrationWarning
-      lang="pt-BR"
-      data-site-theme={lerTemaSite()}
-      className={`${cormorant.variable} ${inter.variable} bg-background`}
-    >
+    <html suppressHydrationWarning lang="pt-BR" data-site-theme={lerTemaSite()} className={`${cormorant.variable} ${inter.variable} bg-background`}>
       <body suppressHydrationWarning className="app-mobile-shell font-sans antialiased">
         <AppRuntime>
+          <OfflineLiturgiaRuntime />
           {children}
           <MobileBottomNav />
         </AppRuntime>
