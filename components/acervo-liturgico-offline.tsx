@@ -21,16 +21,34 @@ async function abrir(res:Response):Promise<Pacote>{
   return JSON.parse(await new Response(s).text())
 }
 
+const imagensRosario:Record<string,string[]>={
+  "misterios_alegria.htm":["anunciacao.gif","visitacao.gif","natividade.gif","apresentacao.gif","entredoutores.gif"],
+  "misterios_luz.htm":["batismo.gif","bodas.gif","pregacao.gif","transfiguracao.gif","eucaristia.gif"],
+  "misterios_dor.htm":["agonianohorto.gif","flagelacao.gif","espinhos.gif","cruzcarregada.gif","crucificacao.gif"],
+  "misterios_gloria.htm":["ressureicao.gif","ascencao.gif","pentecostes.gif","assuncao.gif","coroacao.gif"],
+}
+
 function textoHtml(h:string){const d=new DOMParser().parseFromString(h,"text/html");return d.body.textContent||""}
-function sanitizar(h:string){
+function sanitizar(h:string,documentPath=""){
   const d=new DOMParser().parseFromString(h,"text/html")
-  const ok=new Set(["DIV","P","BR","SPAN","FONT","B","STRONG","I","EM","U","SUP","SUB","H1","H2","H3","H4","H5","H6","CENTER","BLOCKQUOTE","HR","OL","UL","LI","TABLE","TBODY","THEAD","TFOOT","TR","TD","TH"])
+  const arquivo=(documentPath.split("/").pop()||"").toLowerCase()
+  const imgsRosario=imagensRosario[arquivo]
+  if(imgsRosario){
+    for(let i=1;i<=5;i++){
+      const img=d.body.querySelector(`#figura${i}`) as HTMLImageElement|null
+      if(img){img.setAttribute("src",`/${imgsRosario[i-1]}`);img.setAttribute("alt",`Mistério ${i}`);img.setAttribute("loading","lazy")}
+    }
+  }
+  const ok=new Set(["DIV","P","BR","SPAN","FONT","B","STRONG","I","EM","U","SUP","SUB","H1","H2","H3","H4","H5","H6","CENTER","BLOCKQUOTE","HR","OL","UL","LI","TABLE","TBODY","THEAD","TFOOT","TR","TD","TH","IMG"])
   for(const el of Array.from(d.body.querySelectorAll("*"))){
     if(!ok.has(el.tagName)){if(["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META"].includes(el.tagName))el.remove();else el.replaceWith(...Array.from(el.childNodes));continue}
     for(const a of Array.from(el.attributes)){
-      const n=a.name.toLowerCase(),v=a.value.trim(),permitido=(el.tagName==="FONT"&&["color","face","size"].includes(n))||(["DIV","P","CENTER","TD","TH"].includes(el.tagName)&&n==="align")||(["TD","TH"].includes(el.tagName)&&["colspan","rowspan"].includes(n))||n==="class"||n==="style"
+      const n=a.name.toLowerCase(),v=a.value.trim()
+      const imgPermitido=el.tagName==="IMG"&&["src","alt","width","height","align","id","loading"].includes(n)
+      const permitido=imgPermitido||(el.tagName==="FONT"&&["color","face","size"].includes(n))||(["DIV","P","CENTER","TD","TH"].includes(el.tagName)&&n==="align")||(["TD","TH"].includes(el.tagName)&&["colspan","rowspan"].includes(n))||n==="class"||n==="style"
       if(!permitido||n.startsWith("on")){el.removeAttribute(a.name);continue}
-      if(n==="style"){const s=v.split(";").map(x=>x.trim()).filter(x=>/^(color|text-align|font-weight|font-style|text-decoration|vertical-align)\s*:/i.test(x));s.length?el.setAttribute("style",s.join("; ")):el.removeAttribute("style")}
+      if(el.tagName==="IMG"&&n==="src"&&!/^\/[a-z0-9_.-]+$/i.test(v)){el.removeAttribute("src");continue}
+      if(n==="style"){const s=v.split(";").map(x=>x.trim()).filter(x=>/^(color|text-align|font-weight|font-style|text-decoration|vertical-align|float|margin|width|max-width|height)\s*:/i.test(x));s.length?el.setAttribute("style",s.join("; ")):el.removeAttribute("style")}
     }
   }
   return d.body.innerHTML
@@ -65,7 +83,7 @@ export function AcervoLiturgicoOffline({categoriaInicial="",buscaInicial="",embu
   },[m,cat,documentoInicial])
 
   const filtrados=useMemo(()=>{const q=busca.trim().toLocaleLowerCase("pt-BR");return docs.filter(d=>!q||`${d.title} ${d.path} ${d.text||textoHtml(d.html||"")}`.toLocaleLowerCase("pt-BR").includes(q)).slice(0,400)},[docs,busca])
-  const html=useMemo(()=>aberto?.html?sanitizar(aberto.html):"",[aberto])
+  const html=useMemo(()=>aberto?.html?sanitizar(aberto.html,aberto.path):"",[aberto])
 
   if(documentoInicial&&!aberto){return <div className="flex min-h-[45vh] items-center justify-center rounded-2xl bg-[#fffaf0]/70"><div className="max-w-md px-5 text-center text-sm text-[#6b5137]">{loading?<span className="inline-flex items-center gap-2"><Loader2 className="size-5 animate-spin"/>Abrindo conteúdo do dia…</span>:erro||"Conteúdo não localizado."}</div></div>}
 
@@ -73,8 +91,8 @@ export function AcervoLiturgicoOffline({categoriaInicial="",buscaInicial="",embu
     {!documentoInicial&&<button onClick={()=>setAberto(null)} className="mb-4 inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold"><X className="size-4"/>Voltar</button>}
     {!documentoInicial&&<p className="text-xs font-bold uppercase tracking-[.16em] text-[#9a731d]">{aberto.path}</p>}
     {aberto.title&&<h2 className="mt-2 font-serif text-2xl font-semibold text-[#8f182e] sm:text-3xl">{aberto.title}</h2>}
-    <ImagemDocumento doc={aberto}/>
-    {html?<div className="liturgical-document mt-5 text-[1.04rem] leading-8 text-[#2f2924] [&_font[color=red]]:text-[#b42332] [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_sup]:text-[#b42332]" dangerouslySetInnerHTML={{__html:html}}/>:<div className="mt-5 whitespace-pre-line text-[1.04rem] leading-8">{aberto.text}</div>}
+    {!aberto.path.toLowerCase().startsWith("rosario/")&&<ImagemDocumento doc={aberto}/>} 
+    {html?<div className="liturgical-document mt-5 text-[1.04rem] leading-8 text-[#2f2924] [&_font[color=red]]:text-[#b42332] [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_sup]:text-[#b42332] [&_img]:mr-4 [&_img]:mb-3 [&_img]:max-w-[42%] [&_img]:rounded-lg sm:[&_img]:max-w-[220px]" dangerouslySetInnerHTML={{__html:html}}/>:<div className="mt-5 whitespace-pre-line text-[1.04rem] leading-8">{aberto.text}</div>}
   </article>
 
   return <div>
