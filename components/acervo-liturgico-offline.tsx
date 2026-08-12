@@ -11,6 +11,7 @@ type Props={categoriaInicial?:string;buscaInicial?:string;embutido?:boolean;titu
 
 const MANIFESTO="/offline/iliturgia/manifest.json"
 const pacoteUrl=(nome:string)=>`/api/acervo-embutido?nome=${encodeURIComponent(nome)}`
+const documentoUrl=(categoria:string,documento:string)=>`/api/acervo-documento?categoria=${encodeURIComponent(categoria)}&documento=${encodeURIComponent(documento)}`
 
 async function abrir(res:Response):Promise<Pacote>{
   if(!res.ok)throw new Error("Pacote litúrgico interno não encontrado.")
@@ -43,27 +44,30 @@ export function AcervoLiturgicoOffline({categoriaInicial="",buscaInicial="",embu
   const[m,setM]=useState<Manifesto|null>(null),[cat,setCat]=useState(categoriaInicial),[docs,setDocs]=useState<Documento[]>([]),[busca,setBusca]=useState(buscaInicial),[aberto,setAberto]=useState<Documento|null>(null),[loading,setLoading]=useState(false),[erro,setErro]=useState("")
 
   useEffect(()=>{fetch(MANIFESTO,{cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error("Conteúdo litúrgico interno indisponível.");const x=await r.json();setM(x);if(!cat)setCat(categoriaInicial||x.categorias[0]?.id||"")}).catch(e=>setErro(e.message))},[])
-  useEffect(()=>{if(categoriaInicial)setCat(categoriaInicial);setBusca(buscaInicial);setAberto(null)},[categoriaInicial,buscaInicial,documentoInicial])
+  useEffect(()=>{if(categoriaInicial)setCat(categoriaInicial);setBusca(buscaInicial);setAberto(null);setErro("")},[categoriaInicial,buscaInicial,documentoInicial])
+
   useEffect(()=>{
-    if(!m||!cat)return
+    if(!documentoInicial||!cat)return
+    let off=false;setLoading(true);setErro("")
+    fetch(documentoUrl(cat,documentoInicial),{cache:"force-cache"}).then(async r=>{
+      if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||"O conteúdo próprio desta celebração não foi localizado no acervo interno.")}
+      return r.json() as Promise<Documento>
+    }).then(d=>{if(!off)setAberto(d)}).catch(e=>{if(!off)setErro(e.message)}).finally(()=>{if(!off)setLoading(false)})
+    return()=>{off=true}
+  },[cat,documentoInicial])
+
+  useEffect(()=>{
+    if(documentoInicial||!m||!cat)return
     const c=m.categorias.find(x=>x.id===cat);if(!c)return
     let off=false;setLoading(true);setErro("")
-    Promise.all(c.arquivos.map(async a=>abrir(await fetch(pacoteUrl(a),{cache:"force-cache"})))).then(p=>{
-      if(off)return
-      const carregados=p.flatMap(x=>x.documents);setDocs(carregados)
-      if(documentoInicial){
-        const alvo=documentoInicial.toLowerCase()
-        const doc=carregados.find(d=>d.path.toLowerCase()===alvo||d.id.toLowerCase()===alvo)
-        if(doc)setAberto(doc);else setErro("O conteúdo próprio desta celebração não foi localizado no acervo interno.")
-      }
-    }).catch(e=>{if(!off)setErro(e.message)}).finally(()=>{if(!off)setLoading(false)})
+    Promise.all(c.arquivos.map(async a=>abrir(await fetch(pacoteUrl(a),{cache:"force-cache"})))).then(p=>{if(!off)setDocs(p.flatMap(x=>x.documents))}).catch(e=>{if(!off)setErro(e.message)}).finally(()=>{if(!off)setLoading(false)})
     return()=>{off=true}
   },[m,cat,documentoInicial])
 
   const filtrados=useMemo(()=>{const q=busca.trim().toLocaleLowerCase("pt-BR");return docs.filter(d=>!q||`${d.title} ${d.path} ${d.text||textoHtml(d.html||"")}`.toLocaleLowerCase("pt-BR").includes(q)).slice(0,400)},[docs,busca])
   const html=useMemo(()=>aberto?.html?sanitizar(aberto.html):"",[aberto])
 
-  if(documentoInicial&&!aberto){return <div className="flex min-h-[45vh] items-center justify-center rounded-2xl bg-[#fffaf0]/70"><div className="flex items-center gap-2 text-sm text-[#6b5137]"><Loader2 className="size-5 animate-spin"/>{erro||"Abrindo conteúdo do dia…"}</div></div>}
+  if(documentoInicial&&!aberto){return <div className="flex min-h-[45vh] items-center justify-center rounded-2xl bg-[#fffaf0]/70"><div className="max-w-md px-5 text-center text-sm text-[#6b5137]">{loading?<span className="inline-flex items-center gap-2"><Loader2 className="size-5 animate-spin"/>Abrindo conteúdo do dia…</span>:erro||"Conteúdo não localizado."}</div></div>}
 
   if(aberto)return <article className="rounded-3xl border border-[#d4af37]/35 bg-[#fffdf8] p-4 shadow-sm sm:p-6">
     {!documentoInicial&&<button onClick={()=>setAberto(null)} className="mb-4 inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold"><X className="size-4"/>Voltar</button>}
