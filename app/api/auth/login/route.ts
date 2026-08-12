@@ -7,6 +7,40 @@ function normalizar(value: unknown) {
   return String(value ?? "").trim().toLowerCase()
 }
 
+type AdminInicial = {
+  nome: string
+  usuario: string
+  email: string
+  senha: string
+}
+
+function lerAdmin(prefixo: "INITIAL_ADMIN" | "INITIAL_ADMIN2"): AdminInicial | null {
+  const nome = String(process.env[`${prefixo}_NAME`] ?? "Moderador").trim() || "Moderador"
+  const usuario = normalizarUsuario(process.env[`${prefixo}_USERNAME`])
+  const emailConfigurado = normalizar(process.env[`${prefixo}_EMAIL`])
+  const senha = String(process.env[`${prefixo}_PASSWORD`] ?? "")
+
+  if (!usuario || senha.length < 10) return null
+
+  // O e-mail é opcional para o bootstrap. Se não houver e-mail real ainda,
+  // usa um endereço interno não roteável; ele pode ser substituído depois.
+  const email = emailConfigurado || `${usuario}@moderador.santa-luzia.invalid`
+  return { nome, usuario, email, senha }
+}
+
+function adminsConfigurados() {
+  return [lerAdmin("INITIAL_ADMIN"), lerAdmin("INITIAL_ADMIN2")].filter((a): a is AdminInicial => Boolean(a))
+}
+
+function adminDaCredencial(login: string, senha: string) {
+  const loginNormalizado = normalizar(login)
+  return adminsConfigurados().find(
+    (admin) =>
+      senha === admin.senha &&
+      (loginNormalizado === normalizar(admin.usuario) || loginNormalizado === normalizar(admin.email)),
+  )
+}
+
 export async function POST(req: Request) {
   const limite = limitar("login:" + ipDaRequisicao(req), 12, 15 * 60 * 1000)
   if (!limite.permitido) {
@@ -30,33 +64,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, erro: "Informe seu usuário/e-mail e sua senha." }, { status: 400 })
   }
 
-  const adminUsuario = normalizar(process.env.INITIAL_ADMIN_USERNAME)
-  const adminEmail = normalizar(process.env.INITIAL_ADMIN_EMAIL)
-  const adminSenha = String(process.env.INITIAL_ADMIN_PASSWORD ?? "")
-  const adminNome = String(process.env.INITIAL_ADMIN_NAME ?? "Moderador").trim() || "Moderador"
-  const loginNormalizado = normalizar(login)
-  const credencialInicialConfere =
-    adminSenha.length >= 8 &&
-    senha === adminSenha &&
-    ((adminUsuario && loginNormalizado === adminUsuario) || (adminEmail && loginNormalizado === adminEmail))
-
+  const adminInicial = adminDaCredencial(login, senha)
   let conta = buscarUsuarioPorLogin(login)
 
-  // Recupera uma instalação antiga pelo e-mail configurado no Railway.
-  if (!conta && credencialInicialConfere && adminEmail) {
-    conta = db.prepare("SELECT * FROM usuarios WHERE lower(email) = ?").get(adminEmail) as UsuarioRow | undefined
+  // Se o login configurado no Railway mudou, tenta recuperar o moderador
+  // pelo e-mail correspondente antes de criar outra conta.
+  if (!conta && adminInicial?.email) {
+    conta = db.prepare("SELECT * FROM usuarios WHERE lower(email) = ?").get(adminInicial.email) as UsuarioRow | undefined
   }
 
-  // Em uma instalação nova, cria o moderador no primeiro login válido.
-  // A senha continua somente nas variáveis do Railway e entra no banco já com hash.
-  if (!conta && credencialInicialConfere && adminEmail) {
-    const usuario = adminUsuario || normalizarUsuario(adminEmail.split("@")[0]) || "moderador"
+  // Se a instalação ainda não possui esse moderador, cria no primeiro login
+  // válido. A senha nunca fica no GitHub: chega pelo Railway e é salva com hash.
+  if (!conta && adminInicial) {
     const novaConta: UsuarioRow = {
-      id: gerarId(adminNome),
-      nome: adminNome,
-      usuario,
-      email: adminEmail,
-      senha_hash: hashSenha(adminSenha),
+      id: gerarId(adminInicial.nome),
+      nome: adminInicial.nome,
+      usuario: adminInicial.usuario,
+      email: adminInicial.email,
+      senha_hash: hashSenha(adminInicial.senha),
       tipo: "moderador",
       funcao: null,
       desde: null,
@@ -69,9 +94,10 @@ export async function POST(req: Request) {
 
   let senhaValida = conta?.senha_hash ? verificarSenha(senha, conta.senha_hash) : false
 
-  // Se a conta já existia com uma senha antiga, sincroniza com a senha atual do Railway.
-  if (conta && conta.tipo === "moderador" && !senhaValida && credencialInicialConfere) {
-    const atualizou = db.prepare("UPDATE usuarios SET senha_hash = ? WHERE id = ?").run(hashSenha(adminSenha), conta.id)
+  // Se o moderador já existia com senha antiga, sincroniza somente quando
+  // a credencial completa bate com uma das configurações seguras do Railway.
+  if (conta && conta.tipo === "moderador" && !senhaValida && adminInicial) {
+    const atualizou = db.prepare("UPDATE usuarios SET senha_hash = ? WHERE id = ?").run(hashSenha(adminInicial.senha), conta.id)
     senhaValida = atualizou.changes > 0
   }
 
