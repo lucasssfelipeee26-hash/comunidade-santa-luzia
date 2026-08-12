@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { gunzipSync } from "node:zlib"
 import { documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
+import { celebracaoDoDia } from "@/lib/iliturgia-sanctoral"
 
 type Documento={id:string;path:string;title:string;text?:string;html?:string}
 type Pacote={category:string;documents:Documento[]}
@@ -38,6 +39,7 @@ function horaDoProprio(documento:string):HoraLiturgica|null{
  const m=p.match(/_(laudes|terca|sexta|nona|vesperas|completas)\.html?$/i)
  return (m?.[1] as HoraLiturgica|undefined)||null
 }
+function amanha(data:Date){const d=new Date(data);d.setDate(d.getDate()+1);return d}
 
 export async function GET(req:NextRequest){
  const categoria=req.nextUrl.searchParams.get("categoria")||""
@@ -47,17 +49,27 @@ export async function GET(req:NextRequest){
  if(!arquivos||!alternativas.length)return NextResponse.json({error:"Parâmetros inválidos"},{status:400})
  try{
   const docs=(await Promise.all(arquivos.map(pacote))).flatMap(p=>p.documents)
+  const data=dataLocal(req.nextUrl.searchParams.get("data"))
+  const hora=horaDoProprio(alternativas[0])
+
+  // Vésperas da véspera de uma solenidade: prioriza as I Vésperas próprias.
+  if(categoria==="oficio"&&hora==="vesperas"){
+   const prox=celebracaoDoDia(amanha(data))
+   if(prox?.grau==="solenidade"&&prox.chave){
+    const primeira=`oficio/proprio/horas/${prox.chave}_Ivesperas.htm`
+    const docPrimeira=procurar(docs,primeira)
+    if(docPrimeira)return resposta(docPrimeira)
+   }
+  }
+
   for(const alternativa of alternativas){const encontrado=procurar(docs,alternativa);if(encontrado)return resposta(encontrado)}
 
-  // No iLiturgia nem toda memória possui todas as Horas próprias. Se o Próprio
-  // pedido não existir, usa automaticamente o Temporal calculado para a data.
-  if(categoria==="oficio"){
-   const hora=horaDoProprio(alternativas[0])
-   if(hora){
-    const temporal=documentoHoraTemporal(dataLocal(req.nextUrl.searchParams.get("data")),hora)
-    const encontrado=procurar(docs,temporal)
-    if(encontrado)return resposta(encontrado)
-   }
+  // Nem toda memória possui todas as Horas próprias. Se não houver Próprio,
+  // abre automaticamente o Temporal calculado para a mesma data e Hora.
+  if(categoria==="oficio"&&hora){
+   const temporal=documentoHoraTemporal(data,hora)
+   const encontrado=procurar(docs,temporal)
+   if(encontrado)return resposta(encontrado)
   }
 
   return NextResponse.json({error:"Documento não localizado no acervo interno",documento:alternativas[0],alternativas},{status:404})
