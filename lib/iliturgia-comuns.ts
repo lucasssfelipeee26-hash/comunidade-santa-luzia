@@ -40,22 +40,23 @@ export function documentoComum(comum:ComumILiturgia,hora:Exclude<HoraLiturgica,"
   return `oficio/outros/comum_${comum}_${sufixoHora[hora]}.htm`
 }
 
-// Mapeamentos confirmados pelo tipo litúrgico da celebração. Quando não houver
+// Mapeamento pelo tipo litúrgico da celebração. Quando não houver uma
 // classificação segura, o motor não adivinha e deixa o Temporal como fallback.
 const porChave:Record<string,ComumILiturgia>={
   saoandre:"apostolos",saobartolomeu:"apostolos",saofilipeetiago:"apostolos",saomatias:"apostolos",saotiago:"apostolos",saotome:"apostolos",simaoejudas:"apostolos",
   saomarcos:"apostolos",saolucas:"apostolos",
   santaines:"virgens",santaclara:"virgens",santaluzia:"virgens",santateresinha:"virgens",
   santoantonio:"doutores",santoagostinho:"doutores",santoambrosio:"doutores",santoatanasio:"doutores",santotomas:"doutores",saojeronimo:"doutores",saogregorio:"doutores",saoboaventura:"doutores",saobernardo:"doutores",saojoaocrisostomo:"doutores",saojoaodacruz:"doutores",santateresa:"doutores",
-  saojmvianney:"pastores",saocarlosborromeu:"pastores",saofranciscosales:"pastores",saovicentedepaulo:"pastores",
-  santoestevao:"ummartir",saolourenco:"ummartir",saojustino:"ummartir",santainesmartir:"ummartir",
+  saojmvianney:"pastores",saocarlosborromeu:"pastores",saofranciscosales:"pastores",saovicentedepaulo:"pastores",saopiox:"pastores",
+  santoestevao:"ummartir",saolourenco:"ummartir",saojustino:"ummartir",
   saopaulomiki:"variosmartires",saocarloslwanga:"variosmartires",inaciodeazevedo:"variosmartires",roquegonzalez:"variosmartires",
-  santapaulina:"santasreligiosas",santaescolastica:"santasreligiosas",santacatarina:"santasmulheres",santamonica:"santasmulheres",santamarta:"santasmulheres",stamariamadalena:"santasmulheres",
-  saobento:"santosreligiosos",saodomingos:"santosreligiosos",saofrancisco:"santosreligiosos",santoinacio:"santosreligiosos",saopiox:"pastores",
-  NSAparecida:"nossasenhora",NSCarmo:"nossasenhora",NSDores:"nossasenhora",NSGuadalupe:"nossasenhora",NSRainha:"nossasenhora",NSRosario:"nossasenhora",
+  santapaulina:"santasreligiosas",santaescolastica:"santasreligiosas",santajoanadechantal:"santasreligiosas",
+  santacatarina:"santasmulheres",santamonica:"santasmulheres",santamarta:"santasmulheres",stamariamadalena:"santasmulheres",
+  saobento:"santosreligiosos",saodomingos:"santosreligiosos",saofrancisco:"santosreligiosos",santoinacio:"santosreligiosos",
+  nsaparecida:"nossasenhora",nscarmo:"nossasenhora",nsdores:"nossasenhora",nsguadalupe:"nossasenhora",nsrainha:"nossasenhora",nsrosario:"nossasenhora",
 }
 
 export function comumDaCelebracao(chave?:string|null):ComumILiturgia|""{
   if(!chave)return ""
-  return porChave[chave]||""
+  return porChave[chave.toLowerCase()]||""
 }
