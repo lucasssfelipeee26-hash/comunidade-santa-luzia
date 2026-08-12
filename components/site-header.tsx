@@ -18,7 +18,7 @@ import { site } from "@/lib/site"
 
 const publicBaseLinks = [
   { href: "/visitante", label: "Início", curto: "Início", icon: Home },
-  { href: "/visitante#liturgia", label: "Liturgia Diária", curto: "Liturgia", icon: BookOpenText },
+  { href: "/liturgia", label: "Centro Litúrgico", curto: "Liturgia", icon: BookOpenText },
   { href: "/escala", label: "Escala do Dia", curto: "Escala", icon: CalendarDays },
   { href: "/biblioteca", label: "Biblioteca", curto: "Biblioteca", icon: Library },
 ]
