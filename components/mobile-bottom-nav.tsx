@@ -6,7 +6,7 @@ import useSWR from "swr"
 import { BookOpenText, BrainCircuit, CalendarDays, GraduationCap, Home, Library, LogIn } from "lucide-react"
 import { PrayerPersonIcon } from "@/components/prayer-person-icon"
 
-const publicItems=[{href:"/visitante",label:"Início",icon:Home},{href:"/visitante#liturgia",label:"Liturgia",icon:BookOpenText},{href:"/escala",label:"Escala",icon:CalendarDays},{href:"/biblioteca",label:"Biblioteca",icon:Library},{href:"/area-restrita/login",label:"Entrar",icon:LogIn}]
+const publicItems=[{href:"/visitante",label:"Início",icon:Home},{href:"/liturgia",label:"Liturgia",icon:BookOpenText},{href:"/escala",label:"Escala",icon:CalendarDays},{href:"/biblioteca",label:"Biblioteca",icon:Library},{href:"/area-restrita/login",label:"Entrar",icon:LogIn}]
 const areaItems=[{href:"/area-restrita",label:"Painel",custom:true},{href:"/escala",label:"Escala",icon:CalendarDays},{href:"/formacao",label:"Formação",icon:GraduationCap},{href:"/area-restrita/ranking",label:"Quiz",icon:BrainCircuit},{href:"/visitante",label:"Visitante",icon:Home}]
 type MeNavResponse={sessao:null|{tipo:"moderador"|"membro"}}
 const fetcher=(url:string)=>fetch(url,{cache:"no-store"}).then(r=>r.json())
