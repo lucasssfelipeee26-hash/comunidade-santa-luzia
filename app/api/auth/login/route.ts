@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { buscarUsuarioPorLogin, db } from "@/lib/db"
+import { buscarUsuarioPorLogin, db, type UsuarioRow } from "@/lib/db"
 import { criarSessao, hashSenha, verificarSenha } from "@/lib/auth"
 import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
@@ -30,24 +30,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, erro: "Informe seu usuário/e-mail e sua senha." }, { status: 400 })
   }
 
-  const conta = buscarUsuarioPorLogin(login)
+  const adminUsuario = normalizar(process.env.INITIAL_ADMIN_USERNAME)
+  const adminEmail = normalizar(process.env.INITIAL_ADMIN_EMAIL)
+  const adminSenha = String(process.env.INITIAL_ADMIN_PASSWORD ?? "")
+  const loginNormalizado = normalizar(login)
+  const credencialInicialConfere =
+    adminSenha.length >= 8 &&
+    senha === adminSenha &&
+    ((adminUsuario && loginNormalizado === adminUsuario) || (adminEmail && loginNormalizado === adminEmail))
+
+  let conta = buscarUsuarioPorLogin(login)
+
+  // Recuperação segura do moderador inicial em instalações que já possuíam
+  // um banco/volume anterior. O segredo continua somente no Railway.
+  if (!conta && credencialInicialConfere && adminEmail) {
+    conta = db.prepare("SELECT * FROM usuarios WHERE lower(email) = ?").get(adminEmail) as UsuarioRow | undefined
+  }
+
   let senhaValida = conta?.senha_hash ? verificarSenha(senha, conta.senha_hash) : false
 
-  // Em produção, o moderador inicial pode ter sua senha corrigida pelo Railway
-  // sem apagar o volume. A senha continua somente em INITIAL_ADMIN_PASSWORD
-  // e nunca é gravada no GitHub em texto puro.
-  if (conta && conta.tipo === "moderador" && !senhaValida) {
-    const adminUsuario = normalizar(process.env.INITIAL_ADMIN_USERNAME)
-    const adminEmail = normalizar(process.env.INITIAL_ADMIN_EMAIL)
-    const adminSenha = String(process.env.INITIAL_ADMIN_PASSWORD ?? "")
-    const contaEhAdminInicial =
-      (adminUsuario && normalizar(conta.usuario) === adminUsuario) ||
-      (adminEmail && normalizar(conta.email) === adminEmail)
-
-    if (contaEhAdminInicial && adminSenha.length >= 8 && senha === adminSenha) {
-      const atualizou = db.prepare("UPDATE usuarios SET senha_hash = ? WHERE id = ?").run(hashSenha(adminSenha), conta.id)
-      senhaValida = atualizou.changes > 0
-    }
+  if (conta && conta.tipo === "moderador" && !senhaValida && credencialInicialConfere) {
+    const atualizou = db.prepare("UPDATE usuarios SET senha_hash = ? WHERE id = ?").run(hashSenha(adminSenha), conta.id)
+    senhaValida = atualizou.changes > 0
   }
 
   if (!conta || !senhaValida) {
