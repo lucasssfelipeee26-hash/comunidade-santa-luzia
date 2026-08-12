@@ -1,6 +1,9 @@
 export type PrefacioItem={id:string;titulo:string;documento:string}
 
-function romano(s:string){return s.replace(/IX$/," IX").replace(/VIII$/," VIII").replace(/VII$/," VII").replace(/VI$/," VI").replace(/V$/," V").replace(/IV$/," IV").replace(/III$/," III").replace(/II$/," II").replace(/IA$/," I-A").replace(/IIA$/," II-A").replace(/I$/," I")}
+function romano(s:string){
+ const mapa:Record<string,string>={I:"I",IA:"I-A",II:"II",IIA:"II-A",III:"III",IV:"IV",V:"V",VI:"VI",VII:"VII",VIII:"VIII",IX:"IX"}
+ return mapa[s]||s
+}
 function tituloBase(id:string){
  const especiais:Record<string,string>={NSAparecida:"Nossa Senhora Aparecida",anjos:"Anjos",anunciacao:"Anunciação do Senhor",apresentacao:"Apresentação do Senhor",arcanjos:"Arcanjos",ascensaodosenhor:"Ascensão do Senhor",batismo:"Batismo do Senhor",ceiadosenhor:"Ceia do Senhor",corpuschristi:"Corpus Christi",cristoreidouniverso:"Cristo Rei do Universo",epifania:"Epifania do Senhor",exaltacao:"Exaltação da Santa Cruz",paixaodosenhor:"Paixão do Senhor",pedroepaulo:"São Pedro e São Paulo",pentecostes:"Pentecostes",ramos:"Domingo de Ramos",sabadosanto:"Sábado Santo",santissimatrindade:"Santíssima Trindade",saojoao:"São João Batista",saojose:"São José",scj:"Sagrado Coração de Jesus",todosossantos:"Todos os Santos",transfiguracao:"Transfiguração do Senhor",crisma:"Crisma",enfermos:"Enfermos",martires:"Mártires",ordem:"Ordem",penitencia:"Penitência",santasvirgensreligiosos:"Santas Virgens e Religiosos",santospastores:"Santos Pastores"}
  if(especiais[id])return especiais[id]
