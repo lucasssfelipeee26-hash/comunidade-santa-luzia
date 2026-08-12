@@ -1,20 +1,8 @@
 import { NextResponse } from "next/server"
-import { GET as obterLiturgiaOnline } from "@/app/api/liturgia/route"
 import { ciclosLiturgicos, dataIsoParaDate } from "@/lib/ciclo-liturgico"
-import { obterLiturgiaLocal } from "@/lib/liturgia-local"
+import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
 
 export const dynamic = "force-dynamic"
-
-function dataCuiabaIso() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Cuiaba",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date())
-  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]))
-  return `${map.year}-${map.month}-${map.day}`
-}
 
 function dataPorExtenso(dataIso: string) {
   const [ano, mes, dia] = dataIso.split("-").map(Number)
@@ -31,44 +19,30 @@ export async function GET() {
   const ciclos = ciclosLiturgicos(dataIsoParaDate(dataIso))
   const local = obterLiturgiaLocal(dataIso)
 
-  if (local) {
+  if (!local) {
     return NextResponse.json({
-      ...local,
+      erro: "A Liturgia de hoje ainda não está disponível na base offline.",
+      offline: true,
       dataIso,
-      data: local.data || dataPorExtenso(dataIso),
-      cicloDominical: ciclos.cicloDominical,
-      cicloFerial: ciclos.cicloFerial,
-      anoLiturgico: ciclos.anoLiturgico,
-      origem: "local",
-      fonte: {
-        nome: local.fonte?.nome || "Base litúrgica local Santa Luzia",
-        ...(local.fonte?.url ? { url: local.fonte.url } : {}),
-        ...(local.fonte?.licenca ? { licenca: local.fonte.licenca } : {}),
-      },
-      santoDoDia: local.santoDoDia
-        ? {
-            ...local.santoDoDia,
-            fonte: local.fonte?.url || "",
-          }
-        : null,
-    }, { headers: { "Cache-Control": "public, max-age=3600" } })
+      quizDisponivel: false,
+    }, { status: 404, headers: { "Cache-Control": "no-store" } })
   }
 
-  // Transição segura: enquanto a base local autorizada ainda não contém este dia,
-  // mantém a fonte atual para não deixar Liturgia e Quiz fora do ar.
-  const resposta = await obterLiturgiaOnline()
-  const payload = await resposta.json().catch(() => null)
-  if (!resposta.ok || !payload) return resposta
-
   return NextResponse.json({
-    ...payload,
+    ...local,
     dataIso,
+    data: local.data || dataPorExtenso(dataIso),
     cicloDominical: ciclos.cicloDominical,
     cicloFerial: ciclos.cicloFerial,
     anoLiturgico: ciclos.anoLiturgico,
-    origem: "online",
-  }, {
-    status: resposta.status,
-    headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=1500" },
-  })
+    origem: "offline",
+    offline: true,
+    quizDisponivel: true,
+    fonte: {
+      nome: local.fonte?.nome || "Base offline Santa Luzia",
+      ...(local.fonte?.licenca ? { licenca: local.fonte.licenca } : {}),
+      ...(local.fonte?.arquivoOrigem ? { arquivoOrigem: local.fonte.arquivoOrigem } : {}),
+    },
+    santoDoDia: local.santoDoDia ? { ...local.santoDoDia, fonte: "Base offline" } : null,
+  }, { headers: { "Cache-Control": "public, max-age=3600, immutable" } })
 }
