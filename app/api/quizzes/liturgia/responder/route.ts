@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { GET as obterLiturgiaResponse } from "@/app/api/liturgia/route"
+import { GET as obterLiturgiaResponse } from "@/app/api/liturgia-local/route"
 import { lerSessao } from "@/lib/auth"
 import { buscarRespostaQuiz, buscarUsuario, salvarRespostaQuiz } from "@/lib/db"
 import { gerarPerguntasLiturgia, quizDiarioId, validarTentativa } from "@/lib/quiz-liturgia"
