@@ -5,25 +5,60 @@ import path from "node:path"
 import { DATA_DIR } from "@/lib/db"
 
 export const ACERVO_DIR = path.join(DATA_DIR, "acervo-liturgico")
+export const ACERVO_EMBUTIDO_DIR = process.cwd()
+
+const MANIFESTO_EMBUTIDO = {
+  version: 2,
+  offline: true,
+  embedded: true,
+  htmlPreservado: true,
+  imagensImportadas: false,
+  total: 5434,
+  origem: "Acervo litúrgico autorizado incorporado ao aplicativo",
+  categorias: [
+    { id: "catequeses", nome: "Catequeses", total: 56, arquivos: ["catequeses.html.json.gz"] },
+    { id: "comentarios", nome: "Comentários", total: 25, arquivos: ["comentarios.html.json.gz"] },
+    { id: "evangelho", nome: "Evangelhos e Lectio Divina", total: 469, arquivos: ["evangelhos.html.json.gz"] },
+    { id: "geral", nome: "Documentos gerais", total: 7, arquivos: ["gerais.html.json.gz"] },
+    { id: "lecionario", nome: "Lecionário", total: 736, arquivos: ["lecionario.html.json.gz"] },
+    { id: "missal", nome: "Missal e ritos", total: 387, arquivos: ["missal.html.json.gz"] },
+    { id: "oficio", nome: "Liturgia das Horas / Ofício", total: 3749, arquivos: Array.from({ length: 10 }, (_, i) => `oficio-${String(i + 1).padStart(2, "0")}.html.json.gz`) },
+    { id: "rosario", nome: "Santo Rosário", total: 4, arquivos: ["rosario.html.json.gz"] },
+    { id: "salterio", nome: "Saltério", total: 1, arquivos: ["salterio.html.json.gz"] },
+  ],
+}
 
 export function garantirDiretorioAcervo() {
   fs.mkdirSync(ACERVO_DIR, { recursive: true })
 }
 
 export function nomeArquivoAcervoValido(nome: string) {
-  return nome === "manifest.json" || /^[a-z0-9-]+\.json\.gz$/i.test(nome)
+  return nome === "manifest.json" || /^[a-z0-9.-]+\.json\.gz$/i.test(nome)
 }
 
 export function caminhoArquivoAcervo(nome: string) {
   if (!nomeArquivoAcervoValido(nome)) return null
-  const resolvido = path.resolve(ACERVO_DIR, nome)
-  if (!resolvido.startsWith(path.resolve(ACERVO_DIR) + path.sep)) return null
-  return resolvido
+
+  // O acervo HTML autorizado está incorporado diretamente ao projeto.
+  const embutido = path.resolve(ACERVO_EMBUTIDO_DIR, nome)
+  if (nome !== "manifest.json" && embutido.startsWith(path.resolve(ACERVO_EMBUTIDO_DIR) + path.sep) && fs.existsSync(embutido)) {
+    return embutido
+  }
+
+  // Compatibilidade com instalações antigas no volume persistente.
+  const persistente = path.resolve(ACERVO_DIR, nome)
+  if (!persistente.startsWith(path.resolve(ACERVO_DIR) + path.sep)) return null
+  return persistente
 }
 
 export function lerManifestoAcervo() {
+  // Se os pacotes HTML incorporados existem, eles são sempre a fonte principal.
+  if (fs.existsSync(path.join(ACERVO_EMBUTIDO_DIR, "lecionario.html.json.gz")) && fs.existsSync(path.join(ACERVO_EMBUTIDO_DIR, "oficio-01.html.json.gz"))) {
+    return MANIFESTO_EMBUTIDO
+  }
+
   garantirDiretorioAcervo()
-  const arquivo = caminhoArquivoAcervo("manifest.json")!
+  const arquivo = path.join(ACERVO_DIR, "manifest.json")
   if (!fs.existsSync(arquivo)) return null
   try {
     return JSON.parse(fs.readFileSync(arquivo, "utf8")) as Record<string, unknown>
