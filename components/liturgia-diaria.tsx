@@ -5,7 +5,7 @@ import useSWR from "swr"
 import { AlertCircle, BookOpen, CalendarDays, CheckCircle2, ExternalLink, ImageIcon, Loader2, ScrollText, Sparkles } from "lucide-react"
 import type { Liturgia } from "@/app/api/liturgia/route"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
@@ -54,7 +54,7 @@ const corMap: Record<string, { label: string; className: string }> = {
 function Bloco({ titulo, itens, aberto = false }: { titulo: string; itens?: Liturgia["leituras"]["primeiraLeitura"]; aberto?: boolean }) {
   if (!itens?.length) return null
   return (
-    <Accordion type="multiple" defaultValue={aberto ? [titulo] : []}>
+    <Accordion defaultValue={aberto ? [titulo] : []}>
       <AccordionItem value={titulo}>
         <AccordionTrigger className="text-left font-serif text-xl text-primary hover:no-underline">
           <span className="flex flex-col">
@@ -125,11 +125,7 @@ export function LiturgiaDiaria() {
         </div>
       </div>
 
-      {data.imagem && (
-        <div className="relative max-h-80 overflow-hidden bg-secondary">
-          <img src={data.imagem} alt={`Imagem litúrgica de ${data.liturgia}`} className="h-auto max-h-80 w-full object-cover" loading="lazy" />
-        </div>
-      )}
+      {data.imagem && <div className="relative max-h-80 overflow-hidden bg-secondary"><img src={data.imagem} alt={`Imagem litúrgica de ${data.liturgia}`} className="h-auto max-h-80 w-full object-cover" loading="lazy" /></div>}
 
       {data.santoDoDia && (
         <div className="border-b border-[#d4af37]/30 bg-[#fff9e9] px-4 py-4 sm:px-6 sm:py-5">
@@ -154,26 +150,14 @@ export function LiturgiaDiaria() {
             <Bloco titulo="Salmo Responsorial" itens={data.leituras.salmo} aberto />
             <Bloco titulo="Segunda Leitura" itens={data.leituras.segundaLeitura} />
           </TabsContent>
-
-          <TabsContent value="evangelho" className="mt-3 rounded-2xl border border-border bg-white/70 px-4 sm:px-5">
-            <Bloco titulo="Evangelho" itens={data.leituras.evangelho} aberto />
-          </TabsContent>
-
-          <TabsContent value="oracoes" className="mt-3 grid gap-3">
-            <Oracao titulo="Oração da Coleta" texto={data.oracoes?.coleta} />
-            <Oracao titulo="Oração sobre as Oferendas" texto={data.oracoes?.oferendas} />
-            <Oracao titulo="Oração depois da Comunhão" texto={data.oracoes?.comunhao} />
-          </TabsContent>
-
-          <TabsContent value="dia" className="mt-3 rounded-2xl border border-border bg-white/70 p-4">
-            <p className="text-sm leading-6 text-muted-foreground">Ano litúrgico <strong className="text-foreground">{data.anoLiturgico || "—"}</strong> · Ciclo dominical <strong className="text-foreground">{data.cicloDominical || "—"}</strong> · Ciclo ferial <strong className="text-foreground">{data.cicloFerial || "—"}</strong>.</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Esta área está preparada para receber a imagem própria/licenciada de cada celebração junto com a base litúrgica local.</p>
-          </TabsContent>
+          <TabsContent value="evangelho" className="mt-3 rounded-2xl border border-border bg-white/70 px-4 sm:px-5"><Bloco titulo="Evangelho" itens={data.leituras.evangelho} aberto /></TabsContent>
+          <TabsContent value="oracoes" className="mt-3 grid gap-3"><Oracao titulo="Oração da Coleta" texto={data.oracoes?.coleta} /><Oracao titulo="Oração sobre as Oferendas" texto={data.oracoes?.oferendas} /><Oracao titulo="Oração depois da Comunhão" texto={data.oracoes?.comunhao} /></TabsContent>
+          <TabsContent value="dia" className="mt-3 rounded-2xl border border-border bg-white/70 p-4"><p className="text-sm leading-6 text-muted-foreground">Ano litúrgico <strong className="text-foreground">{data.anoLiturgico || "—"}</strong> · Ciclo dominical <strong className="text-foreground">{data.cicloDominical || "—"}</strong> · Ciclo ferial <strong className="text-foreground">{data.cicloFerial || "—"}</strong>.</p><p className="mt-2 text-sm leading-6 text-muted-foreground">Esta área está preparada para receber a imagem própria/licenciada de cada celebração junto com a base litúrgica local.</p></TabsContent>
         </Tabs>
 
         <div className="mt-6 rounded-2xl border border-accent/45 bg-[linear-gradient(135deg,#fffaf0,#fff_55%,#f9edc8)] p-4">
           <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" /><div><h4 className="font-serif text-lg font-semibold text-primary">Terminou a leitura?</h4><p className="mt-1 text-sm leading-6 text-muted-foreground">O Quiz Litúrgico só é liberado depois que você concluir a Liturgia de hoje. As perguntas usam o mesmo conteúdo apresentado acima.</p></div></div>
-          <Button asChild className="mt-3 w-full sm:w-auto" onClick={marcarLeituraConcluida}><Link href="/area-restrita/ranking">Concluir leitura e ir ao Quiz</Link></Button>
+          <Link href="/area-restrita/ranking" onClick={marcarLeituraConcluida} className={`${buttonVariants({ size: "lg" })} mt-3 w-full sm:w-auto`}>Concluir leitura e ir ao Quiz</Link>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
