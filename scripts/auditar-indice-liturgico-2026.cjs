@@ -38,10 +38,18 @@ for (const data of chaves) {
 
 const marcos = {
   "2026-02-18": /cinzas/i,
+  "2026-03-29": /ramos|paix[aã]o/i,
+  "2026-04-02": /ceia|quinta/i,
+  "2026-04-03": /paix[aã]o|sexta/i,
+  "2026-04-04": /s[aá]bado|vig[ií]lia/i,
   "2026-04-05": /p[aá]scoa|ressurrei/i,
   "2026-05-24": /pentecostes/i,
   "2026-06-04": /corpo|corpus/i,
+  "2026-06-28": /pedro.*paulo|paulo.*pedro/i,
+  "2026-08-13": /dulce/i,
+  "2026-08-16": /assun[cç][aã]o/i,
   "2026-10-12": /aparecida/i,
+  "2026-11-22": /cristo.*rei|rei.*universo/i,
   "2026-12-08": /imaculada/i,
   "2026-12-25": /natal|nascimento do senhor/i,
 }
@@ -51,4 +59,4 @@ for (const [data, padrao] of Object.entries(marcos)) {
   if (!padrao.test(titulo)) falhar(`${data}: celebração inesperada: “${titulo}”`)
 }
 
-console.log(`[Auditoria litúrgica] ${ANO} aprovado: ${esperado} dias e marcos principais válidos.`)
+console.log(`[Auditoria litúrgica] ${ANO} aprovado: ${esperado} dias e ${Object.keys(marcos).length} marcos críticos válidos.`)
