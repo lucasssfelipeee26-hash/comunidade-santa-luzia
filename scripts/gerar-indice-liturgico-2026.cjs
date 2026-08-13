@@ -69,6 +69,36 @@ async function mapaConcorrente(datas) {
   await Promise.all(Array.from({ length: CONCORRENCIA }, () => worker()))
   return { saida, erros }
 }
+function auditar(saida, total) {
+  if (Object.keys(saida).length !== total) throw new Error(`Cobertura anual incompleta: ${Object.keys(saida).length}/${total}`)
+  for (const [data, d] of Object.entries(saida)) {
+    const refsDia = [...(d.primeiraLeitura || []), ...(d.salmo || []), ...(d.segundaLeitura || []), ...(d.evangelho || []), ...(d.extras || [])]
+    if (!d.liturgia || !d.cor || !refsDia.length) throw new Error(`${data}: registro litúrgico incompleto`)
+  }
+  if (ANO !== 2026) return
+  const marcos = {
+    "2026-02-18": /cinzas/i,
+    "2026-03-29": /ramos|paix[aã]o/i,
+    "2026-04-02": /ceia|quinta/i,
+    "2026-04-03": /paix[aã]o|sexta/i,
+    "2026-04-04": /s[aá]bado|vig[ií]lia/i,
+    "2026-04-05": /p[aá]scoa|ressurrei/i,
+    "2026-05-24": /pentecostes/i,
+    "2026-06-04": /corpo|corpus/i,
+    "2026-06-28": /pedro.*paulo|paulo.*pedro/i,
+    "2026-08-13": /dulce/i,
+    "2026-08-16": /assun[cç][aã]o/i,
+    "2026-10-12": /aparecida/i,
+    "2026-11-22": /cristo.*rei|rei.*universo/i,
+    "2026-12-08": /imaculada/i,
+    "2026-12-25": /natal|nascimento do senhor/i,
+  }
+  for (const [data, padrao] of Object.entries(marcos)) {
+    const titulo = String(saida[data]?.liturgia || "")
+    if (!padrao.test(titulo)) throw new Error(`${data}: celebração inesperada: ${titulo}`)
+  }
+  console.log(`[Liturgia offline] Auditoria aprovada: ${Object.keys(marcos).length} marcos críticos válidos.`)
+}
 async function main() {
   const datas = diasDoAno(ANO)
   console.log(`[Liturgia offline] Gerando índice brasileiro de ${ANO} (${datas.length} dias)...`)
@@ -77,6 +107,7 @@ async function main() {
     console.error(erros.slice(0, 20).join("\n"))
     throw new Error(`Índice anual incompleto: ${Object.keys(saida).length}/${datas.length} dias`)
   }
+  auditar(saida, datas.length)
   fs.mkdirSync(path.dirname(DESTINO), { recursive: true })
   const payload = {
     versao: 1,
