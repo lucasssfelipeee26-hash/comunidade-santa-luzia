@@ -5,7 +5,7 @@ import { liturgiaDoArquivoLecionario } from "@/lib/iliturgia-lecionario-offline"
 import { liturgiaDoIndiceAnual } from "@/lib/iliturgia-indice-anual"
 import { documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
 import { tempoLiturgico } from "@/lib/iliturgia-calendario"
-import { celebracaoDoDia, imagemCelebracao } from "@/lib/iliturgia-sanctoral"
+import { celebracaoDoDiaBrasil, imagemCelebracao } from "@/lib/iliturgia-sanctoral-brasil"
 
 export const dynamic = "force-dynamic"
 
@@ -24,12 +24,23 @@ function nomeTempo(chave:ReturnType<typeof tempoLiturgico>){
   return ({advento:"Advento",natal:"Natal",quaresma:"Quaresma",pascoa:"Tempo Pascal",tempocomum:"Tempo Comum"} as const)[chave]
 }
 
+function aplicarCalendarioBrasil(local: LiturgiaLocal, dataIso: string): LiturgiaLocal {
+  const indice = liturgiaDoIndiceAnual(dataIso)
+  const celebracao = celebracaoDoDiaBrasil(dataIsoParaDate(dataIso))
+  return {
+    ...local,
+    liturgia: indice?.liturgia || local.liturgia,
+    cor: indice?.cor || local.cor,
+    santoDoDia: celebracao ? { nome: celebracao.nome, imagem: imagemCelebracao(celebracao) } : null,
+  }
+}
+
 async function montarDoIndice(dataIso:string):Promise<LiturgiaLocal|null>{
   const indice=liturgiaDoIndiceAnual(dataIso)
   if(!indice)return null
   const data=dataIsoParaDate(dataIso)
   const tempo=tempoLiturgico(data)
-  const celebracao=celebracaoDoDia(data)
+  const celebracao=celebracaoDoDiaBrasil(data)
   const leituras={
     primeiraLeitura:refs(indice.primeiraLeitura),
     salmo:refs(indice.salmo),
@@ -87,6 +98,8 @@ export async function GET() {
       quizDisponivel: false,
     }, { status: 404, headers: { "Cache-Control": "no-store" } })
   }
+
+  local = aplicarCalendarioBrasil(local, dataIso)
 
   const temTexto=Boolean(local.leituras?.primeiraLeitura?.some(x=>x.texto)||local.leituras?.evangelho?.some(x=>x.texto))
   return NextResponse.json({
