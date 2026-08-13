@@ -8,7 +8,7 @@ import { documentoHoraSanto, documentoHoraTemporal, type HoraLiturgica } from "@
 import { celebracaoDoDia, imagemCelebracao } from "@/lib/iliturgia-sanctoral"
 import { documentoRosarioDoDia, misterioRosarioDoDia } from "@/lib/iliturgia-rosario"
 import { prefaciosProprios, prefaciosTempo } from "@/lib/iliturgia-prefacios"
-import { documentoCatequeseDoDia, documentoEvangelhoDaReferencia } from "@/lib/iliturgia-conteudo-dia"
+import { documentoCatequeseDoDia, documentoEvangelhoDaReferencia, documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
 import { documentoMissalProprio } from "@/lib/iliturgia-missal-proprio"
 import { comentariosILiturgia, indiceGeralILiturgia, invitatorioILiturgia, oracoesILiturgia, vigiliaILiturgia } from "@/lib/iliturgia-menus"
 import { documentoLeituraBienal, tituloLeituraBienal } from "@/lib/iliturgia-bienal"
@@ -67,7 +67,7 @@ export function CentralLiturgicaILiturgia(){
  const vigilia=useMemo<Tela[]>(()=>vigiliaILiturgia(agora).map(x=>({...x,categoria:"oficio"})),[agora])
  const evangelho=hoje?.leituras?.evangelho?.[0]
  const documentoEvangelho=documentoEvangelhoDaReferencia(evangelho?.referencia,evangelho?.titulo)
- const lecionario=documentoLecionario(hoje?.fonte?.arquivoOrigem)
+ const lecionario=documentoLecionario(hoje?.fonte?.arquivoOrigem)||documentoLecionarioDasLeituras(hoje?.leituras?.primeiraLeitura,hoje?.leituras?.segundaLeitura,hoje?.leituras?.evangelho)
  const proprioMissal=documentoMissalProprio(agora,celebracao?.chave||chave)
  const catequeses:Tela[]=[{id:"catequese-laudes",titulo:"Catequese de Laudes",categoria:"catequeses",documento:documentoCatequeseDoDia(agora,"laudes")},{id:"catequese-vesperas",titulo:"Catequese de Vésperas",categoria:"catequeses",documento:documentoCatequeseDoDia(agora,"vesperas")}]
  const missal:Tela[]=[{id:"ordinario",titulo:"Ordinário da Missa"},{id:"prefacios",titulo:"Prefácios"},{id:"eucaristicas",titulo:"Orações Eucarísticas"},...(proprioMissal?[{id:"proprio",titulo:"Próprio do Missal do dia",categoria:"missal",documento:proprioMissal}]:[])]
