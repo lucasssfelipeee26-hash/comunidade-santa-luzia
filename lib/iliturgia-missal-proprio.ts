@@ -5,16 +5,30 @@ const MS=86400000
 function soData(d:Date){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
 function diffDias(a:Date,b:Date){return Math.round((soData(b).getTime()-soData(a).getTime())/MS)}
 function semanaDesde(inicio:Date,data:Date){return Math.floor(diffDias(inicio,data)/7)+1}
+function isoLocal(data:Date){return `${data.getFullYear()}-${String(data.getMonth()+1).padStart(2,"0")}-${String(data.getDate()).padStart(2,"0")}`}
 
 // Chaves que realmente possuem arquivo em Resources/missal/proprio/proprio do APK.
 const propriosExistentes=new Set([
  "NSAparecida","NSCarmo","NSDores","NSGuadalupe","NSRainha","NSRosario","andreeambrosio","anjos","antoniogalvao","anunciacao","apresentacao","apresentacaoNS","arcanjos","ascensaodosenhor","assuncao","basilioegregorio","batismo","carlosborromeu","catedra","cinzas","conversaosaopaulo","cornelioecipriano","corpuschristi","cristoreidouniverso","divinamisericordia","epifania","exaltacao","franciscoxavier","icvm","imaculada","inaciodeantioquia","inaciodeazevedo","isabeldahungria","joaoevangelista","josedeanchieta","latrao","maedaigreja","martiriobatista","natividade","paixaodosenhor","pedroepaulo","pentecostes","policarpo","roquegonzalez","sagradafamilia","santaagueda","santacatarina","santacecilia","santaclara","santaescolastica","santaines","santaluzia","santamaria","santamarta","santamonica","santapaulina","santarosa","santateresa","santateresinha","santissimatrindade","santoafonso","santoagostinho","santoalberto","santoambrosio","santoandre","santoandrekim","santoantao","santoantonio","santoatanasio","santoestevao","santoinacio","santosinocentes","santotomas","saobarnabe","saobartolomeu","saobento","saobernardo","saoboaventura","saobonifacio","saocarloslwanga","saociriloemetodio","saodomingos","saofilipeetiago","saofilipeneri","saofrancisco","saofranciscosales","saogregorio","saojeronimo","saojmvianney","saojoao","saojoaobosco","saojoaocrisostomo","saojoaodacruz","saojoaquimesantana","saojosafa","saojose","saojustino","saoleao","saolourenco","saolucas","saoluisgonzaga","saomarcos","saomartinho","saomateus","saomatias","saomaximiliano","saopaulomiki","saopio","saopiox","saotiago","saotimoteoetito","saotome","saovicentedepaulo","scj","simaoejudas","stamariamadalena","todosossantos","transfiguracao","visitacao"
 ])
 
+const brasil2026:Record<string,string|null>={
+ "2026-06-28":"pedroepaulo","2026-06-29":null,
+ "2026-07-17":"inaciodeazevedo","2026-07-20":null,
+ "2026-08-12":null,"2026-08-13":null,
+ "2026-08-15":null,"2026-08-16":"assuncao",
+}
+
 const natalAntesEpifania=new Set(["terca","quarta","quinta","sexta","sabado"])
 const natalAteBatismo=new Set(["segunda","terca","quarta","quinta","sexta","sabado"])
 
 export function documentoMissalProprio(data:Date,chaveCelebracao?:string|null){
+  const iso=isoLocal(data)
+  if(Object.prototype.hasOwnProperty.call(brasil2026,iso)){
+    const chaveBrasil=brasil2026[iso]
+    if(chaveBrasil&&propriosExistentes.has(chaveBrasil))return `missal/proprio/proprio/${chaveBrasil}.htm`
+    chaveCelebracao=null
+  }
   if(chaveCelebracao&&propriosExistentes.has(chaveCelebracao))return `missal/proprio/proprio/${chaveCelebracao}.htm`
 
   const tempo=tempoLiturgico(data),dia=dias[data.getDay()]
@@ -24,7 +38,6 @@ export function documentoMissalProprio(data:Date,chaveCelebracao?:string|null){
     if(data.getMonth()===11&&data.getDate()>=17&&data.getDate()<=23)return `missal/proprio/advento/${data.getDate()}dezembroAD.htm`
     if(data.getMonth()===11&&data.getDate()===24)return "missal/proprio/advento/_24dezembroAD.htm"
     const semana=Math.max(1,Math.min(4,semanaDesde(inicioAdvento(data.getFullYear()),data)))
-    // O APK não traz todos os dias das semanas 3 e 4. Não inventamos caminho.
     const disponiveis=new Set(["1domingo","1segunda","1terca","1quarta","1quinta","1sexta","1sabado","2domingo","2segunda","2terca","2quarta","2quinta","2sexta","2sabado","3domingo","3segunda","3terca","4domingo"])
     const chave=`${semana}${dia}`
     return disponiveis.has(chave)?`missal/proprio/advento/${chave}AD.htm`:""
