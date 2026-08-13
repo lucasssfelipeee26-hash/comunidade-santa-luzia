@@ -1,10 +1,10 @@
-const CACHE = "santa-luzia-offline-v14"
+const CACHE = "santa-luzia-offline-v15"
 const ACERVO_BASE = "/offline/iliturgia/"
 const ACERVO = [
   `${ACERVO_BASE}manifest.json`,
   `${ACERVO_BASE}catequeses.html.json.gz`,
   `${ACERVO_BASE}comentarios.html.json.gz`,
-  `${ACERVO_BASE}evangelhos.html.json.gz`,
+  ...Array.from({ length: 12 }, (_, i) => `${ACERVO_BASE}evangelhos-${String(i + 1).padStart(2, "0")}.html.json.gz`),
   `${ACERVO_BASE}gerais.html.json.gz`,
   `${ACERVO_BASE}lecionario.html.json.gz`,
   `${ACERVO_BASE}missal.html.json.gz`,
