@@ -1,5 +1,5 @@
 import { tempoLiturgico } from "@/lib/iliturgia-calendario"
-import { celebracaoDoDia } from "@/lib/iliturgia-sanctoral"
+import { celebracaoDoDiaBrasil as celebracaoDoDia } from "@/lib/iliturgia-sanctoral-brasil"
 
 export type ItemILiturgia={id:string;titulo:string;documento:string}
 
