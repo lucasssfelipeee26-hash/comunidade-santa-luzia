@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import { ciclosLiturgicos, dataIsoParaDate } from "@/lib/ciclo-liturgico"
-import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
+import { dataCuiabaIso, obterLiturgiaLocal, type LiturgiaLocal, type LeituraLocal } from "@/lib/liturgia-local"
 import { liturgiaDoArquivoLecionario } from "@/lib/iliturgia-lecionario-offline"
+import { liturgiaDoIndiceAnual } from "@/lib/iliturgia-indice-anual"
+import { documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
+import { tempoLiturgico } from "@/lib/iliturgia-calendario"
+import { celebracaoDoDia, imagemCelebracao } from "@/lib/iliturgia-sanctoral"
 
 export const dynamic = "force-dynamic"
 
@@ -15,12 +19,67 @@ function dataPorExtenso(dataIso: string) {
   }).format(new Date(Date.UTC(ano, mes - 1, dia, 12, 0, 0)))
 }
 
+function refs(itens?:string[]):LeituraLocal[]{return (itens||[]).filter(Boolean).map(referencia=>({referencia}))}
+function nomeTempo(chave:ReturnType<typeof tempoLiturgico>){
+  return ({advento:"Advento",natal:"Natal",quaresma:"Quaresma",pascoa:"Tempo Pascal",tempocomum:"Tempo Comum"} as const)[chave]
+}
+
+async function montarDoIndice(dataIso:string):Promise<LiturgiaLocal|null>{
+  const indice=liturgiaDoIndiceAnual(dataIso)
+  if(!indice)return null
+  const data=dataIsoParaDate(dataIso)
+  const tempo=tempoLiturgico(data)
+  const celebracao=celebracaoDoDia(data)
+  const leituras={
+    primeiraLeitura:refs(indice.primeiraLeitura),
+    salmo:refs(indice.salmo),
+    segundaLeitura:refs(indice.segundaLeitura),
+    evangelho:refs(indice.evangelho),
+  }
+  const base:LiturgiaLocal={
+    data:dataPorExtenso(dataIso),
+    liturgia:indice.liturgia||(celebracao?.nome||nomeTempo(tempo)),
+    cor:indice.cor||"Verde",
+    tempoLiturgicoAtual:nomeTempo(tempo),
+    tempoCategoria:tempo,
+    santoDoDia:celebracao?{nome:celebracao.nome,imagem:imagemCelebracao(celebracao)}:null,
+    fonte:{nome:"Acervo offline iLiturgia"},
+    leituras,
+  }
+  const caminho=documentoLecionarioDasLeituras(leituras.primeiraLeitura,leituras.segundaLeitura,leituras.evangelho)
+  if(!caminho)return base
+  try{
+    const {leituras:_leituras,...semLeituras}=base
+    const extraida=await liturgiaDoArquivoLecionario(caminho,semLeituras)
+    return extraida||base
+  }catch(error){
+    console.error(`[Liturgia offline] Não foi possível resolver ${dataIso} em ${caminho}:`,error)
+    return base
+  }
+}
+
 export async function GET() {
   const dataIso = dataCuiabaIso()
   const ciclos = ciclosLiturgicos(dataIsoParaDate(dataIso))
   const localOriginal = obterLiturgiaLocal(dataIso)
+  let local:LiturgiaLocal|null=localOriginal
 
-  if (!localOriginal) {
+  if(localOriginal){
+    const arquivoOrigem = localOriginal.fonte?.arquivoOrigem?.replace(/^assets\/Resources\//, "")
+    if (arquivoOrigem?.toLowerCase().startsWith("lecionario/")) {
+      try {
+        const { leituras: _leituras, ...base } = localOriginal
+        const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, base)
+        if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) local = extraida
+      } catch (error) {
+        console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
+      }
+    }
+  }else{
+    local=await montarDoIndice(dataIso)
+  }
+
+  if (!local) {
     return NextResponse.json({
       erro: "A Liturgia de hoje ainda não está disponível na base offline.",
       offline: true,
@@ -29,18 +88,7 @@ export async function GET() {
     }, { status: 404, headers: { "Cache-Control": "no-store" } })
   }
 
-  let local = localOriginal
-  const arquivoOrigem = localOriginal.fonte?.arquivoOrigem?.replace(/^assets\/Resources\//, "")
-  if (arquivoOrigem?.toLowerCase().startsWith("lecionario/")) {
-    try {
-      const { leituras: _leituras, ...base } = localOriginal
-      const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, base)
-      if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) local = extraida
-    } catch (error) {
-      console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
-    }
-  }
-
+  const temTexto=Boolean(local.leituras?.primeiraLeitura?.some(x=>x.texto)||local.leituras?.evangelho?.some(x=>x.texto))
   return NextResponse.json({
     ...local,
     dataIso,
@@ -50,12 +98,12 @@ export async function GET() {
     anoLiturgico: ciclos.anoLiturgico,
     origem: "offline",
     offline: true,
-    quizDisponivel: true,
+    quizDisponivel: temTexto,
     fonte: {
       nome: local.fonte?.nome || "Base offline Santa Luzia",
       ...(local.fonte?.licenca ? { licenca: local.fonte.licenca } : {}),
       ...(local.fonte?.arquivoOrigem ? { arquivoOrigem: local.fonte.arquivoOrigem } : {}),
     },
     santoDoDia: local.santoDoDia ? { ...local.santoDoDia, fonte: "Base offline" } : null,
-  }, { headers: { "Cache-Control": "public, max-age=3600, immutable" } })
+  }, { headers: { "Cache-Control": "public, max-age=3600" } })
 }
