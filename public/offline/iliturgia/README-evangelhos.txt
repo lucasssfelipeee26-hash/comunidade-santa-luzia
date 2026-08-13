@@ -1,0 +1,1 @@
+Pacotes binários dos Evangelhos são gerados a partir do APK original e anexados por blob Git para preservar gzip sem corrupção.
