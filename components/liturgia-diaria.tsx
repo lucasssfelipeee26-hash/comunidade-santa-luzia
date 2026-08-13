@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { LeitorPaginado } from "@/components/leitor-paginado"
 
 type LiturgiaApp = Liturgia & { dataIso?: string; origem?: "offline"; offline?: boolean; quizDisponivel?: boolean }
 
@@ -33,11 +34,17 @@ function Bloco({ titulo, itens, aberto = false }: { titulo: string; itens?: Litu
       <AccordionTrigger className="text-left font-serif text-xl text-primary hover:no-underline">
         <span className="flex flex-col">{titulo}{itens[0]?.referencia && <span className="text-sm font-normal text-muted-foreground">{itens[0].referencia}</span>}</span>
       </AccordionTrigger>
-      <AccordionContent>{itens.map((item, i) => <div key={i} className="mb-4 last:mb-0">
-        {item.titulo && <p className="mb-2 font-medium text-foreground">{item.titulo}</p>}
-        {item.refrao && <p className="mb-2 font-semibold italic text-primary">R. {item.refrao}</p>}
-        {item.texto && <p className="whitespace-pre-line text-pretty leading-7 text-foreground/90">{item.texto}</p>}
-      </div>)}</AccordionContent>
+      <AccordionContent>
+        <LeitorPaginado>
+          <div className="text-[0.98rem] leading-6 text-foreground/90 sm:text-base sm:leading-7">
+            {itens.map((item, i) => <div key={i} className="mb-4 last:mb-0">
+              {item.titulo && <p className="mb-2 font-medium text-foreground">{item.titulo}</p>}
+              {item.refrao && <p className="mb-2 font-semibold italic text-primary">R. {item.refrao}</p>}
+              {item.texto && <p className="whitespace-pre-line text-pretty">{item.texto}</p>}
+            </div>)}
+          </div>
+        </LeitorPaginado>
+      </AccordionContent>
     </AccordionItem>
   </Accordion>
 }
@@ -75,7 +82,7 @@ export function LiturgiaDiaria() {
           <TabsTrigger value="evangelho" className="min-h-11 text-xs"><BookOpen className="mr-1 size-4" />Evangelho</TabsTrigger>
           <TabsTrigger value="dia" className="min-h-11 text-xs"><CalendarDays className="mr-1 size-4" />Dia</TabsTrigger>
         </TabsList>
-        <TabsContent value="leituras" className="mt-3 rounded-2xl border bg-white/70 px-4 sm:px-5"><Bloco titulo="Primeira Leitura" itens={data.leituras.primeiraLeitura} aberto /><Bloco titulo="Salmo Responsorial" itens={data.leituras.salmo} aberto /><Bloco titulo="Segunda Leitura" itens={data.leituras.segundaLeitura} /></TabsContent>
+        <TabsContent value="leituras" className="mt-3 rounded-2xl border bg-white/70 px-4 sm:px-5"><Bloco titulo="Primeira Leitura" itens={data.leituras.primeiraLeitura} aberto /><Bloco titulo="Salmo Responsorial" itens={data.leituras.salmo} /><Bloco titulo="Segunda Leitura" itens={data.leituras.segundaLeitura} /></TabsContent>
         <TabsContent value="evangelho" className="mt-3 rounded-2xl border bg-white/70 px-4 sm:px-5"><Bloco titulo="Evangelho" itens={data.leituras.evangelho} aberto /></TabsContent>
         <TabsContent value="dia" className="mt-3 rounded-2xl border bg-white/70 p-4"><p className="text-sm leading-6">Ano litúrgico <strong>{data.anoLiturgico || "—"}</strong> · Ciclo dominical <strong>{data.cicloDominical || "—"}</strong> · Ciclo ferial <strong>{data.cicloFerial || "—"}</strong>.</p><p className="mt-2 text-xs text-muted-foreground">Origem interna: {data.fonte?.nome}. {data.fonte?.licenca}</p></TabsContent>
       </Tabs>
