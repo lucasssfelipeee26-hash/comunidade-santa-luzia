@@ -20,6 +20,14 @@ function dataPorExtenso(dataIso: string) {
 }
 
 function refs(itens?:string[]):LeituraLocal[]{return (itens||[]).filter(Boolean).map(referencia=>({referencia}))}
+function mesclarLeituras(principal:LiturgiaLocal["leituras"],reserva:LiturgiaLocal["leituras"]):LiturgiaLocal["leituras"]{
+  return {
+    primeiraLeitura:principal.primeiraLeitura?.length?principal.primeiraLeitura:reserva.primeiraLeitura,
+    salmo:principal.salmo?.length?principal.salmo:reserva.salmo,
+    segundaLeitura:principal.segundaLeitura?.length?principal.segundaLeitura:reserva.segundaLeitura,
+    evangelho:principal.evangelho?.length?principal.evangelho:reserva.evangelho,
+  }
+}
 function nomeTempo(chave:ReturnType<typeof tempoLiturgico>){
   return ({advento:"Advento",natal:"Natal",quaresma:"Quaresma",pascoa:"Tempo Pascal",tempocomum:"Tempo Comum"} as const)[chave]
 }
@@ -62,7 +70,7 @@ async function montarDoIndice(dataIso:string):Promise<LiturgiaLocal|null>{
   try{
     const {leituras:_leituras,...semLeituras}=base
     const extraida=await liturgiaDoArquivoLecionario(caminho,semLeituras)
-    return extraida||base
+    return extraida?{...extraida,leituras:mesclarLeituras(extraida.leituras,base.leituras)}:base
   }catch(error){
     console.error(`[Liturgia offline] Não foi possível resolver ${dataIso} em ${caminho}:`,error)
     return base
@@ -81,7 +89,9 @@ export async function GET() {
       try {
         const { leituras: _leituras, ...base } = localOriginal
         const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, base)
-        if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) local = extraida
+        if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) {
+          local = {...extraida,leituras:mesclarLeituras(extraida.leituras,localOriginal.leituras)}
+        }
       } catch (error) {
         console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
       }

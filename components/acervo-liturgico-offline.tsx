@@ -5,6 +5,7 @@ import { BookOpenText, Library, Loader2, Search, X } from "lucide-react"
 import { documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
 import { celebracaoDoDiaBrasil as celebracaoDoDia } from "@/lib/iliturgia-sanctoral-brasil"
 import { comumDaCelebracao, documentoComum } from "@/lib/iliturgia-comuns"
+import { LeitorPaginado } from "@/components/leitor-paginado"
 
 type Categoria={id:string;nome:string;total:number;arquivos:string[]}
 type Manifesto={version:number;offline:boolean;embedded?:boolean;preservaHtmlLiturgico?:boolean;imagensImportadas:boolean;total:number;origem:string;categorias:Categoria[]}
@@ -190,7 +191,7 @@ export function AcervoLiturgicoOffline({categoriaInicial="",buscaInicial="",embu
     {!documentoInicial&&<p className="text-xs font-bold uppercase tracking-[.16em] text-[#9a731d]">{aberto.path}</p>}
     {aberto.title&&<h2 className="mt-2 font-serif text-2xl font-semibold text-[#8f182e] sm:text-3xl">{aberto.title}</h2>}
     {!aberto.path.toLowerCase().startsWith("rosario/")&&<ImagemDocumento doc={aberto}/>} 
-    {html?<div className="liturgical-document mt-5 text-[1.04rem] leading-8 text-[#2f2924] [&_font[color=red]]:text-[#b42332] [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_sup]:text-[#b42332] [&_a]:text-[#8f182e] [&_a]:underline [&_img]:mr-4 [&_img]:mb-3 [&_img]:max-w-[42%] [&_img]:rounded-lg sm:[&_img]:max-w-[220px]" dangerouslySetInnerHTML={{__html:html}}/>:<div className="mt-5 whitespace-pre-line text-[1.04rem] leading-8">{aberto.text}</div>}
+    <LeitorPaginado>{html?<div className="text-[1.04rem] leading-8 text-[#2f2924] [&_font[color=red]]:text-[#b42332] [&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_sup]:text-[#b42332] [&_a]:text-[#8f182e] [&_a]:underline [&_img]:mr-4 [&_img]:mb-3 [&_img]:max-h-[180px] [&_img]:max-w-[42%] [&_img]:rounded-lg sm:[&_img]:max-h-[240px] sm:[&_img]:max-w-[220px]" dangerouslySetInnerHTML={{__html:html}}/>:<div className="whitespace-pre-line text-[1.04rem] leading-8">{aberto.text}</div>}</LeitorPaginado>
   </article>
 
   return <div>

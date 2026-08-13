@@ -45,11 +45,11 @@ export function LeitorPaginado({ children }: { children: ReactNode }) {
 
   return (
     <div className="mt-3">
-      <div ref={ref} className="h-[clamp(390px,58dvh,650px)] overflow-x-auto overflow-y-hidden [column-fill:auto] [column-gap:24px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div ref={ref} className="h-[clamp(300px,calc(100dvh-330px),620px)] overflow-x-auto overflow-y-hidden [column-fill:auto] [column-gap:24px] [scrollbar-width:none] sm:h-[clamp(420px,64dvh,720px)] [&::-webkit-scrollbar]:hidden">
         {children}
       </div>
       {total > 1 && (
-        <div className="sticky bottom-2 z-10 mt-3 flex items-center justify-center gap-3 rounded-2xl border border-[#d4af37]/35 bg-[#fffdf8]/95 px-3 py-2 shadow-md backdrop-blur">
+        <div className="mt-3 flex items-center justify-center gap-3 rounded-2xl border border-[#d4af37]/35 bg-[#fffdf8] px-3 py-2 shadow-sm">
           <button type="button" onClick={() => ir(-1)} disabled={pagina === 0} aria-label="Página anterior" className="flex size-10 items-center justify-center rounded-full border border-[#d4af37]/55 bg-white text-[#8f182e] disabled:opacity-30">
             <ChevronLeft className="size-5" />
           </button>

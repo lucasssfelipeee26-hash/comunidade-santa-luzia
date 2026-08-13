@@ -32,8 +32,21 @@ export async function documentoLecionarioOffline(caminho:string){
 }
 
 const MARCADORES=["PRIMEIRA LEITURA","SALMO RESPONSORIAL","SEGUNDA LEITURA","ACLAMAÇÃO AO EVANGELHO","ACLAMACAO AO EVANGELHO","EVANGELHO"] as const
-function posicoes(texto:string){const upper=texto.toLocaleUpperCase("pt-BR");return MARCADORES.map(m=>({m,i:upper.indexOf(m)})).filter(x=>x.i>=0).sort((a,b)=>a.i-b.i)}
-function secao(texto:string,marcador:string){const ps=posicoes(texto),upper=texto.toLocaleUpperCase("pt-BR"),ini=upper.indexOf(marcador);if(ini<0)return "";const prox=ps.find(x=>x.i>ini);return texto.slice(ini+marcador.length,prox?.i??texto.length).trim()}
+function indiceMarcador(texto:string,marcador:string){
+ const upper=texto.toLocaleUpperCase("pt-BR")
+ if(marcador!=="EVANGELHO")return upper.indexOf(marcador)
+
+ // Alguns arquivos trazem antes da aclamação um título oculto como
+ // "Evangelho - Mt 18,21". Ele não é o início da proclamação e fazia o
+ // extrator devolver uma seção vazia. O marcador litúrgico real vem depois
+ // da Aclamação ao Evangelho e está grafado em maiúsculas no Lecionário.
+ const aclamacao=Math.max(upper.indexOf("ACLAMAÇÃO AO EVANGELHO"),upper.indexOf("ACLAMACAO AO EVANGELHO"))
+ const inicioBusca=aclamacao>=0?aclamacao+"ACLAMAÇÃO AO EVANGELHO".length:0
+ const marcadorReal=texto.indexOf("EVANGELHO",inicioBusca)
+ return marcadorReal>=0?marcadorReal:upper.indexOf("EVANGELHO",inicioBusca)
+}
+function posicoes(texto:string){return MARCADORES.map(m=>({m,i:indiceMarcador(texto,m)})).filter(x=>x.i>=0).sort((a,b)=>a.i-b.i)}
+function secao(texto:string,marcador:string){const ps=posicoes(texto),ini=indiceMarcador(texto,marcador);if(ini<0)return "";const prox=ps.find(x=>x.i>ini);return texto.slice(ini+marcador.length,prox?.i??texto.length).trim()}
 function referenciaDoTexto(v:string){
  const linhas=v.split("\n").map(x=>x.trim()).filter(Boolean)
  for(const linha of linhas.slice(0,8)){const m=linha.match(/((?:[1-3]\s*)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ]{0,15})\s+(\d[0-9,;.+\-–a-zA-Z ]{1,40})$/);if(m)return `${m[1]} ${m[2]}`.trim()}
