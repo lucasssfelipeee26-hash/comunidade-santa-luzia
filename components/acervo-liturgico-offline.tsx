@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { BookOpenText, Library, Loader2, Search, X } from "lucide-react"
 import { documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
-import { celebracaoDoDia } from "@/lib/iliturgia-sanctoral"
+import { celebracaoDoDiaBrasil as celebracaoDoDia } from "@/lib/iliturgia-sanctoral-brasil"
 import { comumDaCelebracao, documentoComum } from "@/lib/iliturgia-comuns"
 
 type Categoria={id:string;nome:string;total:number;arquivos:string[]}
