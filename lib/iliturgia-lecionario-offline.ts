@@ -17,7 +17,7 @@ function limpar(v:string){return entidades(v).replace(/\r/g,"").replace(/[ \t]+/
 
 async function documentos(){
  if(cache)return cache
- const bin=await readFile(path.join(process.cwd(),"lecionario.html.json.gz"))
+ const bin=await readFile(path.join(process.cwd(),"public","offline","iliturgia","lecionario.html.json.gz"))
  const pacote=JSON.parse(gunzipSync(bin).toString("utf8")) as Pacote
  cache=pacote.documents||[]
  return cache
