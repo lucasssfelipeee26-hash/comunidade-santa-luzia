@@ -1,5 +1,18 @@
-const CACHE = "santa-luzia-offline-v13"
-const CORE = ["/liturgia", "/visitante", "/api/liturgia-local"]
+const CACHE = "santa-luzia-offline-v14"
+const ACERVO_BASE = "/offline/iliturgia/"
+const ACERVO = [
+  `${ACERVO_BASE}manifest.json`,
+  `${ACERVO_BASE}catequeses.html.json.gz`,
+  `${ACERVO_BASE}comentarios.html.json.gz`,
+  `${ACERVO_BASE}evangelhos.html.json.gz`,
+  `${ACERVO_BASE}gerais.html.json.gz`,
+  `${ACERVO_BASE}lecionario.html.json.gz`,
+  `${ACERVO_BASE}missal.html.json.gz`,
+  ...Array.from({ length: 10 }, (_, i) => `${ACERVO_BASE}oficio-${String(i + 1).padStart(2, "0")}.html.json.gz`),
+  `${ACERVO_BASE}rosario.html.json.gz`,
+  `${ACERVO_BASE}salterio.html.json.gz`,
+]
+const CORE = ["/liturgia", "/visitante", "/api/liturgia-local", ...ACERVO]
 
 self.addEventListener("install", (event) => {
   self.skipWaiting()
@@ -27,6 +40,22 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+
+  if (url.pathname.startsWith(ACERVO_BASE)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE)
+      const cached = await cache.match(request)
+      if (cached) return cached
+      try {
+        const response = await fetch(request)
+        if (response.ok) await cache.put(request, response.clone())
+        return response
+      } catch {
+        return Response.error()
+      }
+    })())
+    return
+  }
 
   if (url.pathname === "/api/liturgia-local" || url.pathname === "/api/liturgia") {
     event.respondWith((async () => {
@@ -56,7 +85,7 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || /\.(?:css|js|woff2?|png|svg|ico)$/.test(url.pathname)) {
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || /\.(?:css|js|woff2?|png|jpg|jpeg|gif|webp|svg|ico)$/.test(url.pathname)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE)
       const cached = await cache.match(request)
