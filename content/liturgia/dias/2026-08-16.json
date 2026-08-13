@@ -1,0 +1,20 @@
+{
+  "data": "16 de agosto de 2026",
+  "liturgia": "Assunção da Bem-aventurada Virgem Maria",
+  "liturgiaOriginal": "Assunção da Bem-aventurada Virgem Maria",
+  "cor": "Branco",
+  "tempoLiturgicoAtual": "Tempo Comum",
+  "tempoCategoria": "tempocomum",
+  "santoDoDia": {
+    "nome": "Assunção da Bem-aventurada Virgem Maria"
+  },
+  "fonte": {
+    "nome": "Base offline Santa Luzia"
+  },
+  "leituras": {
+    "primeiraLeitura": [{"referencia": "Ap 11,19a;12,1-6a.10ab"}],
+    "salmo": [{"referencia": "Sl 44(45),10bc.11.12ab.16"}],
+    "segundaLeitura": [{"referencia": "1Cor 15,20-27a"}],
+    "evangelho": [{"referencia": "Lc 1,39-56"}]
+  }
+}
