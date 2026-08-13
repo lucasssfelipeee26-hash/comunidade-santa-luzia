@@ -5,7 +5,7 @@ import { BookOpenText, ChevronLeft, Church, Clock3, Menu, MoonStar, MoreHorizont
 import { AcervoLiturgicoOffline } from "@/components/acervo-liturgico-offline"
 import { LiturgiaDiaria } from "@/components/liturgia-diaria"
 import { documentoHoraSanto, documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
-import { celebracaoDoDia, imagemCelebracao } from "@/lib/iliturgia-sanctoral"
+import { celebracaoDoDiaBrasil as celebracaoDoDia, imagemCelebracao } from "@/lib/iliturgia-sanctoral-brasil"
 import { documentoRosarioDoDia, misterioRosarioDoDia } from "@/lib/iliturgia-rosario"
 import { prefaciosProprios, prefaciosTempo } from "@/lib/iliturgia-prefacios"
 import { documentoCatequeseDoDia, documentoEvangelhoDaReferencia, documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
