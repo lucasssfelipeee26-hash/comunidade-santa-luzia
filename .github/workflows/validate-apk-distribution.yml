@@ -1,0 +1,41 @@
+name: Validar distribuição Android
+
+on:
+  push:
+    branches:
+      - codex-validate-apk-distribution
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CAPACITOR_SERVER_URL: https://example.com
+      AUTH_SECRET: ci-validacao-santa-luzia-12345678901234567890
+      APP_VERSION_CODE: "1"
+      APP_VERSION_NAME: "1.0.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Auditar conteúdo offline
+        run: npm run audit:offline
+      - name: Compilar aplicação
+        run: npm run build
+      - name: Compilar APK Android de teste
+        run: |
+          npx cap add android
+          npx cap sync android
+          node scripts/prepare-android.cjs
+          cd android
+          ./gradlew assembleDebug
