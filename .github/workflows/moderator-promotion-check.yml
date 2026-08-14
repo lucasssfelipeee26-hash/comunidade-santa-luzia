@@ -11,6 +11,8 @@ on:
       - "app/api/auth/login/route.ts"
       - "components/editor-escala.tsx"
       - "components/gerenciador-formacoes.tsx"
+      - "components/formacao-presencas-editor.tsx"
+      - "components/formacao-membros.tsx"
       - "components/moderador-escala-page.tsx"
       - "components/moderator-promotion-panel.tsx"
       - "components/moderador-dashboard.tsx"
@@ -65,6 +67,16 @@ jobs:
           grep -q 'new FormData(formulario)' components/gerenciador-formacoes.tsx
           grep -q 'formulario.reset()' components/gerenciador-formacoes.tsx
           ! grep -q 'e.currentTarget.reset()' components/gerenciador-formacoes.tsx
+      - name: Validar presença e histórico de formação
+        shell: bash
+        run: |
+          grep -q 'formacao_presencas: FormacaoPresencaRow\[\]' lib/db.ts
+          grep -q 'Meu histórico de participação' components/formacao-membros.tsx
+          grep -q 'Registrar presença' components/formacao-presencas-editor.tsx
+          grep -q 'Falta justificada' components/formacao-membros.tsx
+          grep -q 'todo o histórico de presença' components/gerenciador-formacoes.tsx
+          ! grep -q '<select' components/formacao-presencas-editor.tsx
+
       - name: Testar autorização e promoção
         shell: bash
         run: |
@@ -111,7 +123,8 @@ jobs:
             | tee "$RUNNER_TEMP/promocao.json"
           grep -q '"ok":true' "$RUNNER_TEMP/promocao.json"
 
-          curl -fsS -X POST "http://127.0.0.1:3010/api/auth/login" \
+          curl -fsS -c "$RUNNER_TEMP/promovido.cookies" \
+            -X POST "http://127.0.0.1:3010/api/auth/login" \
             -H "Content-Type: application/json" \
             --data '{"usuario":"candidato.teste","senha":"Candidato!Teste#2026"}' \
             | tee "$RUNNER_TEMP/login-promovido.json"
@@ -120,6 +133,28 @@ jobs:
           curl -fsS -b "$RUNNER_TEMP/moderador.cookies" "http://127.0.0.1:3010/api/equipe" | tee "$RUNNER_TEMP/equipe.json"
           grep -q '"nome":"Moderador Teste","usuario":"moderador.teste","funcao":"Acólito"' "$RUNNER_TEMP/equipe.json"
           grep -q '"nome":"Candidato Teste","usuario":"candidato.teste","funcao":"Acólito"' "$RUNNER_TEMP/equipe.json"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X POST "http://127.0.0.1:3010/api/formacoes" \
+            -F "titulo=Formação de Teste" \
+            -F "tema=Serviço do Altar" \
+            -F "data=2026-08-14" \
+            -F "horario=19:00" \
+            -F "descricao=Formação usada no teste automatizado." \
+            | tee "$RUNNER_TEMP/formacao.json"
+          FORMACAO_ID="$(node -e 'const fs=require("fs");console.log(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).formacao.id)' "$RUNNER_TEMP/formacao.json")"
+          test -n "$FORMACAO_ID"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X PUT "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID/presencas" \
+            -H "Content-Type: application/json" \
+            --data '{"presencas":[{"usuarioId":"moderador-teste","situacao":"presente","justificativa":""},{"usuarioId":"candidato-teste","situacao":"justificada","justificativa":"Compromisso familiar"}]}' \
+            | tee "$RUNNER_TEMP/presencas-formacao.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/presencas-formacao.json"
+
+          curl -fsS -b "$RUNNER_TEMP/promovido.cookies" "http://127.0.0.1:3010/api/formacoes" | tee "$RUNNER_TEMP/historico-formacao.json"
+          grep -q '"minha_presenca":{"status":"justificada","justificativa":"Compromisso familiar"' "$RUNNER_TEMP/historico-formacao.json"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X DELETE "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID" | tee "$RUNNER_TEMP/excluir-formacao.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/excluir-formacao.json"
 
           INVALID_CATEGORY_STATUS="$(curl -sS -o "$RUNNER_TEMP/categoria-invalida.json" -w '%{http_code}' -b "$RUNNER_TEMP/moderador.cookies" -X POST "http://127.0.0.1:3010/api/escalas" -H "Content-Type: application/json" --data '{"data":"2026-08-14","horario":"18:00","celebrante":"Padre Teste","pessoas":[{"id":"candidato-teste","categoria":"coroinha","funcao":"Turiferário"}]}')"
           test "$INVALID_CATEGORY_STATUS" = "400"

@@ -64,6 +64,18 @@ export type FormacaoRow = {
   criado_em: number
   atualizado_em: number
 }
+export type FormacaoPresencaStatus = "presente" | "falta" | "justificada"
+
+export type FormacaoPresencaRow = {
+  id: string
+  formacao_id: string
+  usuario_id: string
+  status: FormacaoPresencaStatus
+  justificativa: string | null
+  registrado_por: string
+  criado_em: number
+  atualizado_em: number
+}
 
 
 export type ReconhecimentoCategoria = "companheirismo" | "acolhimento" | "espirito_servico" | "disponibilidade"
@@ -147,6 +159,7 @@ type Store = {
   codigos_recuperacao: CodigoRow[]
   escalas: EscalaRow[]
   formacoes: FormacaoRow[]
+  formacao_presencas: FormacaoPresencaRow[]
   reconhecimentos: ReconhecimentoRow[]
   quizzes: QuizRow[]
   quiz_respostas: QuizRespostaRow[]
@@ -161,7 +174,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 let storeDisponivel = true
 
 function readStore(): Store {
-  if (!fs.existsSync(DB_PATH)) return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], formacoes: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
+  if (!fs.existsSync(DB_PATH)) return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
   try {
     const raw = fs.readFileSync(DB_PATH, "utf8")
     const parsed = JSON.parse(raw) as Partial<Store>
@@ -171,6 +184,7 @@ function readStore(): Store {
       codigos_recuperacao: Array.isArray(parsed.codigos_recuperacao) ? parsed.codigos_recuperacao : [],
       escalas: Array.isArray(parsed.escalas) ? parsed.escalas : [],
       formacoes: Array.isArray(parsed.formacoes) ? parsed.formacoes : [],
+      formacao_presencas: Array.isArray(parsed.formacao_presencas) ? parsed.formacao_presencas : [],
       reconhecimentos: Array.isArray(parsed.reconhecimentos) ? parsed.reconhecimentos : [],
       quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
       quiz_respostas: Array.isArray(parsed.quiz_respostas) ? parsed.quiz_respostas : [],
@@ -187,7 +201,7 @@ function readStore(): Store {
     } catch {}
     storeDisponivel = false
     console.error("[Banco local] Não foi possível ler data/santa-luzia.json. As gravações foram bloqueadas para proteger os dados.", error)
-    return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], formacoes: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
+    return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
   }
 }
 
@@ -529,6 +543,7 @@ export function excluirContaUsuario(id: string) {
     ...escala,
     pessoas: escala.pessoas.filter((pessoa) => pessoa.id !== id && !(pessoa.id == null && pessoa.nome === usuario.nome)),
   }))
+  store.formacao_presencas = store.formacao_presencas.filter((presenca) => presenca.usuario_id !== id)
   store.reconhecimentos = store.reconhecimentos.filter((r) => r.de_usuario_id !== id && r.para_usuario_id !== id)
   store.quizzes = store.quizzes.filter((q) => q.criado_por !== id)
   store.quiz_respostas = store.quiz_respostas.filter((r) => r.usuario_id !== id && !quizzesCriados.has(r.quiz_id))
@@ -568,10 +583,59 @@ export function atualizarFormacao(id: string, dados: Partial<Omit<FormacaoRow, "
   return row
 }
 
+export function listarPresencasFormacao(formacaoId: string) {
+  return store.formacao_presencas
+    .filter((presenca) => presenca.formacao_id === formacaoId)
+    .sort((a, b) => a.usuario_id.localeCompare(b.usuario_id))
+}
+
+export function listarHistoricoFormacaoUsuario(usuarioId: string) {
+  return store.formacao_presencas
+    .filter((presenca) => presenca.usuario_id === usuarioId)
+    .sort((a, b) => b.atualizado_em - a.atualizado_em)
+}
+
+export function salvarPresencasFormacao(
+  formacaoId: string,
+  registros: Array<{ usuario_id: string; status: FormacaoPresencaStatus | null; justificativa: string | null }>,
+  moderadorId: string,
+) {
+  const agora = Date.now()
+  const idsAtualizados = new Set(registros.map((registro) => registro.usuario_id))
+  const existentes = new Map(
+    store.formacao_presencas
+      .filter((presenca) => presenca.formacao_id === formacaoId && idsAtualizados.has(presenca.usuario_id))
+      .map((presenca) => [presenca.usuario_id, presenca]),
+  )
+
+  store.formacao_presencas = store.formacao_presencas.filter(
+    (presenca) => presenca.formacao_id !== formacaoId || !idsAtualizados.has(presenca.usuario_id),
+  )
+
+  for (const registro of registros) {
+    if (!registro.status) continue
+    const existente = existentes.get(registro.usuario_id)
+    store.formacao_presencas.push({
+      id: existente?.id ?? `presenca-${agora}-${Math.random().toString(36).slice(2, 8)}`,
+      formacao_id: formacaoId,
+      usuario_id: registro.usuario_id,
+      status: registro.status,
+      justificativa: registro.status === "justificada" ? registro.justificativa : null,
+      registrado_por: moderadorId,
+      criado_em: existente?.criado_em ?? agora,
+      atualizado_em: agora,
+    })
+  }
+
+  persistNow()
+  return listarPresencasFormacao(formacaoId)
+}
+
 export function excluirFormacao(id: string) {
   const row = store.formacoes.find((f) => f.id === id)
   if (!row) return null
   store.formacoes = store.formacoes.filter((f) => f.id !== id)
+  store.formacao_presencas = store.formacao_presencas.filter((presenca) => presenca.formacao_id !== id)
   persistNow()
   return row
 }

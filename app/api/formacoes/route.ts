@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import fs from "node:fs"
 import path from "node:path"
 import { lerSessao } from "@/lib/auth"
-import {listarFormacoes, salvarFormacao, type FormacaoArquivo, DATA_DIR} from "@/lib/db"
+import { listarFormacoes, listarHistoricoFormacaoUsuario, salvarFormacao, type FormacaoArquivo, DATA_DIR } from "@/lib/db"
 
 export const runtime = "nodejs"
 
@@ -17,7 +17,28 @@ function sanitizar(nome: string) { return nome.normalize("NFD").replace(/[\u0300
 export async function GET() {
   const sessao = await lerSessao()
   if (!sessao) return NextResponse.json({ erro: "Faça login para acessar as formações." }, { status: 401 })
-  return NextResponse.json({ formacoes: listarFormacoes() })
+
+  const historico = new Map(
+    listarHistoricoFormacaoUsuario(sessao.sub).map((presenca) => [presenca.formacao_id, presenca]),
+  )
+  const formacoes = listarFormacoes().map((formacao) => {
+    const presenca = historico.get(formacao.id)
+    return {
+      ...formacao,
+      minha_presenca: presenca
+        ? {
+            status: presenca.status,
+            justificativa: presenca.justificativa,
+            atualizado_em: presenca.atualizado_em,
+          }
+        : null,
+    }
+  })
+
+  return NextResponse.json(
+    { formacoes },
+    { headers: { "Cache-Control": "no-store, max-age=0" } },
+  )
 }
 
 export async function POST(request: Request) {

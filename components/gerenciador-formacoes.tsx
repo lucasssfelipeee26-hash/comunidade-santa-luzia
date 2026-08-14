@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { FormacaoRow } from "@/lib/db"
+import { FormacaoPresencasEditor } from "@/components/formacao-presencas-editor"
 
 function formatarData(value: string) { return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Cuiaba" }).format(new Date(`${value}T12:00:00-04:00`)) }
 function tamanho(bytes: number) { return bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB` }
@@ -57,8 +58,15 @@ export function GerenciadorFormacoes() {
   }
 
   async function excluir(id: string) {
-    if (!window.confirm("Excluir esta formação e o arquivo anexado?")) return
-    const r = await fetch(`/api/formacoes/${id}`, { method: "DELETE" }); if (r.ok) carregar()
+    if (!window.confirm("Excluir esta formação, o arquivo anexado e todo o histórico de presença?")) return
+    setErro("")
+    const r = await fetch(`/api/formacoes/${id}`, { method: "DELETE" })
+    const j = await r.json().catch(() => null)
+    if (!r.ok) {
+      setErro(j?.erro ?? "Não foi possível excluir a formação.")
+      return
+    }
+    await carregar()
   }
 
   return <section className="mt-10 overflow-hidden rounded-xl border border-[#d4af37]/45 bg-card">
@@ -79,9 +87,10 @@ export function GerenciadorFormacoes() {
     <div className="border-t border-border p-5">
       <h3 className="mb-3 font-semibold">Formações publicadas</h3>
       {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : itens.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma formação publicada.</p> : <div className="space-y-3">{itens.map(item => <article key={item.id} className="rounded-lg border border-border p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><strong>{item.titulo}</strong><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.status === "cancelada" ? "bg-destructive/10 text-destructive" : "bg-emerald-100 text-emerald-800"}`}>{item.status === "cancelada" ? "Cancelada" : "Agendada"}</span></div><p className="mt-1 text-sm font-medium text-primary">Tema: {item.tema}</p><p className="text-sm text-muted-foreground">{formatarData(item.data)}{item.horario ? ` às ${item.horario}` : ""}</p></div><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => mudarStatus(item)} className="gap-1">{item.status === "cancelada" ? <CheckCircle2 className="size-4" /> : <CalendarX className="size-4" />}{item.status === "cancelada" ? "Reativar" : "Cancelar"}</Button><Button type="button" size="sm" variant="outline" onClick={() => excluir(item.id)} className="text-destructive"><Trash2 className="size-4" /></Button></div></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><strong>{item.titulo}</strong><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.status === "cancelada" ? "bg-destructive/10 text-destructive" : "bg-emerald-100 text-emerald-800"}`}>{item.status === "cancelada" ? "Cancelada" : "Agendada"}</span></div><p className="mt-1 text-sm font-medium text-primary">Tema: {item.tema}</p><p className="text-sm text-muted-foreground">{formatarData(item.data)}{item.horario ? ` às ${item.horario}` : ""}</p></div><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={() => mudarStatus(item)} className="gap-1">{item.status === "cancelada" ? <CheckCircle2 className="size-4" /> : <CalendarX className="size-4" />}{item.status === "cancelada" ? "Reativar" : "Cancelar"}</Button><Button type="button" size="sm" variant="outline" onClick={() => excluir(item.id)} className="gap-1 text-destructive"><Trash2 className="size-4" /> Excluir</Button></div></div>
         {item.motivo_cancelamento && <p className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive"><XCircle className="mr-1 inline size-4" /> {item.motivo_cancelamento}</p>}
         {item.arquivo && <a className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline" href={`/api/formacoes/${item.id}/download`}><Download className="size-4" /> {item.arquivo.nome_original} ({tamanho(item.arquivo.tamanho)})</a>}
+        {item.status !== "cancelada" && <FormacaoPresencasEditor formacaoId={item.id} />}
       </article>)}</div>}
     </div>
   </section>
