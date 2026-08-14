@@ -1,0 +1,33 @@
+name: Publicar Android 1.0.1
+
+on:
+  push:
+    branches: [codex-publish-android-101]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruir e validar APK assinado
+        run: |
+          mkdir -p dist
+          cat release-parts/part-* > dist/santa-luzia.apk
+          echo "ca67e98be71e2b52c09f043ea376ddb0e6ff72e7c4d4fcc494f94ac460870480  dist/santa-luzia.apk" | sha256sum -c -
+          cp dist/santa-luzia.apk dist/Santa-Luzia-1.0.1.apk
+          cd dist
+          sha256sum santa-luzia.apk > santa-luzia.apk.sha256
+      - name: Publicar atualização oficial
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view android-v1.0.1 >/dev/null 2>&1; then
+            gh release upload android-v1.0.1 dist/santa-luzia.apk dist/Santa-Luzia-1.0.1.apk dist/santa-luzia.apk.sha256 --clobber
+            gh release edit android-v1.0.1 --latest --title "Santa Luzia 1.0.1"
+          else
+            gh release create android-v1.0.1 dist/santa-luzia.apk dist/Santa-Luzia-1.0.1.apk dist/santa-luzia.apk.sha256 --target c7d76bf2c1847067e7ce287f1fd7ea5da7d13a9d --latest --title "Santa Luzia 1.0.1" --notes "Atualização oficial: novo ícone adaptativo Santa Luzia, convites de download ocultos no aplicativo instalado, melhor adaptação a celulares, tablets e dobráveis, segurança HTTPS e aprimoramentos de inicialização e notificações."
+          fi
