@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL }}
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || 'https://comunidade-santa-luzia-production.up.railway.app' }}
       AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
     steps:
       - uses: actions/checkout@v4
