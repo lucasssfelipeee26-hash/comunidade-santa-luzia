@@ -21,6 +21,7 @@ export type LiturgiaLocal = {
     salmo?: LeituraLocal[]
     segundaLeitura?: LeituraLocal[]
     evangelho?: LeituraLocal[]
+    extras?: LeituraLocal[]
   }
 }
 

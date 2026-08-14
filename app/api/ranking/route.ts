@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import {
   buscarPontualidadeOcorrencia,
+  buscarPontualidadePorRequisicao,
   buscarUsuario,
   listarMembrosAprovados,
   listarPontualidadeOcorrencias,
@@ -94,6 +95,18 @@ export async function POST(req: NextRequest) {
   if (action === "reportar_atraso") {
     const usuarioId = String(body.usuarioId || "")
     const escalaId = body.escalaId ? String(body.escalaId) : null
+    const clientRequestId = String(body.clientRequestId || "").trim()
+    if (clientRequestId && !/^[a-zA-Z0-9._:-]{8,100}$/.test(clientRequestId)) {
+      return NextResponse.json({ erro: "Identificador do relato inválido." }, { status: 400 })
+    }
+
+    if (clientRequestId) {
+      const jaRecebido = buscarPontualidadePorRequisicao(clientRequestId, ctx.usuario.id)
+      if (jaRecebido) {
+        return NextResponse.json({ ok: true, ocorrencia: jaRecebido, duplicado: true, mensagem: "Relato já sincronizado." })
+      }
+    }
+
     const alvo = buscarUsuario(usuarioId)
     if (!alvo || alvo.tipo !== "membro" || alvo.status !== "aprovado") return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
 
@@ -108,6 +121,7 @@ export async function POST(req: NextRequest) {
     const ano = Number(dataMissa.slice(0, 4))
     const config = obterRankingConfig(ano)
     const row = salvarPontualidadeOcorrencia({
+      client_request_id: clientRequestId || null,
       usuario_id: usuarioId,
       escala_id: escalaId,
       data_missa: dataMissa,

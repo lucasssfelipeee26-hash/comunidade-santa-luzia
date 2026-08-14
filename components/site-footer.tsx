@@ -36,7 +36,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-[#d4af37]/30 bg-[#052f21]">
-        <p className="mx-auto max-w-7xl px-4 py-5 text-center text-xs text-white/60">© {new Date().getFullYear()} {site.comunidade} · {site.grupo} · {site.paroquia}. Todos os direitos reservados.</p>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4 py-5 text-center text-xs text-white/60"><span>© {new Date().getFullYear()} {site.comunidade} · {site.grupo} · {site.paroquia}. Todos os direitos reservados.</span><Link href="/privacidade" className="text-white/80 hover:text-white hover:underline">Privacidade</Link><Link href="/excluir-conta" className="text-white/80 hover:text-white hover:underline">Excluir conta</Link></div>
       </div>
     </footer>
   )

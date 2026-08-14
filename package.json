@@ -1,6 +1,6 @@
 {
   "name": "comunidade-santa-luzia",
-  "version": "0.12.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -H 0.0.0.0",
@@ -8,6 +8,10 @@
     "prestart": "node scripts/bootstrap-acervo.cjs",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
+    "audit:offline": "node scripts/auditar-indice-liturgico-2026.cjs && node scripts/auditar-liturgia-completa-2026.cjs && node scripts/auditar-iliturgia-offline.mjs",
+    "generate:offline": "node scripts/gerar-indice-liturgico-2026.cjs && node scripts/gerar-liturgia-completa-2026.cjs",
+    "android:add": "npx cap add android",
+    "android:prepare": "node scripts/prepare-android.cjs",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
     "android:run": "npx cap run android"

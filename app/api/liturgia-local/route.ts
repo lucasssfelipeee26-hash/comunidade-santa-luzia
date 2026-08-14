@@ -4,6 +4,7 @@ import { dataCuiabaIso, obterLiturgiaLocal, type LiturgiaLocal, type LeituraLoca
 import { liturgiaDoArquivoLecionario } from "@/lib/iliturgia-lecionario-offline"
 import { liturgiaDoIndiceAnual } from "@/lib/iliturgia-indice-anual"
 import { documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
+import { obterLiturgiaCompletaOffline } from "@/lib/liturgia-completa-offline"
 import { tempoLiturgico } from "@/lib/iliturgia-calendario"
 import { celebracaoDoDiaBrasil, imagemCelebracao } from "@/lib/iliturgia-sanctoral-brasil"
 
@@ -26,6 +27,7 @@ function mesclarLeituras(principal:LiturgiaLocal["leituras"],reserva:LiturgiaLoc
     salmo:principal.salmo?.length?principal.salmo:reserva.salmo,
     segundaLeitura:principal.segundaLeitura?.length?principal.segundaLeitura:reserva.segundaLeitura,
     evangelho:principal.evangelho?.length?principal.evangelho:reserva.evangelho,
+    extras:principal.extras?.length?principal.extras:reserva.extras,
   }
 }
 function nomeTempo(chave:ReturnType<typeof tempoLiturgico>){
@@ -81,7 +83,8 @@ export async function GET() {
   const dataIso = dataCuiabaIso()
   const ciclos = ciclosLiturgicos(dataIsoParaDate(dataIso))
   const localOriginal = obterLiturgiaLocal(dataIso)
-  let local:LiturgiaLocal|null=localOriginal
+  const localCompleta = obterLiturgiaCompletaOffline(dataIso)
+  let local:LiturgiaLocal|null=localOriginal || localCompleta
 
   if(localOriginal){
     const arquivoOrigem = localOriginal.fonte?.arquivoOrigem?.replace(/^assets\/Resources\//, "")
@@ -96,7 +99,7 @@ export async function GET() {
         console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
       }
     }
-  }else{
+  }else if(!localCompleta){
     local=await montarDoIndice(dataIso)
   }
 
@@ -110,6 +113,11 @@ export async function GET() {
   }
 
   local = aplicarCalendarioBrasil(local, dataIso)
+
+  if (!local.tempoLiturgicoAtual || !local.tempoCategoria) {
+    const categoria = tempoLiturgico(dataIsoParaDate(dataIso))
+    local = { ...local, tempoCategoria: categoria, tempoLiturgicoAtual: nomeTempo(categoria) }
+  }
 
   const temTexto=Boolean(local.leituras?.primeiraLeitura?.some(x=>x.texto)||local.leituras?.evangelho?.some(x=>x.texto))
   return NextResponse.json({

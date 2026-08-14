@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import useSWR, { mutate } from "swr"
 import { Camera, Save, Trash2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -27,5 +28,6 @@ export function ProfileSettings(){
    <div className="grid min-w-0 gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="perfil-nome">Nome</Label><Input id="perfil-nome" value={nome} onChange={e=>setNome(e.target.value)}/></div><div className="space-y-2"><Label htmlFor="perfil-email">E-mail</Label><Input id="perfil-email" value={perfil.email} disabled/></div>{perfil.tipo==="membro"&&<><div className="space-y-2"><Label htmlFor="perfil-nascimento">Data de nascimento</Label><Input id="perfil-nascimento" type="date" value={nascimento} onChange={e=>setNascimento(e.target.value)}/></div><div className="space-y-2"><Label htmlFor="perfil-votos">Profissão dos votos (opcional)</Label><Input id="perfil-votos" type="date" value={votos} onChange={e=>setVotos(e.target.value)}/></div></>}<div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button onClick={salvar} disabled={salvando} className="gap-2"><Save className="size-4"/>{salvando?"Salvando...":"Salvar perfil"}</Button>{mensagem&&<span className="text-sm text-muted-foreground">{mensagem}</span>}</div></div>
   </div>
   <NotificationSoundPreferences/><div className="mt-3"><AndroidNotificationSettings/></div>
+  {perfil.tipo==="membro"&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-white/75 p-4 text-sm"><div><p className="font-semibold text-foreground">Privacidade e conta</p><p className="mt-0.5 text-xs text-muted-foreground">Consulte como os dados são usados ou exclua sua conta.</p></div><div className="flex gap-3"><Link href="/privacidade" className="font-semibold text-primary hover:underline">Política</Link><Link href="/excluir-conta" className="font-semibold text-destructive hover:underline">Excluir conta</Link></div></div>}
  </section>
 }

@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     )
   }
   if (!EMAIL_REGEX.test(email)) return NextResponse.json({ ok: false, erro: "E-mail de recuperação inválido." }, { status: 400 })
-  if (senha.length < 6) return NextResponse.json({ ok: false, erro: "A senha deve ter pelo menos 6 caracteres." }, { status: 400 })
+  if (senha.length < 8) return NextResponse.json({ ok: false, erro: "A senha deve ter pelo menos 8 caracteres." }, { status: 400 })
   if (usuarioJaExiste(usuario)) return NextResponse.json({ ok: false, erro: "Este nome de usuário já está em uso. Escolha outro." }, { status: 409 })
   if (emailJaExiste(email)) return NextResponse.json({ ok: false, erro: "Este e-mail já está vinculado a uma conta." }, { status: 409 })
 

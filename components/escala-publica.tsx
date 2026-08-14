@@ -1,9 +1,11 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import useSWR from "swr"
-import { AlertCircle, CalendarDays, Clock, Cross, RefreshCw, Users } from "lucide-react"
+import { AlertCircle, CalendarDays, CheckCircle2, Clock, Cross, RefreshCw, Users, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ordemFuncaoEscala } from "@/lib/escala-funcoes"
+import { carregarCacheEscalas, salvarCacheEscalas } from "@/lib/offline-data"
 
 type PessoaEscala = {
   id?: string
@@ -22,6 +24,7 @@ type Escala = {
 }
 
 type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
+type EscalasCache = { atualizadoEm: number; dados: EscalasResponse }
 
 async function fetcher(url: string): Promise<EscalasResponse> {
   const response = await fetch(url, { cache: "no-store" })
@@ -54,16 +57,39 @@ function formatarData(data: string) {
 }
 
 export function EscalaPublica() {
+  const [cacheLocal, setCacheLocal] = useState<EscalasCache | null>(null)
+  const [online, setOnline] = useState(true)
   const { data, error, isLoading, mutate } = useSWR<EscalasResponse>("/api/escalas", fetcher, {
     refreshInterval: 60_000,
     revalidateOnFocus: true,
   })
 
-  if (isLoading) {
+  useEffect(() => {
+    setCacheLocal(carregarCacheEscalas<EscalasResponse>())
+    const atualizarRede = () => setOnline(navigator.onLine)
+    atualizarRede()
+    window.addEventListener("online", atualizarRede)
+    window.addEventListener("offline", atualizarRede)
+    return () => {
+      window.removeEventListener("online", atualizarRede)
+      window.removeEventListener("offline", atualizarRede)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!data?.ok || !navigator.onLine) return
+    salvarCacheEscalas(data)
+    setCacheLocal({ atualizadoEm: Date.now(), dados: data })
+  }, [data])
+
+  const dadosExibidos = data?.ok ? data : cacheLocal?.dados
+  const usandoCache = Boolean(dadosExibidos && (error || !online))
+
+  if (isLoading && !dadosExibidos) {
     return <p className="text-muted-foreground">Carregando escala...</p>
   }
 
-  if (error) {
+  if (error && !dadosExibidos) {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
         <p className="flex items-center gap-2 font-medium text-destructive">
@@ -78,7 +104,7 @@ export function EscalaPublica() {
   }
 
   const hoje = hojeCuiaba()
-  const proximas = (data?.escalas ?? [])
+  const proximas = (dadosExibidos?.escalas ?? [])
     .filter((escala) => escala.data >= hoje)
     .sort((a, b) => `${a.data} ${a.horario}`.localeCompare(`${b.data} ${b.horario}`))
     .slice(0, 12)
@@ -93,6 +119,14 @@ export function EscalaPublica() {
 
   return (
     <div className="grid gap-5">
+      <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${usandoCache ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+        {usandoCache ? <WifiOff className="size-4 shrink-0" /> : <CheckCircle2 className="size-4 shrink-0" />}
+        <span>
+          {usandoCache
+            ? `Sem conexão: mostrando a última escala salva${cacheLocal?.atualizadoEm ? ` em ${new Date(cacheLocal.atualizadoEm).toLocaleString("pt-BR")}` : ""}.`
+            : "Escala atualizada e salva neste aparelho para consulta sem internet."}
+        </span>
+      </div>
       {proximas.map((escala) => (
         <article key={escala.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center gap-4">

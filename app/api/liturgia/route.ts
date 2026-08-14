@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { ciclosLiturgicos, dataIsoParaDate } from "@/lib/ciclo-liturgico"
 import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
+import { obterLiturgiaCompletaOffline } from "@/lib/liturgia-completa-offline"
 
 export const dynamic = "force-dynamic"
 
@@ -23,7 +24,7 @@ export type Liturgia = {
   santoDoDia?: SantoDoDia | null
   fonte: { nome: string; licenca?: string; arquivoOrigem?: string }
   oracoes: { coleta?: string; oferendas?: string; comunhao?: string }
-  leituras: { primeiraLeitura?: Leitura[]; salmo?: Leitura[]; segundaLeitura?: Leitura[]; evangelho?: Leitura[] }
+  leituras: { primeiraLeitura?: Leitura[]; salmo?: Leitura[]; segundaLeitura?: Leitura[]; evangelho?: Leitura[]; extras?: Leitura[] }
 }
 
 function dataPorExtenso(dataIso: string) {
@@ -38,7 +39,7 @@ function dataPorExtenso(dataIso: string) {
 
 export async function GET() {
   const dataIso = dataCuiabaIso()
-  const local = obterLiturgiaLocal(dataIso)
+  const local = obterLiturgiaLocal(dataIso) || obterLiturgiaCompletaOffline(dataIso)
   if (!local) {
     return NextResponse.json({
       erro: "Liturgia offline indisponível para esta data.",

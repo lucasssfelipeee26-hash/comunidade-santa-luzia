@@ -57,6 +57,7 @@ export function LiturgiaDiaria() {
     { id: "salmo", titulo: "Salmo Responsorial", itens: data.leituras.salmo },
     { id: "segunda", titulo: "2ª Leitura", itens: data.leituras.segundaLeitura },
     { id: "evangelho", titulo: "Evangelho", itens: data.leituras.evangelho },
+    { id: "extras", titulo: "Leituras adicionais", itens: data.leituras.extras },
   ].filter((bloco) => bloco.itens?.length)
   const leituraAtiva = blocos.find((bloco) => bloco.id === leituraAtivaId)
 

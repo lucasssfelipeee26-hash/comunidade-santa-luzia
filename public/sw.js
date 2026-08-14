@@ -1,5 +1,7 @@
-const CACHE = "santa-luzia-offline-v16"
+const CACHE = "santa-luzia-offline-v18"
+const PRIVATE_CACHE = "santa-luzia-private-v1"
 const ACERVO_BASE = "/offline/iliturgia/"
+const LITURGIA_COMPLETA_BASE = "/offline/liturgia-completa/"
 const ACERVO = [
   `${ACERVO_BASE}manifest.json`,
   `${ACERVO_BASE}indice-liturgico-2026.json`,
@@ -13,7 +15,20 @@ const ACERVO = [
   `${ACERVO_BASE}rosario.html.json.gz`,
   `${ACERVO_BASE}salterio.html.json.gz`,
 ]
-const CORE = ["/liturgia", "/visitante", "/api/liturgia-local", ...ACERVO]
+const LITURGIA_COMPLETA = Array.from({ length: 12 }, (_, i) => `${LITURGIA_COMPLETA_BASE}2026-${String(i + 1).padStart(2, "0")}.json`)
+const CORE = [
+  "/liturgia",
+  "/visitante",
+  "/escala",
+  "/api/liturgia-local",
+  "/api/escalas",
+  "/sounds/notification-santa.wav",
+  "/sounds/notification-bells.wav",
+  "/sounds/notification-chime.wav",
+  "/sounds/notification-soft.wav",
+  ...ACERVO,
+  ...LITURGIA_COMPLETA,
+]
 
 self.addEventListener("install", (event) => {
   self.skipWaiting()
@@ -36,13 +51,19 @@ self.addEventListener("activate", (event) => {
   })())
 })
 
+self.addEventListener("message", (event) => {
+  if (event.data?.tipo === "LIMPAR_CACHE_PRIVADO") {
+    event.waitUntil(caches.delete(PRIVATE_CACHE))
+  }
+})
+
 self.addEventListener("fetch", (event) => {
   const request = event.request
   if (request.method !== "GET") return
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  if (url.pathname.startsWith(ACERVO_BASE)) {
+  if (url.pathname.startsWith(ACERVO_BASE) || url.pathname.startsWith(LITURGIA_COMPLETA_BASE)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE)
       const cached = await cache.match(request)
@@ -66,7 +87,33 @@ self.addEventListener("fetch", (event) => {
         if (response.ok) await cache.put("/api/liturgia-local", response.clone())
         return response
       } catch {
+        try {
+          const partes = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date())
+          const mapa = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]))
+          const dataIso = `${mapa.year}-${mapa.month}-${mapa.day}`
+          const pacoteResponse = await cache.match(`${LITURGIA_COMPLETA_BASE}${mapa.year}-${mapa.month}.json`)
+          if (pacoteResponse) {
+            const pacote = await pacoteResponse.json()
+            const dia = pacote?.dias?.[dataIso]
+            const temTexto = Boolean(dia?.leituras?.primeiraLeitura?.some((item) => item?.texto) && dia?.leituras?.evangelho?.some((item) => item?.texto))
+            if (dia) return new Response(JSON.stringify({ ...dia, dataIso, origem: "offline", offline: true, quizDisponivel: temTexto, fonte: { nome: "Acervo Litúrgico Santa Luzia" } }), { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } })
+          }
+        } catch {}
         return (await cache.match("/api/liturgia-local")) || new Response(JSON.stringify({ erro: "Liturgia offline ainda não sincronizada neste aparelho.", offline: true, quizDisponivel: false }), { status: 503, headers: { "Content-Type": "application/json" } })
+      }
+    })())
+    return
+  }
+
+  if (url.pathname === "/api/escalas") {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE)
+      try {
+        const response = await fetch(request)
+        if (response.ok) await cache.put("/api/escalas", response.clone())
+        return response
+      } catch {
+        return (await cache.match("/api/escalas")) || new Response(JSON.stringify({ ok: false, erro: "A escala ainda não foi salva neste aparelho.", offline: true }), { status: 503, headers: { "Content-Type": "application/json" } })
       }
     })())
     return
@@ -75,11 +122,18 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE)
+      const privateCache = await caches.open(PRIVATE_CACHE)
+      const paginaPrivadaOffline = url.pathname === "/area-restrita/ranking"
       try {
         const response = await fetch(request)
-        if (response.ok && ["/liturgia", "/visitante"].includes(url.pathname)) await cache.put(url.pathname, response.clone())
+        if (response.ok && ["/liturgia", "/visitante", "/escala"].includes(url.pathname)) await cache.put(url.pathname, response.clone())
+        if (response.ok && paginaPrivadaOffline && new URL(response.url).pathname === url.pathname) await privateCache.put(url.pathname, response.clone())
         return response
       } catch {
+        if (paginaPrivadaOffline) {
+          const privada = await privateCache.match(url.pathname)
+          if (privada) return privada
+        }
         return (await cache.match(url.pathname)) || (await cache.match("/liturgia")) || Response.error()
       }
     })())

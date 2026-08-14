@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useSWRConfig } from "swr"
+import { salvarCacheEscalas, sincronizarRelatosAtrasoPendentes } from "@/lib/offline-data"
 
 type ServerStatus = {
   ok: boolean
@@ -39,6 +40,17 @@ export function ServerSyncRuntime() {
       definirEstado("sincronizando")
 
       try {
+        const sincronizacaoLocal = Promise.all([
+          sincronizarRelatosAtrasoPendentes().catch(() => ({ enviados: 0, restantes: 0 })),
+          fetch("/api/escalas", { cache: "no-store", credentials: "same-origin" })
+            .then(async (res) => {
+              if (!res.ok) return false
+              const json = await res.json()
+              return json?.ok ? salvarCacheEscalas(json) : false
+            })
+            .catch(() => false),
+        ])
+
         const response = await fetch("/api/app/status", {
           cache: "no-store",
           credentials: "same-origin",
@@ -51,14 +63,9 @@ export function ServerSyncRuntime() {
         const releaseAnterior = localStorage.getItem(RELEASE_KEY)
         if (status.appRelease) {
           localStorage.setItem(RELEASE_KEY, status.appRelease)
-          if (releaseAnterior && releaseAnterior !== status.appRelease) {
-            // Nova versão do aplicativo: encerra a sessão persistida e volta
-            // para a tela de acesso, conforme a regra do Santa Luzia.
-            await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined)
-            window.location.replace("/")
-            return
-          }
         }
+
+        const [relatos] = await sincronizacaoLocal
 
         const anterior = localStorage.getItem(REVISAO_KEY)
         const temaAnterior = localStorage.getItem(TEMA_KEY)
@@ -75,7 +82,7 @@ export function ServerSyncRuntime() {
           return
         }
 
-        if (mudou || forcarRevalidacao) {
+        if (mudou || forcarRevalidacao || relatos.enviados > 0 || Boolean(releaseAnterior && releaseAnterior !== status.appRelease)) {
           await mutate(
             (key) =>
               typeof key === "string" &&

@@ -50,12 +50,12 @@ export const ERROR_SOUND_OPTIONS: { value: ErrorSoundKey; label: string }[] = [
   { value: "none", label: "Sem som" },
 ]
 
-export const NOTIFICATION_SOUND_OPTIONS: { value: NotificationSoundKey; label: string; file?: string }[] = [
-  { value: "santa", label: "Santa Luzia", file: "santa_luzia_notification.wav" },
-  { value: "bells", label: "Sinos", file: "santa_luzia_bells.wav" },
-  { value: "chime", label: "Carrilhão", file: "santa_luzia_chime.wav" },
-  { value: "soft", label: "Suave", file: "santa_luzia_soft.wav" },
-  { value: "none", label: "Sem som" },
+export const NOTIFICATION_SOUND_OPTIONS: { value: NotificationSoundKey; label: string; description: string; file?: string; preview?: string }[] = [
+  { value: "santa", label: "Santa Luzia", description: "Acorde luminoso e acolhedor", file: "santa_luzia_notification.wav", preview: "/sounds/notification-santa.wav" },
+  { value: "bells", label: "Sinos", description: "Três notas de sino, claras e elegantes", file: "santa_luzia_bells.wav", preview: "/sounds/notification-bells.wav" },
+  { value: "chime", label: "Carrilhão", description: "Toque moderno, leve e cristalino", file: "santa_luzia_chime.wav", preview: "/sounds/notification-chime.wav" },
+  { value: "soft", label: "Suave", description: "Aviso curto e discreto", file: "santa_luzia_soft.wav", preview: "/sounds/notification-soft.wav" },
+  { value: "none", label: "Sem som", description: "Somente aviso visual e vibração" },
 ]
 
 export const UI_SOUND_FILES: Partial<Record<Exclude<UiSoundKey, "custom" | "none">, string>> = {
@@ -136,7 +136,7 @@ export function notificationSoundFile(key: NotificationSoundKey) {
 }
 
 export function notificationChannelId(key: NotificationSoundKey, vibration: boolean) {
-  return `santa_luzia_${key}_${vibration ? "v" : "nv"}_v1`
+  return `santa_luzia_${key}_${vibration ? "v" : "nv"}_v2`
 }
 
 export function notificationChannelName(key: NotificationSoundKey) {

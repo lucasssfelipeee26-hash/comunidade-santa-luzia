@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
+import { carregarSessaoOffline, limparDadosPrivadosOffline, salvarSessaoOffline } from "@/lib/offline-data"
 
 export type Registro = {
   id: string
@@ -45,7 +46,23 @@ type MeResponse = {
   sessao: null | { tipo: "moderador" | "membro"; usuario: UsuarioSessao }
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const fetcher = async (url: string) => {
+  try {
+    const response = await fetch(url, { credentials: "same-origin" })
+    const json = await response.json()
+    if (url === "/api/auth/me") {
+      if (json?.sessao) salvarSessaoOffline(json)
+      else limparDadosPrivadosOffline()
+    }
+    return json
+  } catch (error) {
+    if (url === "/api/auth/me") {
+      const cache = carregarSessaoOffline<MeResponse>()
+      if (cache?.dados?.sessao) return cache.dados
+    }
+    throw error
+  }
+}
 
 type ResultadoAcao = { ok: boolean; erro?: string; destino?: string }
 
@@ -135,6 +152,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" })
+    limparDadosPrivadosOffline()
     await globalMutate("/api/auth/me")
   }, [])
 

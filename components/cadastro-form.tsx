@@ -20,8 +20,8 @@ export function CadastroForm() {
     const form = new FormData(e.currentTarget)
     const senha = String(form.get("senha") ?? "")
     const confirmar = String(form.get("confirmar") ?? "")
-    if (senha.length < 6) {
-      setErro("A senha deve ter pelo menos 6 caracteres.")
+    if (senha.length < 8) {
+      setErro("A senha deve ter pelo menos 8 caracteres.")
       return
     }
     if (senha !== confirmar) {
@@ -159,6 +159,8 @@ export function CadastroForm() {
         <UserPlus className="size-4" aria-hidden="true" />
         Enviar cadastro
       </Button>
+
+      <p className="text-center text-xs leading-5 text-muted-foreground">Ao enviar o cadastro, você declara que leu a <Link href="/privacidade" className="font-semibold text-primary hover:underline">Política de Privacidade</Link>. Se for menor de idade, o cadastro deve ser autorizado pelo responsável.</p>
 
       <p className="text-center text-sm text-muted-foreground">
         Já tem acesso?{" "}

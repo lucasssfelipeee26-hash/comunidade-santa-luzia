@@ -1,4 +1,5 @@
 const { spawnSync } = require("node:child_process")
+const fs = require("node:fs")
 const path = require("node:path")
 
 const env = { ...process.env }
@@ -17,13 +18,18 @@ for (const key of [
 
 env.SANTA_LUZIA_BUILD = "1"
 
-const indice = path.join(process.cwd(), "scripts", "gerar-indice-liturgico-2026.cjs")
-const gerar = spawnSync(process.execPath, [indice], { stdio: "inherit", env })
-if (gerar.error) {
-  console.error(gerar.error)
-  process.exit(1)
+function executar(script) {
+  const resultado = spawnSync(process.execPath, [path.join(process.cwd(), "scripts", script)], { stdio: "inherit", env })
+  if (resultado.error) { console.error(resultado.error); process.exit(1) }
+  if ((resultado.status ?? 1) !== 0) process.exit(resultado.status ?? 1)
 }
-if ((gerar.status ?? 1) !== 0) process.exit(gerar.status ?? 1)
+
+const indicePronto = fs.existsSync(path.join(process.cwd(), "public", "offline", "iliturgia", "indice-liturgico-2026.json"))
+const liturgiaCompletaPronta = fs.existsSync(path.join(process.cwd(), "public", "offline", "liturgia-completa", "2026-12.json"))
+if (!indicePronto || process.env.REGERAR_LITURGIA_OFFLINE === "1") executar("gerar-indice-liturgico-2026.cjs")
+if (!liturgiaCompletaPronta || process.env.REGERAR_LITURGIA_OFFLINE === "1") executar("gerar-liturgia-completa-2026.cjs")
+executar("auditar-indice-liturgico-2026.cjs")
+executar("auditar-liturgia-completa-2026.cjs")
 
 const nextBin = require.resolve("next/dist/bin/next")
 const result = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {

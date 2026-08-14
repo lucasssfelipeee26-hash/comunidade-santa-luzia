@@ -106,6 +106,7 @@ export type QuizRespostaRow = {
 export type PontualidadeStatus = "pendente" | "confirmado" | "rejeitado"
 export type PontualidadeOcorrenciaRow = {
   id: string
+  client_request_id?: string | null
   usuario_id: string
   escala_id: string | null
   data_missa: string
@@ -490,6 +491,34 @@ export function salvarEscala(e: Omit<EscalaRow,"id"|"criado_em">) { const row={.
 export function excluirEscala(id:string) { const n=store.escalas.length; store.escalas=store.escalas.filter(e=>e.id!==id); persistNow(); return n!==store.escalas.length }
 export function buscarUsuario(id:string){ return store.usuarios.find(u=>u.id===id) }
 
+export function excluirContaUsuario(id: string) {
+  const usuario = store.usuarios.find((u) => u.id === id)
+  if (!usuario) return false
+
+  const quizzesCriados = new Set(store.quizzes.filter((q) => q.criado_por === id).map((q) => q.id))
+  const ocorrenciasRemovidas = new Set(
+    store.pontualidade_ocorrencias
+      .filter((o) => o.usuario_id === id || o.reportado_por === id)
+      .map((o) => o.id),
+  )
+
+  store.usuarios = store.usuarios.filter((u) => u.id !== id)
+  store.registros = store.registros.filter((r) => r.usuario_id !== id)
+  store.codigos_recuperacao = store.codigos_recuperacao.filter((c) => c.usuario_id !== id)
+  store.escalas = store.escalas.map((escala) => ({
+    ...escala,
+    pessoas: escala.pessoas.filter((pessoa) => pessoa.id !== id && !(pessoa.id == null && pessoa.nome === usuario.nome)),
+  }))
+  store.reconhecimentos = store.reconhecimentos.filter((r) => r.de_usuario_id !== id && r.para_usuario_id !== id)
+  store.quizzes = store.quizzes.filter((q) => q.criado_por !== id)
+  store.quiz_respostas = store.quiz_respostas.filter((r) => r.usuario_id !== id && !quizzesCriados.has(r.quiz_id))
+  store.pontualidade_ocorrencias = store.pontualidade_ocorrencias.filter((o) => !ocorrenciasRemovidas.has(o.id))
+  store.pontualidade_reacoes = store.pontualidade_reacoes.filter((r) => r.usuario_id !== id && !ocorrenciasRemovidas.has(r.ocorrencia_id))
+  store.ranking_ajustes = store.ranking_ajustes.filter((a) => a.usuario_id !== id && a.criado_por !== id)
+  persistNow()
+  return true
+}
+
 
 export function listarFormacoes() {
   return [...store.formacoes].sort((a, b) => {
@@ -572,6 +601,9 @@ export function listarPontualidadeOcorrencias(incluirPendentes = false) {
   return [...store.pontualidade_ocorrencias].filter((o) => incluirPendentes || o.status === "confirmado").sort((a,b) => b.criado_em - a.criado_em)
 }
 export function buscarPontualidadeOcorrencia(id: string) { return store.pontualidade_ocorrencias.find((o) => o.id === id) }
+export function buscarPontualidadePorRequisicao(clientRequestId: string, reportadoPor: string) {
+  return store.pontualidade_ocorrencias.find((o) => o.client_request_id === clientRequestId && o.reportado_por === reportadoPor)
+}
 export function salvarPontualidadeOcorrencia(row: Omit<PontualidadeOcorrenciaRow, "id" | "criado_em" | "status" | "moderado_por" | "moderado_em">) {
   const novo: PontualidadeOcorrenciaRow = { ...row, id: `atraso-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, status: "pendente", criado_em: Date.now(), moderado_por: null, moderado_em: null }
   store.pontualidade_ocorrencias.push(novo); persistNow(); return novo
