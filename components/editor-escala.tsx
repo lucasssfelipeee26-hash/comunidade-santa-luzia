@@ -43,7 +43,12 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState<{ tipo: "erro" | "sucesso"; texto: string } | null>(null)
 
-  const ativos = useMemo(() => membros.filter((m) => m.status === "aprovado"), [membros])
+  const ativos = useMemo(
+    () => membros
+      .filter((m) => m.status === "aprovado")
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    [membros],
+  )
 
   const funcoesOcupadas = useMemo(() => {
     const ocupadas = new Map<string, string>()

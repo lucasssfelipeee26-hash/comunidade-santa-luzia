@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useStore } from "@/lib/store"
 
 export function ModeradorEscalaPage() {
-  const { membros } = useStore()
+  const { equipe } = useStore()
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,7 +28,7 @@ export function ModeradorEscalaPage() {
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
           <CalendarDays className="size-4" /> Esta função agora fica separada do painel principal e pode ser aberta pelo menu ☰.
         </div>
-        <EditorEscala membros={membros} />
+        <EditorEscala membros={equipe} />
       </main>
     </div>
   )

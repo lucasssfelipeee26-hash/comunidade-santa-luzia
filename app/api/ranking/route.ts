@@ -83,7 +83,11 @@ export async function POST(req: NextRequest) {
     if (!categorias.includes(categoria)) return NextResponse.json({ erro: "Categoria inválida." }, { status: 400 })
     if (paraId === ctx.usuario.id) return NextResponse.json({ erro: "Você não pode reconhecer o próprio perfil." }, { status: 400 })
     const alvo = buscarUsuario(paraId)
-    if (!alvo || alvo.tipo !== "membro" || alvo.status !== "aprovado") return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
+    if (
+      !alvo ||
+      alvo.status !== "aprovado" ||
+      (alvo.funcao !== "Acólito" && alvo.funcao !== "Coroinha")
+    ) return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
     const { ano, mes } = nowCuiaba()
     if (reconhecimentoMensalJaFeito(ctx.usuario.id, categoria, ano, mes)) {
       return NextResponse.json({ erro: "Você já usou este reconhecimento neste mês. Cada categoria pode ser concedida uma vez por mês." }, { status: 409 })
@@ -108,7 +112,11 @@ export async function POST(req: NextRequest) {
     }
 
     const alvo = buscarUsuario(usuarioId)
-    if (!alvo || alvo.tipo !== "membro" || alvo.status !== "aprovado") return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
+    if (
+      !alvo ||
+      alvo.status !== "aprovado" ||
+      (alvo.funcao !== "Acólito" && alvo.funcao !== "Coroinha")
+    ) return NextResponse.json({ erro: "Perfil inválido." }, { status: 404 })
 
     const escala = escalaId ? listarEscalas().find((e) => e.id === escalaId) : undefined
     const dataMissa = String(body.dataMissa || escala?.data || "")

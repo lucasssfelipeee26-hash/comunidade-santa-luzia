@@ -1,4 +1,4 @@
-import { buscarUsuarioPorLogin, listarMembrosAprovados, listarRespostasQuiz, obterRankingConfig, type UsuarioRow } from "@/lib/db"
+import { listarMembrosAprovados, listarRespostasQuiz, obterRankingConfig } from "@/lib/db"
 
 export type RankingLinha = {
   posicao: number
@@ -21,15 +21,7 @@ export type RankingLinha = {
 }
 
 function participantes() {
-  const mapa = new Map<string, UsuarioRow>()
-  for (const membro of listarMembrosAprovados()) mapa.set(membro.id, membro)
-  for (const chave of ["INITIAL_ADMIN_USERNAME"] as const) {
-    const login = process.env[chave]?.trim()
-    if (!login) continue
-    const moderador = buscarUsuarioPorLogin(login)
-    if (moderador?.tipo === "moderador") mapa.set(moderador.id, moderador)
-  }
-  return [...mapa.values()]
+  return listarMembrosAprovados()
 }
 
 export function calcularRanking(ano: number): { config: ReturnType<typeof obterRankingConfig>; ranking: RankingLinha[] } {
@@ -47,7 +39,7 @@ export function calcularRanking(ano: number): { config: ReturnType<typeof obterR
       posicao: 0,
       usuarioId: usuario.id,
       nome: usuario.nome,
-      funcao: usuario.tipo === "moderador" ? "Moderador" : usuario.funcao,
+      funcao: usuario.funcao,
       foto: usuario.foto,
       pontos,
       acertos,
