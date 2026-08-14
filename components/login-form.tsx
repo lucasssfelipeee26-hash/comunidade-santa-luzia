@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
-import { AlertCircle, Eye, EyeOff, Loader2, LockKeyhole, UserRound, BookOpenText } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, Loader2, LockKeyhole, UserRound, BookOpenText, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -131,6 +131,10 @@ export function LoginForm() {
       <p className="-mt-2 text-center text-[11px] leading-4 text-muted-foreground">
         Sem login: Liturgia Diária, Escala do Dia e Biblioteca.
       </p>
+
+      <Link href="/baixar" className="flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+        <Download className="size-3.5" /> Baixar o aplicativo Android
+      </Link>
 
       <p className="text-center text-sm text-muted-foreground">
         Ainda não tem acesso?{" "}

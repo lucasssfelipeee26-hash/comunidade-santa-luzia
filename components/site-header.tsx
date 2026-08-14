@@ -11,6 +11,7 @@ import {
   Library,
   LogIn,
   Menu,
+  Download,
   UserPlus,
   X,
 } from "lucide-react"
@@ -21,6 +22,7 @@ const publicBaseLinks = [
   { href: "/liturgia", label: "Centro Litúrgico", curto: "Liturgia", icon: BookOpenText },
   { href: "/escala", label: "Escala do Dia", curto: "Escala", icon: CalendarDays },
   { href: "/biblioteca", label: "Biblioteca", curto: "Biblioteca", icon: Library },
+  { href: "/baixar", label: "Baixar aplicativo", curto: "Baixar app", icon: Download },
 ]
 
 type HeaderMeResponse = { sessao: null | { tipo: "moderador" | "membro" } }
@@ -55,7 +57,7 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-1 xl:flex">
-          {navLinks.slice(0, 4).map((link) => (
+          {navLinks.slice(0, 5).map((link) => (
             <Link prefetch={false} key={link.href} href={link.href} className="rounded-md px-3 py-2 text-sm font-semibold text-[#5f1020] transition hover:bg-[#f6ecd1] hover:text-[#7b1326]">
               {link.label}
             </Link>

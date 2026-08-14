@@ -2,7 +2,13 @@ import os from "node:os"
 
 function getLocalDevOrigins() {
   const origins = new Set(["localhost", "127.0.0.1"])
-  const interfaces = os.networkInterfaces()
+  let interfaces = {}
+  try {
+    interfaces = os.networkInterfaces()
+  } catch {
+    // Ambientes de compilação restritos podem bloquear a leitura das
+    // interfaces. Os endereços locais básicos continuam suficientes.
+  }
 
   for (const entries of Object.values(interfaces)) {
     for (const entry of entries ?? []) {

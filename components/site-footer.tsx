@@ -1,6 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
-import { Lock, MapPin } from "lucide-react"
+import { Download, Lock, MapPin } from "lucide-react"
 import { site } from "@/lib/site"
 
 export function SiteFooter() {
@@ -32,6 +32,9 @@ export function SiteFooter() {
           <p className="text-sm leading-relaxed text-white/78">Liturgia diária, escala das celebrações, biblioteca e acesso dos membros.</p>
           <Link href="/area-restrita/login" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#f2cf62] hover:underline">
             <Lock className="size-4" /> Entrar
+          </Link>
+          <Link href="/baixar" className="mt-3 flex items-center gap-2 text-sm font-semibold text-[#f2cf62] hover:underline">
+            <Download className="size-4" /> Baixar aplicativo Android
           </Link>
         </div>
       </div>
