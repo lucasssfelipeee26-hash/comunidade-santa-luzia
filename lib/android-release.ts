@@ -21,8 +21,7 @@ function destaquesConfigurados() {
 }
 
 function urlPublica(caminho: string) {
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || SITE_PADRAO
-  return new URL(caminho, `${base.replace(/\/$/, "")}/`).toString()
+  return new URL(caminho, `${SITE_PADRAO}/`).toString()
 }
 
 export function obterReleaseAndroid() {
