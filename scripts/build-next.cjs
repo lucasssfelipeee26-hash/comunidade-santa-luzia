@@ -30,6 +30,7 @@ if (!indicePronto || process.env.REGERAR_LITURGIA_OFFLINE === "1") executar("ger
 if (!liturgiaCompletaPronta || process.env.REGERAR_LITURGIA_OFFLINE === "1") executar("gerar-liturgia-completa-2026.cjs")
 executar("auditar-indice-liturgico-2026.cjs")
 executar("auditar-liturgia-completa-2026.cjs")
+executar("materializar-apk-android.cjs")
 
 const nextBin = require.resolve("next/dist/bin/next")
 const result = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
