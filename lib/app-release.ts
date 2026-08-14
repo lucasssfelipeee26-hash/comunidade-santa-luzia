@@ -7,4 +7,4 @@
  * e é solicitada novamente quando a versão do aplicativo muda.
  */
 export const APP_AUTH_RELEASE = "0.11.0"
-export const APP_DISPLAY_VERSION = "1.0.1"
+export const APP_DISPLAY_VERSION = "1.0.2"

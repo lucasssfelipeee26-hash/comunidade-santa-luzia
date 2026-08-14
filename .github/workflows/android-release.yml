@@ -10,11 +10,11 @@ on:
       version_code:
         description: Código inteiro da versão (aumentar a cada envio)
         required: true
-        default: "2"
+        default: "3"
       version_name:
         description: Nome público da versão
         required: true
-        default: "1.0.1"
+        default: "1.0.2"
 
 permissions:
   contents: write
