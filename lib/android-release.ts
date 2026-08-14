@@ -27,7 +27,7 @@ export function obterReleaseAndroid() {
     publishedAt: process.env.ANDROID_RELEASE_PUBLISHED_AT?.trim() || releaseConfig.publishedAt,
     required: booleano(process.env.ANDROID_UPDATE_REQUIRED, releaseConfig.required),
     highlights: destaquesConfigurados(),
-    downloadUrl: "/api/app/android/download",
+    downloadUrl: `/api/app/android/download?version=${inteiroPositivo(process.env.ANDROID_LATEST_VERSION_CODE, releaseConfig.versionCode)}`,
     releasePageUrl: `https://github.com/${REPOSITORIO}/releases/latest`,
   }
 }
