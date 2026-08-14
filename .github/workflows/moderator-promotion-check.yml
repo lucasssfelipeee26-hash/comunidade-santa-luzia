@@ -52,6 +52,9 @@ jobs:
           grep -q 'Selecionar ${grupo.singular}' components/editor-escala.tsx
           grep -q 'Adicionar à escala' components/editor-escala.tsx
           grep -q 'role="listbox"' components/editor-escala.tsx
+          grep -q 'data-no-pull-refresh' components/editor-escala.tsx
+          grep -q 'var(--app-bottom-nav-height)' components/editor-escala.tsx
+          grep -q 'min-h-0 flex-1 touch-pan-y overflow-y-auto' components/editor-escala.tsx
 
       - name: Testar autorização e promoção
         shell: bash

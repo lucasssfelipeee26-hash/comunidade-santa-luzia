@@ -314,9 +314,9 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
       </div>
 
       {seletorAberto && grupoDoSeletor && rascunhoDoSeletor && (
-        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-5" onClick={() => setSeletorAberto(null)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="titulo-seletor-escala" className="flex max-h-[82dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#ded1c9] bg-white text-[#251e20] shadow-2xl" onClick={(evento) => evento.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3 border-b border-[#eadfd9] bg-[#fffaf6] px-4 py-4">
+        <div data-no-pull-refresh className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 px-3 pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(var(--app-bottom-nav-height)+env(safe-area-inset-bottom)+12px)] sm:items-center sm:p-5" onClick={() => setSeletorAberto(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="titulo-seletor-escala" className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#ded1c9] bg-white text-[#251e20] shadow-2xl" onClick={(evento) => evento.stopPropagation()}>
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#eadfd9] bg-[#fffaf6] px-4 py-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8a1f35]">{grupoDoSeletor.titulo}</p>
                 <h3 id="titulo-seletor-escala" className="mt-1 font-serif text-xl font-semibold text-[#2c2023]">
@@ -328,7 +328,7 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
               </button>
             </div>
 
-            <div role="listbox" aria-label={seletorAberto.tipo === "pessoa" ? `Lista de ${grupoDoSeletor.titulo}` : "Funções disponíveis"} className="overflow-y-auto overscroll-contain bg-white p-3 text-[#251e20]">
+            <div role="listbox" aria-label={seletorAberto.tipo === "pessoa" ? `Lista de ${grupoDoSeletor.titulo}` : "Funções disponíveis"} className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-white p-3 pb-6 text-[#251e20]">
               {seletorAberto.tipo === "pessoa" ? (
                 pessoasDoSeletor.map((membro) => {
                   const selecionado = rascunhoDoSeletor.membroId === membro.id
