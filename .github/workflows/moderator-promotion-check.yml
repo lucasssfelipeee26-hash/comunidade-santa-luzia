@@ -1,0 +1,89 @@
+name: Segurança — promoção de moderadores
+
+on:
+  pull_request:
+    paths:
+      - "app/api/membros/**"
+      - "app/api/auth/login/route.ts"
+      - "components/moderator-promotion-panel.tsx"
+      - "components/moderador-dashboard.tsx"
+      - "lib/db.ts"
+      - "lib/store.tsx"
+      - ".github/workflows/moderator-promotion-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-permissions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_SECRET: ci-secret-santa-luzia-promocao-moderador-2026
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Validar compilação
+        run: npm run build
+
+      - name: Testar autorização e promoção
+        shell: bash
+        run: |
+          export PORT=3010
+          export DATA_DIR="$RUNNER_TEMP/santa-luzia-test-data"
+          export INITIAL_ADMIN_NAME="Moderador Teste"
+          export INITIAL_ADMIN_USERNAME="moderador.teste"
+          export INITIAL_ADMIN_EMAIL="moderador@teste.invalid"
+          export INITIAL_ADMIN_PASSWORD="Moderador!Teste#2026"
+
+          npm start >"$RUNNER_TEMP/server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true; cat "$RUNNER_TEMP/server.log"' EXIT
+
+          READY=false
+          for _ in {1..60}; do
+            if curl -fsS "http://127.0.0.1:3010/api/app/status" >/dev/null; then
+              READY=true
+              break
+            fi
+            sleep 1
+          done
+          test "$READY" = "true"
+
+          UNAUTHORIZED_STATUS="$(curl -sS -o "$RUNNER_TEMP/unauthorized.json" -w '%{http_code}' \
+            -X PATCH "http://127.0.0.1:3010/api/membros/candidato-teste/promover")"
+          test "$UNAUTHORIZED_STATUS" = "403"
+
+          curl -fsS -X POST "http://127.0.0.1:3010/api/auth/cadastro" \
+            -H "Content-Type: application/json" \
+            --data '{"nome":"Candidato Teste","usuario":"candidato.teste","funcao":"Acólito","email":"candidato@teste.invalid","senha":"Candidato!Teste#2026","dataNascimento":"2000-01-01"}' \
+            | tee "$RUNNER_TEMP/cadastro.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/cadastro.json"
+
+          curl -fsS -c "$RUNNER_TEMP/moderador.cookies" \
+            -X POST "http://127.0.0.1:3010/api/auth/login" \
+            -H "Content-Type: application/json" \
+            --data '{"usuario":"moderador.teste","senha":"Moderador!Teste#2026"}' \
+            | tee "$RUNNER_TEMP/login-moderador.json"
+          grep -q '"destino":"/area-restrita/moderador"' "$RUNNER_TEMP/login-moderador.json"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" \
+            -X PATCH "http://127.0.0.1:3010/api/membros/candidato-teste/promover" \
+            | tee "$RUNNER_TEMP/promocao.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/promocao.json"
+
+          curl -fsS -X POST "http://127.0.0.1:3010/api/auth/login" \
+            -H "Content-Type: application/json" \
+            --data '{"usuario":"candidato.teste","senha":"Candidato!Teste#2026"}' \
+            | tee "$RUNNER_TEMP/login-promovido.json"
+          grep -q '"destino":"/area-restrita/moderador"' "$RUNNER_TEMP/login-promovido.json"
