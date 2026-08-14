@@ -1,0 +1,52 @@
+name: Android — validar atualizador interno
+
+on:
+  pull_request:
+    paths:
+      - "components/android-update-runtime.tsx"
+      - "lib/native-app-updater.ts"
+      - "native-assets/android/**"
+      - "scripts/prepare-android.cjs"
+      - ".github/workflows/validate-internal-updater.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+      APP_VERSION_CODE: "3"
+      APP_VERSION_NAME: "1.0.2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Validar aplicação web
+        run: npm run build
+      - name: Preparar Android
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+          npx cap sync android
+          node scripts/prepare-android.cjs
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+      - name: Guardar APK para assinatura
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-1.0.2-unsigned
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7

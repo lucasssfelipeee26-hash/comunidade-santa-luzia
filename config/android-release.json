@@ -3,6 +3,8 @@
   "versionName": "1.0.1",
   "publishedAt": "2026-08-14",
   "required": false,
+  "apkSize": 5513168,
+  "apkSha256": "ca67e98be71e2b52c09f043ea376ddb0e6ff72e7c4d4fcc494f94ac460870480",
   "highlights": [
     "Novo ícone oficial e adaptativo de Santa Luzia",
     "Convite de download oculto dentro do aplicativo instalado",

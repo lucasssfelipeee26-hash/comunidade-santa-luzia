@@ -7,6 +7,8 @@ const appGradle = path.join(android, "app", "build.gradle")
 const variablesGradle = path.join(android, "variables.gradle")
 const origemRecursos = path.join(raiz, "native-assets", "android", "res")
 const destinoRecursos = path.join(android, "app", "src", "main", "res")
+const origemJava = path.join(raiz, "native-assets", "android", "src", "main", "java")
+const destinoJava = path.join(android, "app", "src", "main", "java")
 const manifestPath = path.join(android, "app", "src", "main", "AndroidManifest.xml")
 
 if (!fs.existsSync(appGradle)) throw new Error("Projeto Android ausente. Execute npm run android:add primeiro.")
@@ -29,6 +31,8 @@ if (fs.existsSync(variablesGradle)) {
 
 if (!fs.existsSync(origemRecursos)) throw new Error("Recursos Android personalizados ausentes.")
 fs.cpSync(origemRecursos, destinoRecursos, { recursive: true, force: true })
+if (!fs.existsSync(origemJava)) throw new Error("Código nativo Android personalizado ausente.")
+fs.cpSync(origemJava, destinoJava, { recursive: true, force: true })
 
 const splashPersonalizada = path.join(origemRecursos, "drawable", "splash.png")
 for (const pasta of fs.readdirSync(destinoRecursos, { withFileTypes: true })) {
@@ -39,6 +43,12 @@ for (const pasta of fs.readdirSync(destinoRecursos, { withFileTypes: true })) {
 
 if (fs.existsSync(manifestPath)) {
   let manifest = fs.readFileSync(manifestPath, "utf8")
+  if (!manifest.includes("android.permission.REQUEST_INSTALL_PACKAGES")) {
+    manifest = manifest.replace(
+      '<uses-permission android:name="android.permission.INTERNET" />',
+      '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />',
+    )
+  }
   manifest = manifest.replace(/android:allowBackup="[^"]+"/, 'android:allowBackup="false"')
   if (!manifest.includes("android:usesCleartextTraffic")) {
     manifest = manifest.replace(

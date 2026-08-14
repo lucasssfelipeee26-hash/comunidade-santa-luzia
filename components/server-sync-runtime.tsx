@@ -14,6 +14,8 @@ type ServerStatus = {
     required: boolean
     highlights: string[]
     downloadUrl: string
+    apkSize: number
+    apkSha256: string
   }
   revisaoDados: string
   revisaoTema?: string

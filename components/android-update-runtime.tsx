@@ -12,6 +12,8 @@ type AndroidRelease = {
   required: boolean
   highlights: string[]
   downloadUrl: string
+  apkSize: number
+  apkSha256: string
 }
 
 type StatusResponse = { ok: boolean; android?: AndroidRelease }
@@ -33,6 +35,12 @@ export function AndroidUpdateRuntime() {
   const [aberta, setAberta] = useState(false)
   const [baixando, setBaixando] = useState(false)
   const [offline, setOffline] = useState(false)
+  const [percentual, setPercentual] = useState(0)
+  const [baixados, setBaixados] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [etapa, setEtapa] = useState<"idle" | "downloading" | "verifying" | "permission" | "installing" | "error">("idle")
+  const [erro, setErro] = useState("")
+  const [atualizadorInterno, setAtualizadorInterno] = useState(false)
 
   const avaliar = useCallback(async (android?: AndroidRelease) => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return
@@ -68,6 +76,7 @@ export function AndroidUpdateRuntime() {
   }, [])
 
   useEffect(() => {
+    setAtualizadorInterno(Capacitor.isPluginAvailable("AppUpdater"))
     const aoStatus = (event: Event) => {
       const status = (event as CustomEvent<StatusResponse>).detail
       void avaliar(status?.android)
@@ -94,12 +103,45 @@ export function AndroidUpdateRuntime() {
     }
 
     setBaixando(true)
+    setErro("")
+    setEtapa("downloading")
+    setPercentual(0)
+    setBaixados(0)
+    setTotal(release.apkSize)
+
     try {
-      const url = new URL(release.downloadUrl, window.location.origin).toString()
-      const { Browser } = await import("@capacitor/browser")
-      await Browser.open({ url, presentationStyle: "popover" })
-    } catch {
-      window.location.assign(release.downloadUrl)
+      if (!Capacitor.isPluginAvailable("AppUpdater")) {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: release.downloadUrl, presentationStyle: "popover" })
+        setEtapa("idle")
+        return
+      }
+
+      if (!release.apkSha256 || !release.apkSize) throw new Error("O servidor ainda não publicou a verificação de segurança desta versão.")
+      const { AppUpdater } = await import("@/lib/native-app-updater")
+      const listener = await AppUpdater.addListener("downloadProgress", (progresso) => {
+        setEtapa(progresso.stage)
+        setPercentual(Math.max(0, Math.min(100, progresso.percent || 0)))
+        setBaixados(progresso.downloaded || 0)
+        setTotal(progresso.total || release.apkSize)
+      })
+
+      try {
+        await AppUpdater.downloadAndInstall({
+          url: release.downloadUrl,
+          fileName: `Santa-Luzia-${release.versionName}.apk`,
+          expectedSha256: release.apkSha256,
+          expectedSize: release.apkSize,
+        })
+        setEtapa("installing")
+        setPercentual(100)
+      } finally {
+        await listener.remove()
+      }
+    } catch (falha) {
+      const mensagem = falha instanceof Error ? falha.message : "Não foi possível concluir a atualização."
+      setErro(mensagem)
+      setEtapa("error")
     } finally {
       setBaixando(false)
     }
@@ -160,10 +202,45 @@ export function AndroidUpdateRuntime() {
             </div>
           )}
 
+          {(baixando || etapa === "installing" || etapa === "error") && (
+            <div className="rounded-2xl border border-[#e2d6ca] bg-white p-4 shadow-sm" aria-live="polite">
+              {etapa !== "error" && (
+                <>
+                  <div className="flex items-center justify-between gap-3 text-xs font-bold text-[#62575a]">
+                    <span>
+                      {etapa === "verifying" && "Verificando segurança…"}
+                      {etapa === "permission" && "Aguardando autorização do Android…"}
+                      {etapa === "installing" && "Pronto para instalar"}
+                      {etapa === "downloading" && "Baixando dentro do aplicativo…"}
+                    </span>
+                    <span>{percentual}%</span>
+                  </div>
+                  <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#eadfd9]">
+                    <div className="h-full rounded-full bg-[linear-gradient(90deg,#7b1326,#b58a24)] transition-[width] duration-300" style={{ width: `${percentual}%` }} />
+                  </div>
+                  {total > 0 && etapa === "downloading" && (
+                    <p className="mt-2 text-[11px] text-[#756a6d]">
+                      {(baixados / 1024 / 1024).toFixed(1)} MB de {(total / 1024 / 1024).toFixed(1)} MB
+                    </p>
+                  )}
+                  {etapa === "permission" && <p className="mt-2 text-[11px] leading-5 text-[#756a6d]">Ative “Permitir desta fonte” e volte ao aplicativo.</p>}
+                  {etapa === "installing" && <p className="mt-2 text-[11px] leading-5 text-[#756a6d]">Confirme a instalação na tela do Android. O aplicativo será atualizado por cima, sem apagar seus dados.</p>}
+                </>
+              )}
+              {etapa === "error" && <p className="text-sm leading-5 text-[#8a2436]">{erro}</p>}
+            </div>
+          )}
+
           <button type="button" onClick={baixarAtualizacao} disabled={baixando || offline} className="flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#7b1326] px-5 py-3.5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(123,19,38,.23)] disabled:opacity-55">
             {baixando ? <RefreshCw className="size-5 animate-spin" /> : <ArrowDownToLine className="size-5" />}
-            {baixando ? "Abrindo download…" : "Baixar atualização"}
+            {baixando ? "Atualizando…" : etapa === "error" ? "Tentar novamente" : atualizadorInterno ? "Baixar e instalar" : "Baixar correção pelo site"}
           </button>
+
+          {!atualizadorInterno && (
+            <p className="rounded-2xl bg-[#f8f3ed] p-3 text-center text-[11px] leading-5 text-[#62575a]">
+              Esta é a última atualização que abre o site. Depois de instalar esta versão, as próximas serão baixadas dentro do aplicativo.
+            </p>
+          )}
 
           {!release.required && (
             <button type="button" onClick={deixarParaDepois} className="w-full py-1 text-sm font-semibold text-[#756a6d]">Lembrar depois</button>
