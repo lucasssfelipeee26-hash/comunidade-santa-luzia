@@ -20,14 +20,18 @@ function destaquesConfigurados() {
 }
 
 export function obterReleaseAndroid() {
+  const versionCode = inteiroPositivo(process.env.ANDROID_LATEST_VERSION_CODE, releaseConfig.versionCode)
+  const versionName = process.env.ANDROID_LATEST_VERSION_NAME?.trim() || releaseConfig.versionName
+  const versaoArquivo = versionName.replace(/[^0-9A-Za-z._-]/g, "-")
+
   return {
     available: booleano(process.env.ANDROID_APK_AVAILABLE, true),
-    versionCode: inteiroPositivo(process.env.ANDROID_LATEST_VERSION_CODE, releaseConfig.versionCode),
-    versionName: process.env.ANDROID_LATEST_VERSION_NAME?.trim() || releaseConfig.versionName,
+    versionCode,
+    versionName,
     publishedAt: process.env.ANDROID_RELEASE_PUBLISHED_AT?.trim() || releaseConfig.publishedAt,
     required: booleano(process.env.ANDROID_UPDATE_REQUIRED, releaseConfig.required),
     highlights: destaquesConfigurados(),
-    downloadUrl: `/api/app/android/download?version=${inteiroPositivo(process.env.ANDROID_LATEST_VERSION_CODE, releaseConfig.versionCode)}`,
+    downloadUrl: `/downloads/Santa-Luzia-${versaoArquivo}.apk?version=${versionCode}`,
     releasePageUrl: `https://github.com/${REPOSITORIO}/releases/latest`,
   }
 }
