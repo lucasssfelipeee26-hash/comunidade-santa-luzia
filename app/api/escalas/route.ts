@@ -52,7 +52,11 @@ export async function POST(req: Request) {
     if (!id || idsUsados.has(id)) continue
 
     const usuario = buscarUsuario(id)
-    if (!usuario || usuario.tipo !== "membro" || usuario.status !== "aprovado") continue
+    if (
+      !usuario ||
+      usuario.status !== "aprovado" ||
+      (usuario.funcao !== "Acólito" && usuario.funcao !== "Coroinha")
+    ) continue
 
     const categoria: EscalaPessoa["categoria"] = usuario.funcao === "Acólito" ? "acolito" : "coroinha"
     if (pessoa.categoria !== categoria) continue

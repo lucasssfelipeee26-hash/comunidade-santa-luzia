@@ -69,6 +69,7 @@ type ResultadoAcao = { ok: boolean; erro?: string; destino?: string; mensagem?: 
 type Ctx = {
   ready: boolean
   membros: Membro[]
+  equipe: Membro[]
   sessao: Sessao
   membroAtual: Membro | null
   cadastrar: (dados: {
@@ -116,6 +117,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const { data: membrosData } = useSWR<{ membros: Membro[] }>(
     isModerador ? "/api/membros" : null,
+    fetcher,
+  )
+  const { data: equipeData } = useSWR<{ equipe: Membro[] }>(
+    isModerador ? "/api/equipe" : null,
     fetcher,
   )
   const { data: membroData } = useSWR<{ membro: Membro }>(
@@ -182,7 +187,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })
       const resultado = await response.json().catch(() => ({ ok: false, erro: "Resposta inválida do servidor." })) as ResultadoAcao
       if (response.ok && resultado.ok) {
-        await Promise.all([globalMutate("/api/membros"), globalMutate("/api/ranking")])
+        await Promise.all([globalMutate("/api/membros"), globalMutate("/api/equipe"), globalMutate("/api/ranking")])
       }
       return resultado
     } catch {
@@ -241,12 +246,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   )
 
   const membros = membrosData?.membros ?? []
+  const equipe = equipeData?.equipe ?? []
   const membroAtual = membroData?.membro ?? null
 
   const value = useMemo<Ctx>(
     () => ({
       ready,
       membros,
+      equipe,
       sessao,
       membroAtual,
       cadastrar,
@@ -264,6 +271,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [
       ready,
       membros,
+      equipe,
       sessao,
       membroAtual,
       cadastrar,

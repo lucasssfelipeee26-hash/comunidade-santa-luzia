@@ -212,6 +212,14 @@ let store = readStore()
       alterado = true
     }
     usados.add(candidato)
+
+    // O nível de acesso (moderador) não substitui a função litúrgica.
+    // Os moderadores antigos foram cadastrados como acólitos antes desse campo ser preservado.
+    if (conta.tipo === "moderador" && conta.funcao !== "Acólito" && conta.funcao !== "Coroinha") {
+      conta.funcao = "Acólito"
+      conta.status = "aprovado"
+      alterado = true
+    }
   }
   if (alterado && store.usuarios.length) {
     fs.writeFileSync(DB_PATH, JSON.stringify(store, null, 2), "utf8")
@@ -451,7 +459,7 @@ function seedModeradores() {
     email,
     senha_hash: bcrypt.hashSync(senha, 12),
     tipo: "moderador",
-    funcao: null,
+    funcao: "Acólito",
     desde: null,
     status: "aprovado",
     criado_em: Date.now(),
@@ -468,7 +476,19 @@ export function criarUsuario(d: Omit<UsuarioRow, "criado_em"> & { criado_em?: nu
 export function atualizarPerfil(id: string, dados: Partial<Pick<UsuarioRow,"nome"|"data_nascimento"|"data_votos"|"foto">>) {
   const u=store.usuarios.find(x=>x.id===id); if(!u) return null; Object.assign(u,dados); if (dados.data_votos !== undefined) u.desde = dados.data_votos || null; persistNow(); return u
 }
-export function listarEscalas() { return [...store.escalas].sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario)) }
+export function listarEscalas() {
+  return store.escalas
+    .map((escala) => ({
+      ...escala,
+      pessoas: escala.pessoas.map((pessoa) => {
+        const usuario = pessoa.id ? buscarUsuario(pessoa.id) : undefined
+        if (!usuario) return { ...pessoa }
+        const categoria: EscalaPessoa["categoria"] = usuario.funcao === "Acólito" ? "acolito" : "coroinha"
+        return { ...pessoa, nome: usuario.nome, categoria }
+      }),
+    }))
+    .sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario))
+}
 export function salvarEscala(e: Omit<EscalaRow,"id"|"criado_em">) { const row={...e,id:`escala-${Date.now()}`,criado_em:Date.now()}; store.escalas.push(row); persistNow(); return row }
 export function excluirEscala(id:string) { const n=store.escalas.length; store.escalas=store.escalas.filter(e=>e.id!==id); persistNow(); return n!==store.escalas.length }
 export function buscarUsuario(id:string){ return store.usuarios.find(u=>u.id===id) }
@@ -480,7 +500,6 @@ export function promoverUsuarioModerador(id: string, promotorId: string) {
 
   usuario.tipo = "moderador"
   usuario.status = "aprovado"
-  usuario.funcao = null
   usuario.promovido_por = promotor.id
   usuario.promovido_em = Date.now()
   persistNow()
@@ -554,8 +573,14 @@ export function excluirFormacao(id: string) {
 
 
 // ---------------- Gamificação, quizzes, ranking e pontualidade ----------------
+export function listarEquipeAprovada() {
+  return store.usuarios
+    .filter((u) => u.status === "aprovado" && (u.funcao === "Acólito" || u.funcao === "Coroinha"))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+}
+
 export function listarMembrosAprovados() {
-  return store.usuarios.filter((u) => u.tipo === "membro" && u.status === "aprovado")
+  return listarEquipeAprovada()
 }
 
 export function listarReconhecimentos(ano?: number) {

@@ -64,12 +64,12 @@ function EstatCard({
 }
 
 export function ModeradorDashboard() {
-  const { membros, aprovarMembro, recusarMembro } = useStore()
+  const { membros, equipe, aprovarMembro, recusarMembro } = useStore()
   const pendentes = membros.filter((m) => m.status === "pendente")
   const ativos = membros.filter((m) => m.status === "aprovado")
-  const acolitos = ativos.filter((m) => m.funcao === "Acólito")
-  const coroinhas = ativos.filter((m) => m.funcao === "Coroinha")
-  const advertenciasNoMes = ativos.reduce((soma, m) => soma + contarNoMesAtual(m.advertencias), 0)
+  const acolitos = equipe.filter((m) => m.funcao === "Acólito")
+  const coroinhas = equipe.filter((m) => m.funcao === "Coroinha")
+  const advertenciasNoMes = equipe.reduce((soma, m) => soma + contarNoMesAtual(m.advertencias), 0)
 
   return (
     <div className="min-h-screen bg-background">
