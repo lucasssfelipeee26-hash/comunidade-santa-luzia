@@ -5,6 +5,7 @@ import useSWR from "swr"
 import { BellRing, Check, RotateCcw, Upload, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { HighContrastSelect } from "@/components/ui/high-contrast-select"
 import {
   DEFAULT_SOUND_PREFERENCES,
   ERROR_SOUND_FILES,
@@ -122,9 +123,13 @@ export function SoundPreferencesPanel() {
             <Label htmlFor="som-botoes">Som dos botões</Label>
             <Button type="button" variant="outline" size="sm" onClick={testarBotao} data-sound="off">Testar</Button>
           </div>
-          <select id="som-botoes" value={prefs.uiSound} onChange={(e) => atualizar({ uiSound: e.target.value as SoundPreferences["uiSound"] })} className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm">
-            {UI_SOUND_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <HighContrastSelect
+            id="som-botoes"
+            value={prefs.uiSound}
+            onValueChange={(value) => atualizar({ uiSound: value as SoundPreferences["uiSound"] })}
+            dialogTitle="Som dos botões"
+            options={UI_SOUND_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-muted-foreground"><span>Volume</span><span>{Math.round(prefs.uiVolume * 100)}%</span></div>
             <input aria-label="Volume dos sons de interação" type="range" min="0" max="0.8" step="0.05" value={prefs.uiVolume} onChange={(e) => atualizar({ uiVolume: Number(e.target.value) })} className="w-full accent-[#861f35]" />
@@ -138,13 +143,21 @@ export function SoundPreferencesPanel() {
 
         <div className="space-y-3 rounded-xl border border-border/80 bg-secondary/35 p-3.5">
           <div className="flex items-center justify-between gap-2"><Label htmlFor="som-sucesso">Som de confirmação</Label><Button type="button" variant="outline" size="sm" onClick={testarSucesso} data-sound="off">Testar</Button></div>
-          <select id="som-sucesso" value={prefs.successSound} onChange={(e) => atualizar({ successSound: e.target.value as SoundPreferences["successSound"] })} className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm">
-            {SUCCESS_SOUND_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <HighContrastSelect
+            id="som-sucesso"
+            value={prefs.successSound}
+            onValueChange={(value) => atualizar({ successSound: value as SoundPreferences["successSound"] })}
+            dialogTitle="Som de confirmação"
+            options={SUCCESS_SOUND_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
           <div className="flex items-center justify-between gap-2 pt-1"><Label htmlFor="som-erro">Som de aviso/erro</Label><Button type="button" variant="outline" size="sm" onClick={testarErro} data-sound="off">Testar</Button></div>
-          <select id="som-erro" value={prefs.errorSound} onChange={(e) => atualizar({ errorSound: e.target.value as SoundPreferences["errorSound"] })} className="h-11 w-full rounded-lg border border-border bg-white px-3 text-sm">
-            {ERROR_SOUND_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <HighContrastSelect
+            id="som-erro"
+            value={prefs.errorSound}
+            onValueChange={(value) => atualizar({ errorSound: value as SoundPreferences["errorSound"] })}
+            dialogTitle="Som de aviso ou erro"
+            options={ERROR_SOUND_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
         </div>
 
         <div className="space-y-3 rounded-xl border border-border/80 bg-secondary/35 p-3.5 lg:col-span-2">

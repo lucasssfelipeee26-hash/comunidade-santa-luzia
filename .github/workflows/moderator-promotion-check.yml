@@ -10,6 +10,11 @@ on:
       - "app/api/ranking/**"
       - "app/api/auth/login/route.ts"
       - "components/editor-escala.tsx"
+      - "components/ui/high-contrast-select.tsx"
+      - "components/novo-registro-moderador.tsx"
+      - "components/sound-preferences.tsx"
+      - "components/ranking-interativo.tsx"
+      - "app/globals.css"
       - "components/gerenciador-formacoes.tsx"
       - "components/formacao-presencas-editor.tsx"
       - "components/formacao-membros.tsx"
@@ -63,6 +68,17 @@ jobs:
           grep -q 'data-no-pull-refresh' components/editor-escala.tsx
           grep -q 'var(--app-bottom-nav-height)' components/editor-escala.tsx
           grep -q 'min-h-0 flex-1 touch-pan-y overflow-y-auto' components/editor-escala.tsx
+
+      - name: Validar contraste dos seletores no Android
+        shell: bash
+        run: |
+          ! grep -R -n --include='*.tsx' -E '<select|<option' app components
+          grep -q 'role="listbox"' components/ui/high-contrast-select.tsx
+          grep -q 'bg-white text-\[#241a1c\]' components/ui/high-contrast-select.tsx
+          grep -q 'dialogTitle="Selecionar acólito ou coroinha"' components/novo-registro-moderador.tsx
+          grep -q 'HighContrastSelect' components/sound-preferences.tsx
+          grep -q 'dialogTitle="Selecionar perfil"' components/ranking-interativo.tsx
+          grep -q -- '-webkit-text-fill-color: #241a1c' app/globals.css
 
       - name: Validar publicação de formação
         shell: bash
