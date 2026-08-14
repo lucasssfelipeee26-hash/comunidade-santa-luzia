@@ -1,6 +1,6 @@
 {
   "name": "comunidade-santa-luzia",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -H 0.0.0.0",
