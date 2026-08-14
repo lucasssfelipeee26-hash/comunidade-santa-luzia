@@ -2,31 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Trash2, X } from "lucide-react"
+import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { Membro } from "@/lib/store"
 import { FUNCOES_ESCALA } from "@/lib/escala-funcoes"
 
-type Escala = {
-  id: string
-  data: string
-  horario: string
-  celebrante: string
-}
-
+type Escala = { id: string; data: string; horario: string; celebrante: string }
 type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
-
 type CategoriaEscala = "acolito" | "coroinha"
+type FuncaoCadastro = "Acólito" | "Coroinha"
+type Rascunho = { membroId: string; funcao: string }
+type PessoaEscalada = Rascunho & { categoria: CategoriaEscala }
+type SeletorAberto = { tipo: "pessoa" | "funcao"; categoria: CategoriaEscala }
 
-const CATEGORIAS_ESCALA: Array<{ id: CategoriaEscala; titulo: string }> = [
-  { id: "acolito", titulo: "Acólitos" },
-  { id: "coroinha", titulo: "Coroinhas" },
+const CATEGORIAS_ESCALA: Array<{
+  id: CategoriaEscala
+  titulo: string
+  singular: string
+  funcaoCadastro: FuncaoCadastro
+}> = [
+  { id: "acolito", titulo: "Acólitos", singular: "acólito", funcaoCadastro: "Acólito" },
+  { id: "coroinha", titulo: "Coroinhas", singular: "coroinha", funcaoCadastro: "Coroinha" },
 ]
 
-function chaveSelecao(categoria: CategoriaEscala, membroId: string) {
-  return `${categoria}:${membroId}`
+function rascunhosVazios(): Record<CategoriaEscala, Rascunho> {
+  return {
+    acolito: { membroId: "", funcao: "" },
+    coroinha: { membroId: "", funcao: "" },
+  }
 }
 
 async function fetcher(url: string): Promise<EscalasResponse> {
@@ -50,32 +55,29 @@ function hojeCuiaba() {
 export function EditorEscala({ membros }: { membros: Membro[] }) {
   const { data, error, mutate } = useSWR<EscalasResponse>("/api/escalas", fetcher)
   const [form, setForm] = useState({ data: hojeCuiaba(), horario: "18:00", celebrante: "", observacoes: "" })
-  const [selecionados, setSelecionados] = useState<Record<string, string>>({})
+  const [rascunhos, setRascunhos] = useState<Record<CategoriaEscala, Rascunho>>(rascunhosVazios)
+  const [pessoasEscaladas, setPessoasEscaladas] = useState<PessoaEscalada[]>([])
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState<{ tipo: "erro" | "sucesso"; texto: string } | null>(null)
-  const [seletorAberto, setSeletorAberto] = useState<{ membroId: string; categoria: CategoriaEscala } | null>(null)
+  const [seletorAberto, setSeletorAberto] = useState<SeletorAberto | null>(null)
 
   const ativos = useMemo(
     () => membros
-      .filter((m) => m.status === "aprovado")
+      .filter((membro) => membro.status === "aprovado")
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
     [membros],
   )
+  const membrosPorId = useMemo(() => new Map(ativos.map((membro) => [membro.id, membro])), [ativos])
+  const idsEscalados = useMemo(() => new Set(pessoasEscaladas.map((pessoa) => pessoa.membroId)), [pessoasEscaladas])
+  const funcoesOcupadas = useMemo(() => new Set(pessoasEscaladas.map((pessoa) => pessoa.funcao)), [pessoasEscaladas])
 
-  const funcoesOcupadas = useMemo(() => {
-    const ocupadas = new Map<string, string>()
-    for (const [membroId, funcao] of Object.entries(selecionados)) {
-      if (funcao) ocupadas.set(funcao, membroId)
-    }
-    return ocupadas
-  }, [selecionados])
-
-  const membroNoSeletor = seletorAberto
-    ? ativos.find((membro) => membro.id === seletorAberto.membroId) ?? null
+  const grupoDoSeletor = seletorAberto
+    ? CATEGORIAS_ESCALA.find((grupo) => grupo.id === seletorAberto.categoria) ?? null
     : null
-  const chaveNoSeletor = seletorAberto
-    ? chaveSelecao(seletorAberto.categoria, seletorAberto.membroId)
-    : ""
+  const rascunhoDoSeletor = seletorAberto ? rascunhos[seletorAberto.categoria] : null
+  const pessoasDoSeletor = grupoDoSeletor
+    ? ativos.filter((membro) => membro.funcao === grupoDoSeletor.funcaoCadastro)
+    : []
 
   useEffect(() => {
     if (!seletorAberto) return
@@ -91,50 +93,80 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
     }
   }, [seletorAberto])
 
-  function escolherFuncao(categoria: CategoriaEscala, membroId: string, funcao: string) {
-    setSelecionados((atual) => {
-      const proximo = { ...atual }
-      const chaveAtual = chaveSelecao(categoria, membroId)
-      const outraCategoria: CategoriaEscala = categoria === "acolito" ? "coroinha" : "acolito"
-      const chaveOutra = chaveSelecao(outraCategoria, membroId)
+  function atualizarRascunho(categoria: CategoriaEscala, valores: Partial<Rascunho>) {
+    setRascunhos((atuais) => ({ ...atuais, [categoria]: { ...atuais[categoria], ...valores } }))
+  }
 
-      if (!funcao) {
-        delete proximo[chaveAtual]
-      } else {
-        // A mesma pessoa não pode ocupar os dois blocos na mesma escala.
-        delete proximo[chaveOutra]
-        proximo[chaveAtual] = funcao
-      }
-      return proximo
-    })
+  function escolherPessoa(categoria: CategoriaEscala, membroId: string) {
+    if (idsEscalados.has(membroId)) {
+      setMensagem({ tipo: "erro", texto: "Essa pessoa já foi adicionada à escala." })
+      return
+    }
+    atualizarRascunho(categoria, { membroId })
+    setMensagem(null)
     setSeletorAberto(null)
+  }
+
+  function escolherFuncao(categoria: CategoriaEscala, funcao: string) {
+    if (funcao && funcoesOcupadas.has(funcao)) {
+      setMensagem({ tipo: "erro", texto: "Essa função já foi atribuída a outra pessoa." })
+      return
+    }
+    atualizarRascunho(categoria, { funcao })
+    setMensagem(null)
+    setSeletorAberto(null)
+  }
+
+  function adicionarPessoa(categoria: CategoriaEscala) {
+    const grupo = CATEGORIAS_ESCALA.find((item) => item.id === categoria)
+    const rascunho = rascunhos[categoria]
+    const membro = membrosPorId.get(rascunho.membroId)
+
+    if (!grupo || !membro || membro.funcao !== grupo.funcaoCadastro) {
+      setMensagem({ tipo: "erro", texto: `Selecione um ${grupo?.singular ?? "usuário"} cadastrado.` })
+      return
+    }
+    if (!rascunho.funcao) {
+      setMensagem({ tipo: "erro", texto: "Selecione a função que essa pessoa exercerá na celebração." })
+      return
+    }
+    if (idsEscalados.has(membro.id)) {
+      setMensagem({ tipo: "erro", texto: "Essa pessoa já foi adicionada à escala." })
+      return
+    }
+    if (funcoesOcupadas.has(rascunho.funcao)) {
+      setMensagem({ tipo: "erro", texto: "Essa função já foi atribuída a outra pessoa." })
+      return
+    }
+
+    setPessoasEscaladas((atuais) => [...atuais, { ...rascunho, categoria }])
+    atualizarRascunho(categoria, { membroId: "", funcao: "" })
+    setMensagem(null)
+  }
+
+  function removerPessoa(membroId: string) {
+    setPessoasEscaladas((atuais) => atuais.filter((pessoa) => pessoa.membroId !== membroId))
+    setMensagem(null)
   }
 
   async function publicar() {
     if (salvando) return
     setMensagem(null)
-
     if (!form.data || !form.horario || !form.celebrante.trim()) {
       setMensagem({ tipo: "erro", texto: "Informe data, horário e o sacerdote celebrante." })
       return
     }
-
-    const funcoesEscolhidas = Object.values(selecionados).filter(Boolean)
+    const funcoesEscolhidas = pessoasEscaladas.map((pessoa) => pessoa.funcao)
     if (new Set(funcoesEscolhidas).size !== funcoesEscolhidas.length) {
       setMensagem({ tipo: "erro", texto: "Cada função da escala deve ser atribuída a apenas uma pessoa." })
       return
     }
 
-    const pessoas = CATEGORIAS_ESCALA.flatMap(({ id: categoria }) =>
-      ativos
-        .filter((membro) => selecionados[chaveSelecao(categoria, membro.id)])
-        .map((membro) => ({
-          id: membro.id,
-          nome: membro.nome,
-          categoria,
-          funcao: selecionados[chaveSelecao(categoria, membro.id)],
-        })),
-    )
+    const pessoas = pessoasEscaladas.flatMap((pessoa) => {
+      const membro = membrosPorId.get(pessoa.membroId)
+      if (!membro) return []
+      return [{ id: membro.id, nome: membro.nome, categoria: pessoa.categoria, funcao: pessoa.funcao }]
+    })
 
     setSalvando(true)
     try {
@@ -144,11 +176,10 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
         body: JSON.stringify({ ...form, pessoas }),
       })
       const json = await response.json().catch(() => null)
-      if (!response.ok || !json?.ok) {
-        throw new Error(json?.erro ?? "Erro ao publicar a escala.")
-      }
+      if (!response.ok || !json?.ok) throw new Error(json?.erro ?? "Erro ao publicar a escala.")
 
-      setSelecionados({})
+      setPessoasEscaladas([])
+      setRascunhos(rascunhosVazios())
       setForm((atual) => ({ ...atual, celebrante: "", observacoes: "" }))
       await mutate()
       setMensagem({ tipo: "sucesso", texto: "Escala publicada com sucesso." })
@@ -194,134 +225,146 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        {CATEGORIAS_ESCALA.map((grupo) => (
-          <section key={grupo.id} className="min-w-0">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="font-serif text-xl font-semibold text-[#3a252a]">{grupo.titulo}</h3>
-              <span className="rounded-full bg-[#f8f2ed] px-3 py-1 text-xs font-semibold text-[#62575a]">
-                {ativos.length} {ativos.length === 1 ? "cadastro" : "cadastros"}
-              </span>
-            </div>
+        {CATEGORIAS_ESCALA.map((grupo) => {
+          const cadastrados = ativos.filter((membro) => membro.funcao === grupo.funcaoCadastro)
+          const rascunho = rascunhos[grupo.id]
+          const pessoaEscolhida = membrosPorId.get(rascunho.membroId)
+          const adicionados = pessoasEscaladas.filter((pessoa) => pessoa.categoria === grupo.id)
 
-            {!ativos.length ? (
-              <p className="rounded-2xl border border-dashed border-[#d9ccc5] bg-white px-4 py-7 text-center text-sm text-[#6f6466]">
-                Nenhum usuário aprovado cadastrado.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {ativos.map((membro) => {
-                  const chaveAtual = chaveSelecao(grupo.id, membro.id)
-                  const outraCategoria: CategoriaEscala = grupo.id === "acolito" ? "coroinha" : "acolito"
-                  const chaveOutra = chaveSelecao(outraCategoria, membro.id)
-                  const selecionadoNoOutro = selecionados[chaveOutra]
+          return (
+            <section key={grupo.id} className="min-w-0 rounded-3xl border border-[#ded2cb] bg-[#fffdfb] p-4 shadow-[0_8px_24px_rgba(57,31,36,.04)]">
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <h3 className="font-serif text-xl font-semibold text-[#3a252a]">{grupo.titulo}</h3>
+                <span className="rounded-full bg-[#f8f2ed] px-3 py-1 text-xs font-semibold text-[#62575a]">
+                  {cadastrados.length} {cadastrados.length === 1 ? "cadastro" : "cadastros"}
+                </span>
+              </div>
+
+              {!cadastrados.length ? (
+                <p className="rounded-2xl border border-dashed border-[#d9ccc5] bg-white px-4 py-7 text-center text-sm text-[#6f6466]">
+                  Nenhum {grupo.singular} aprovado cadastrado.
+                </p>
+              ) : (
+                <div className="rounded-2xl border border-[#e1d6d0] bg-white p-3.5">
+                  <div className="space-y-2">
+                    <Label htmlFor={`seletor-pessoa-${grupo.id}`}>Nome do {grupo.singular}</Label>
+                    <button
+                      id={`seletor-pessoa-${grupo.id}`}
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-expanded={seletorAberto?.tipo === "pessoa" && seletorAberto.categoria === grupo.id}
+                      onClick={() => setSeletorAberto({ tipo: "pessoa", categoria: grupo.id })}
+                      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-2 border-[#d8cec8] bg-white px-4 py-3 text-left text-base font-medium text-[#282124] outline-none transition hover:border-[#a94c5d] focus-visible:border-[#8a1f35] focus-visible:ring-4 focus-visible:ring-[#8a1f35]/15"
+                    >
+                      <span className={`min-w-0 flex-1 truncate ${pessoaEscolhida ? "text-[#282124]" : "text-[#756d6f]"}`}>
+                        {pessoaEscolhida?.nome ?? `Selecionar ${grupo.singular}`}
+                      </span>
+                      <ChevronDown className="size-5 shrink-0 text-[#76192a]" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <Label htmlFor={`seletor-funcao-${grupo.id}`}>Função na celebração</Label>
+                    <button
+                      id={`seletor-funcao-${grupo.id}`}
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-expanded={seletorAberto?.tipo === "funcao" && seletorAberto.categoria === grupo.id}
+                      onClick={() => setSeletorAberto({ tipo: "funcao", categoria: grupo.id })}
+                      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-2 border-[#d8cec8] bg-white px-4 py-3 text-left text-base font-medium text-[#282124] outline-none transition hover:border-[#a94c5d] focus-visible:border-[#8a1f35] focus-visible:ring-4 focus-visible:ring-[#8a1f35]/15"
+                    >
+                      <span className={`min-w-0 flex-1 truncate ${rascunho.funcao ? "text-[#282124]" : "text-[#756d6f]"}`}>
+                        {rascunho.funcao || "Selecionar função"}
+                      </span>
+                      <ChevronDown className="size-5 shrink-0 text-[#76192a]" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <Button type="button" className="mt-3 w-full gap-2" onClick={() => adicionarPessoa(grupo.id)} disabled={!rascunho.membroId || !rascunho.funcao}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    Adicionar à escala
+                  </Button>
+                </div>
+              )}
+
+              <div className="mt-3 space-y-2">
+                {adicionados.length ? adicionados.map((pessoa) => {
+                  const membro = membrosPorId.get(pessoa.membroId)
+                  if (!membro) return null
                   return (
-                    <div key={chaveAtual} className="rounded-2xl border border-[#ddd2cc] bg-white p-3.5 shadow-[0_6px_18px_rgba(57,31,36,.04)]">
-                      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-sm font-semibold leading-5 text-[#2b2224]">{membro.nome}</span>
-                        {selecionadoNoOutro ? (
-                          <span className="rounded-full border border-[#d8c9c1] bg-[#f7f2ef] px-2.5 py-1 text-[10px] font-bold text-[#756a6d]">
-                            Em {outraCategoria === "acolito" ? "Acólitos" : "Coroinhas"}
-                          </span>
-                        ) : (
-                          <span className="rounded-full border border-[#d8c9c1] bg-[#faf7f4] px-2.5 py-1 text-[10px] font-bold text-[#756a6d]">
-                            Disponível
-                          </span>
-                        )}
+                    <div key={pessoa.membroId} className="flex items-center justify-between gap-3 rounded-2xl border border-[#e1d6d0] bg-white px-3.5 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[#2b2224]">{membro.nome}</p>
+                        <p className="mt-0.5 text-xs font-medium text-[#756d6f]">{pessoa.funcao}</p>
                       </div>
-                      <button
-                        type="button"
-                        aria-haspopup="listbox"
-                        aria-expanded={seletorAberto?.membroId === membro.id && seletorAberto.categoria === grupo.id}
-                        onClick={() => setSeletorAberto({ membroId: membro.id, categoria: grupo.id })}
-                        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-2 border-[#d8cec8] bg-white px-4 py-3 text-left text-base font-medium text-[#282124] outline-none transition hover:border-[#a94c5d] focus-visible:border-[#8a1f35] focus-visible:ring-4 focus-visible:ring-[#8a1f35]/15"
-                      >
-                        <span className="min-w-0 flex-1 truncate">{selecionados[chaveAtual] || "Fora da escala"}</span>
-                        <ChevronDown className="size-5 shrink-0 text-[#76192a]" aria-hidden="true" />
+                      <button type="button" aria-label={`Remover ${membro.nome} da escala`} onClick={() => removerPessoa(membro.id)} className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[#e0d4ce] bg-[#fffaf7] text-[#8a1f35] transition hover:bg-[#f8e9ed]">
+                        <Trash2 className="size-4" aria-hidden="true" />
                       </button>
                     </div>
                   )
-                })}
+                }) : (
+                  <p className="rounded-2xl border border-dashed border-[#ded3cd] bg-white px-4 py-4 text-center text-sm text-[#756d6f]">
+                    Nenhum {grupo.singular} adicionado à escala.
+                  </p>
+                )}
               </div>
-            )}
-          </section>
-        ))}
+            </section>
+          )
+        })}
       </div>
 
-      {membroNoSeletor && seletorAberto && (
-        <div
-          className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-5"
-          onClick={() => setSeletorAberto(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="titulo-seletor-funcao"
-            className="flex max-h-[82dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#ded1c9] bg-white text-[#251e20] shadow-2xl"
-            onClick={(evento) => evento.stopPropagation()}
-          >
+      {seletorAberto && grupoDoSeletor && rascunhoDoSeletor && (
+        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-5" onClick={() => setSeletorAberto(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="titulo-seletor-escala" className="flex max-h-[82dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#ded1c9] bg-white text-[#251e20] shadow-2xl" onClick={(evento) => evento.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 border-b border-[#eadfd9] bg-[#fffaf6] px-4 py-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8a1f35]">
-                  {seletorAberto.categoria === "acolito" ? "Bloco de Acólitos" : "Bloco de Coroinhas"}
-                </p>
-                <h3 id="titulo-seletor-funcao" className="mt-1 truncate font-serif text-xl font-semibold text-[#2c2023]">
-                  {membroNoSeletor.nome}
+                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8a1f35]">{grupoDoSeletor.titulo}</p>
+                <h3 id="titulo-seletor-escala" className="mt-1 font-serif text-xl font-semibold text-[#2c2023]">
+                  {seletorAberto.tipo === "pessoa" ? `Escolher ${grupoDoSeletor.singular}` : "Escolher função"}
                 </h3>
               </div>
-              <button
-                type="button"
-                aria-label="Fechar lista de funções"
-                onClick={() => setSeletorAberto(null)}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[#ded1c9] bg-white text-[#6f2635]"
-              >
+              <button type="button" aria-label="Fechar lista" onClick={() => setSeletorAberto(null)} className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[#ded1c9] bg-white text-[#6f2635]">
                 <X className="size-5" aria-hidden="true" />
               </button>
             </div>
 
-            <div role="listbox" aria-label={`Funções disponíveis para ${membroNoSeletor.nome}`} className="overflow-y-auto overscroll-contain bg-white p-3 text-[#251e20]">
-              <button
-                type="button"
-                role="option"
-                aria-selected={!selecionados[chaveNoSeletor]}
-                onClick={() => escolherFuncao(seletorAberto.categoria, membroNoSeletor.id, "")}
-                className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${
-                  !selecionados[chaveNoSeletor]
-                    ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]"
-                    : "border-[#e2d8d2] bg-white text-[#2b2224]"
-                }`}
-              >
-                <span>Fora da escala</span>
-                {!selecionados[chaveNoSeletor] && <Check className="size-5 text-[#8a1f35]" aria-hidden="true" />}
-              </button>
-
-              {FUNCOES_ESCALA.map((funcao) => {
-                const ocupante = funcoesOcupadas.get(funcao)
-                const indisponivel = Boolean(ocupante && ocupante !== chaveNoSeletor)
-                const selecionada = selecionados[chaveNoSeletor] === funcao
-                return (
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={selecionada}
-                    key={funcao}
-                    disabled={indisponivel}
-                    onClick={() => escolherFuncao(seletorAberto.categoria, membroNoSeletor.id, funcao)}
-                    className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${
-                      selecionada
-                        ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]"
-                        : indisponivel
-                          ? "border-[#ebe5e1] bg-[#f6f3f1] text-[#827779]"
-                          : "border-[#e2d8d2] bg-white text-[#2b2224] hover:border-[#b86a78] hover:bg-[#fff9f7]"
-                    }`}
-                  >
-                    <span>
-                      {funcao}
-                      {indisponivel && <span className="mt-0.5 block text-xs font-medium text-[#827779]">Já atribuída</span>}
-                    </span>
-                    {selecionada && <Check className="size-5 shrink-0 text-[#8a1f35]" aria-hidden="true" />}
+            <div role="listbox" aria-label={seletorAberto.tipo === "pessoa" ? `Lista de ${grupoDoSeletor.titulo}` : "Funções disponíveis"} className="overflow-y-auto overscroll-contain bg-white p-3 text-[#251e20]">
+              {seletorAberto.tipo === "pessoa" ? (
+                pessoasDoSeletor.map((membro) => {
+                  const selecionado = rascunhoDoSeletor.membroId === membro.id
+                  const indisponivel = idsEscalados.has(membro.id)
+                  return (
+                    <button type="button" role="option" aria-selected={selecionado} key={membro.id} disabled={indisponivel} onClick={() => escolherPessoa(seletorAberto.categoria, membro.id)} className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${selecionado ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]" : indisponivel ? "border-[#ebe5e1] bg-[#f6f3f1] text-[#827779]" : "border-[#e2d8d2] bg-white text-[#2b2224] hover:border-[#b86a78] hover:bg-[#fff9f7]"}`}>
+                      <span>
+                        {membro.nome}
+                        {indisponivel && <span className="mt-0.5 block text-xs font-medium text-[#827779]">Já adicionado</span>}
+                      </span>
+                      {selecionado && <Check className="size-5 shrink-0 text-[#8a1f35]" aria-hidden="true" />}
+                    </button>
+                  )
+                })
+              ) : (
+                <>
+                  <button type="button" role="option" aria-selected={!rascunhoDoSeletor.funcao} onClick={() => escolherFuncao(seletorAberto.categoria, "")} className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${!rascunhoDoSeletor.funcao ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]" : "border-[#e2d8d2] bg-white text-[#2b2224]"}`}>
+                    <span>Sem função selecionada</span>
+                    {!rascunhoDoSeletor.funcao && <Check className="size-5 text-[#8a1f35]" aria-hidden="true" />}
                   </button>
-                )
-              })}
+
+                  {FUNCOES_ESCALA.map((funcao) => {
+                    const selecionada = rascunhoDoSeletor.funcao === funcao
+                    const indisponivel = funcoesOcupadas.has(funcao)
+                    return (
+                      <button type="button" role="option" aria-selected={selecionada} key={funcao} disabled={indisponivel} onClick={() => escolherFuncao(seletorAberto.categoria, funcao)} className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${selecionada ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]" : indisponivel ? "border-[#ebe5e1] bg-[#f6f3f1] text-[#827779]" : "border-[#e2d8d2] bg-white text-[#2b2224] hover:border-[#b86a78] hover:bg-[#fff9f7]"}`}>
+                        <span>
+                          {funcao}
+                          {indisponivel && <span className="mt-0.5 block text-xs font-medium text-[#827779]">Já atribuída</span>}
+                        </span>
+                        {selecionada && <Check className="size-5 shrink-0 text-[#8a1f35]" aria-hidden="true" />}
+                      </button>
+                    )
+                  })}
+                </>
+              )}
             </div>
           </div>
         </div>
