@@ -23,7 +23,7 @@ export type RankingLinha = {
 function participantes() {
   const mapa = new Map<string, UsuarioRow>()
   for (const membro of listarMembrosAprovados()) mapa.set(membro.id, membro)
-  for (const chave of ["INITIAL_ADMIN_USERNAME", "INITIAL_ADMIN2_USERNAME"] as const) {
+  for (const chave of ["INITIAL_ADMIN_USERNAME"] as const) {
     const login = process.env[chave]?.trim()
     if (!login) continue
     const moderador = buscarUsuarioPorLogin(login)

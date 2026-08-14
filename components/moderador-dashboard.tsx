@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProfileSettings } from "@/components/profile-settings"
+import { ModeratorPromotionPanel } from "@/components/moderator-promotion-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AreaHeader } from "@/components/area-header"
@@ -87,6 +88,7 @@ export function ModeradorDashboard() {
 
       <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-3 py-4 sm:px-4 sm:py-8">
         <ProfileSettings />
+        <ModeratorPromotionPanel />
         {/* Resumo da equipe — um retrato rápido do estado atual, não decoração */}
         <dl className="mb-6 grid grid-cols-2 gap-2.5 sm:mb-8 sm:gap-3 sm:grid-cols-4">
           <EstatCard label="Acólitos" valor={acolitos.length} />

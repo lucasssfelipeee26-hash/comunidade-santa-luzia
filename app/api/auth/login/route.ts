@@ -14,11 +14,11 @@ type AdminInicial = {
   senha: string
 }
 
-function lerAdmin(prefixo: "INITIAL_ADMIN" | "INITIAL_ADMIN2"): AdminInicial | null {
-  const nome = String(process.env[`${prefixo}_NAME`] ?? "Moderador").trim() || "Moderador"
-  const usuario = normalizarUsuario(process.env[`${prefixo}_USERNAME`])
-  const emailConfigurado = normalizar(process.env[`${prefixo}_EMAIL`])
-  const senha = String(process.env[`${prefixo}_PASSWORD`] ?? "")
+function lerAdminInicial(): AdminInicial | null {
+  const nome = String(process.env.INITIAL_ADMIN_NAME ?? "Moderador").trim() || "Moderador"
+  const usuario = normalizarUsuario(process.env.INITIAL_ADMIN_USERNAME)
+  const emailConfigurado = normalizar(process.env.INITIAL_ADMIN_EMAIL)
+  const senha = String(process.env.INITIAL_ADMIN_PASSWORD ?? "")
 
   if (!usuario || senha.length < 10) return null
 
@@ -28,17 +28,14 @@ function lerAdmin(prefixo: "INITIAL_ADMIN" | "INITIAL_ADMIN2"): AdminInicial | n
   return { nome, usuario, email, senha }
 }
 
-function adminsConfigurados() {
-  return [lerAdmin("INITIAL_ADMIN"), lerAdmin("INITIAL_ADMIN2")].filter((a): a is AdminInicial => Boolean(a))
-}
-
 function adminDaCredencial(login: string, senha: string) {
   const loginNormalizado = normalizar(login)
-  return adminsConfigurados().find(
-    (admin) =>
-      senha === admin.senha &&
-      (loginNormalizado === normalizar(admin.usuario) || loginNormalizado === normalizar(admin.email)),
-  )
+  const admin = lerAdminInicial()
+  if (!admin) return null
+  return senha === admin.senha &&
+    (loginNormalizado === normalizar(admin.usuario) || loginNormalizado === normalizar(admin.email))
+    ? admin
+    : null
 }
 
 export async function POST(req: Request) {

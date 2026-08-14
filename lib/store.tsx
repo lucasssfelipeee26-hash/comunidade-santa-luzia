@@ -64,7 +64,7 @@ const fetcher = async (url: string) => {
   }
 }
 
-type ResultadoAcao = { ok: boolean; erro?: string; destino?: string }
+type ResultadoAcao = { ok: boolean; erro?: string; destino?: string; mensagem?: string }
 
 type Ctx = {
   ready: boolean
@@ -84,6 +84,7 @@ type Ctx = {
   logout: () => Promise<void>
   aprovarMembro: (id: string) => void
   recusarMembro: (id: string) => void
+  promoverMembro: (id: string) => Promise<ResultadoAcao>
   adicionarJustificativa: (membroId: string, data: string, descricao: string) => void
   adicionarRegistro: (
     membroId: string,
@@ -172,6 +173,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }).then(() => globalMutate("/api/membros"))
   }, [])
 
+  const promoverMembro = useCallback<Ctx["promoverMembro"]>(async (id) => {
+    try {
+      const response = await fetch(`/api/membros/${id}/promover`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+      })
+      const resultado = await response.json().catch(() => ({ ok: false, erro: "Resposta inválida do servidor." })) as ResultadoAcao
+      if (response.ok && resultado.ok) {
+        await Promise.all([globalMutate("/api/membros"), globalMutate("/api/ranking")])
+      }
+      return resultado
+    } catch {
+      return { ok: false, erro: "Sem conexão com o servidor. Tente novamente quando estiver online." }
+    }
+  }, [])
+
   const adicionarJustificativa = useCallback<Ctx["adicionarJustificativa"]>((membroId, data, descricao) => {
     fetch(`/api/membros/${membroId}/registros`, {
       method: "POST",
@@ -236,6 +254,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       logout,
       aprovarMembro,
       recusarMembro,
+      promoverMembro,
       adicionarJustificativa,
       adicionarRegistro,
       removerRegistro,
@@ -252,6 +271,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       logout,
       aprovarMembro,
       recusarMembro,
+      promoverMembro,
       adicionarJustificativa,
       adicionarRegistro,
       removerRegistro,

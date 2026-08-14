@@ -19,6 +19,8 @@ export type UsuarioRow = {
   foto?: string | null
   status: "pendente" | "aprovado" | "recusado"
   criado_em: number
+  promovido_por?: string | null
+  promovido_em?: number | null
 }
 
 export type RegistroRow = {
@@ -423,58 +425,38 @@ function seedModeradores() {
   if (!storeDisponivel) return
   if (store.usuarios.some((u) => u.tipo === "moderador")) return
 
-  const moderadores: Array<{ nome: string; usuario: string; email: string; senha: string }> = []
-
   const nome = process.env.INITIAL_ADMIN_NAME?.trim()
   const usuario = process.env.INITIAL_ADMIN_USERNAME?.trim()
   const email = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase()
   const senha = process.env.INITIAL_ADMIN_PASSWORD
 
-  if (nome && usuario && email && senha) {
-    moderadores.push({ nome, usuario, email, senha })
-  }
-
-  const nome2 = process.env.INITIAL_ADMIN2_NAME?.trim()
-  const usuario2 = process.env.INITIAL_ADMIN2_USERNAME?.trim()
-  const email2 = process.env.INITIAL_ADMIN2_EMAIL?.trim().toLowerCase()
-  const senha2 = process.env.INITIAL_ADMIN2_PASSWORD
-
-  if (nome2 && usuario2 && email2 && senha2) {
-    moderadores.push({ nome: nome2, usuario: usuario2, email: email2, senha: senha2 })
-  }
-
-  if (moderadores.length === 0) {
+  if (!nome || !usuario || !email || !senha) {
     console.warn("[Banco local] Nenhum moderador existe e as variáveis INITIAL_ADMIN_* não foram configuradas.")
     return
   }
 
-  let alterado = false
-  for (const m of moderadores) {
-    const usuarioNormalizado = normalizarUsuario(m.usuario)
-    if (!usuarioNormalizado || m.senha.length < 10) {
-      console.warn(`[Banco local] Moderador inicial ${m.email} ignorado: usuário inválido ou senha com menos de 10 caracteres.`)
-      continue
-    }
-
-    const existente = store.usuarios.find((u) => norm(u.email) === norm(m.email) || norm(u.usuario) === norm(usuarioNormalizado))
-    if (existente) continue
-
-    store.usuarios.push({
-      id: gerarId(m.nome),
-      nome: m.nome,
-      usuario: gerarUsuarioUnico(usuarioNormalizado),
-      email: m.email,
-      senha_hash: bcrypt.hashSync(m.senha, 12),
-      tipo: "moderador",
-      funcao: null,
-      desde: null,
-      status: "aprovado",
-      criado_em: Date.now(),
-    })
-    alterado = true
+  const usuarioNormalizado = normalizarUsuario(usuario)
+  if (!usuarioNormalizado || senha.length < 10) {
+    console.warn(`[Banco local] Moderador inicial ${email} ignorado: usuário inválido ou senha com menos de 10 caracteres.`)
+    return
   }
 
-  if (alterado) persistNow()
+  const existente = store.usuarios.find((u) => norm(u.email) === norm(email) || norm(u.usuario) === norm(usuarioNormalizado))
+  if (existente) return
+
+  store.usuarios.push({
+    id: gerarId(nome),
+    nome,
+    usuario: gerarUsuarioUnico(usuarioNormalizado),
+    email,
+    senha_hash: bcrypt.hashSync(senha, 12),
+    tipo: "moderador",
+    funcao: null,
+    desde: null,
+    status: "aprovado",
+    criado_em: Date.now(),
+  })
+  persistNow()
 }
 
 seedModeradores()
@@ -490,6 +472,20 @@ export function listarEscalas() { return [...store.escalas].sort((a,b)=>(a.data+
 export function salvarEscala(e: Omit<EscalaRow,"id"|"criado_em">) { const row={...e,id:`escala-${Date.now()}`,criado_em:Date.now()}; store.escalas.push(row); persistNow(); return row }
 export function excluirEscala(id:string) { const n=store.escalas.length; store.escalas=store.escalas.filter(e=>e.id!==id); persistNow(); return n!==store.escalas.length }
 export function buscarUsuario(id:string){ return store.usuarios.find(u=>u.id===id) }
+
+export function promoverUsuarioModerador(id: string, promotorId: string) {
+  const usuario = store.usuarios.find((u) => u.id === id)
+  const promotor = store.usuarios.find((u) => u.id === promotorId && u.tipo === "moderador")
+  if (!usuario || usuario.tipo !== "membro" || !promotor) return null
+
+  usuario.tipo = "moderador"
+  usuario.status = "aprovado"
+  usuario.funcao = null
+  usuario.promovido_por = promotor.id
+  usuario.promovido_em = Date.now()
+  persistNow()
+  return usuario
+}
 
 export function excluirContaUsuario(id: string) {
   const usuario = store.usuarios.find((u) => u.id === id)
