@@ -6,7 +6,7 @@ import { AcervoLiturgicoOffline } from "@/components/acervo-liturgico-offline"
 import { LiturgiaDiaria } from "@/components/liturgia-diaria"
 import { documentoHoraSanto, documentoHoraTemporal, type HoraLiturgica } from "@/lib/iliturgia-calendario"
 import { celebracaoDoDiaBrasil as celebracaoDoDia, imagemCelebracao } from "@/lib/iliturgia-sanctoral-brasil"
-import { documentoRosarioDoDia, misterioRosarioDoDia } from "@/lib/iliturgia-rosario"
+import { documentoRosarioDoDia } from "@/lib/iliturgia-rosario"
 import { prefaciosProprios, prefaciosTempo } from "@/lib/iliturgia-prefacios"
 import { documentoCatequeseDoDia, documentoEvangelhoDaReferencia, documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
 import { documentoMissalProprio } from "@/lib/iliturgia-missal-proprio"
@@ -80,7 +80,7 @@ export function CentralLiturgicaILiturgia(){
  ]
  const missal:Tela[]=[{id:"ordinario",titulo:"Ordinário da Missa"},{id:"prefacios",titulo:"Prefácios"},{id:"eucaristicas",titulo:"Orações Eucarísticas"},...(proprioMissal?[{id:"proprio",titulo:"Próprio do Missal do dia",categoria:"missal",documento:proprioMissal}]:[])]
  const mais:Tela[]=[
-  {id:"rosario",titulo:`Santo Rosário · ${misterioRosarioDoDia(agora)}`,categoria:"rosario",documento:documentoRosarioDoDia(agora)},
+  {id:"rosario",titulo:"Rosário",categoria:"rosario",documento:documentoRosarioDoDia(agora)},
   {id:"salterio",titulo:"Saltério",categoria:"salterio",documento:"salterio/salterio.htm"},
   {id:"catequeses",titulo:"Catequeses"},{id:"comentarios",titulo:"Comentários litúrgicos"},{id:"oracoes",titulo:"Orações"},
   {...indiceGeralILiturgia,categoria:"geral"},
