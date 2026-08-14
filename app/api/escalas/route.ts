@@ -58,8 +58,11 @@ export async function POST(req: Request) {
       (usuario.funcao !== "Acólito" && usuario.funcao !== "Coroinha")
     ) continue
 
-    const categoria: EscalaPessoa["categoria"] = usuario.funcao === "Acólito" ? "acolito" : "coroinha"
-    if (pessoa.categoria !== categoria) continue
+    const categoria: EscalaPessoa["categoria"] | null =
+      pessoa.categoria === "acolito" || pessoa.categoria === "coroinha"
+        ? pessoa.categoria
+        : null
+    if (!categoria) continue
 
     const funcao = String(pessoa.funcao ?? "").trim()
     if (!funcaoEscalaValida(funcao)) continue
