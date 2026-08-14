@@ -1,0 +1,109 @@
+name: Publicar primeiro APK Android assinado
+
+on:
+  push:
+    branches:
+      - codex-bootstrap-android-100
+
+permissions:
+  contents: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+      AUTH_SECRET: ci-publicacao-santa-luzia-12345678901234567890
+      APP_VERSION_CODE: "1"
+      APP_VERSION_NAME: "1.0.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Validar aplicação
+        run: npm run build
+      - name: Criar projeto Android
+        run: |
+          npx cap add android
+          npx cap sync android
+          node scripts/prepare-android.cjs
+
+      - name: Criar assinatura permanente
+        run: |
+          openssl rand -hex 32 > "$RUNNER_TEMP/signing-password.txt"
+          keytool -genkeypair -v \
+            -keystore "$RUNNER_TEMP/santa-luzia-release.jks" \
+            -storetype PKCS12 \
+            -storepass:file "$RUNNER_TEMP/signing-password.txt" \
+            -keypass:file "$RUNNER_TEMP/signing-password.txt" \
+            -alias santa-luzia \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -dname "CN=Comunidade Santa Luzia, OU=Acolitos e Coroinhas Sao Padre Pio, O=Comunidade Santa Luzia, L=Varzea Grande, ST=Mato Grosso, C=BR"
+
+      - name: Gerar APK de produção assinado
+        run: |
+          SIGNING_PASSWORD="$(tr -d '\r\n' < "$RUNNER_TEMP/signing-password.txt")"
+          ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/santa-luzia-release.jks" \
+          ANDROID_KEYSTORE_PASSWORD="$SIGNING_PASSWORD" \
+          ANDROID_KEY_ALIAS="santa-luzia" \
+          ANDROID_KEY_PASSWORD="$SIGNING_PASSWORD" \
+          node scripts/configure-android-signing.cjs
+          cd android
+          ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/santa-luzia-release.jks" \
+          ANDROID_KEYSTORE_PASSWORD="$SIGNING_PASSWORD" \
+          ANDROID_KEY_ALIAS="santa-luzia" \
+          ANDROID_KEY_PASSWORD="$SIGNING_PASSWORD" \
+          ./gradlew assembleRelease
+
+      - name: Preparar download e recuperação protegida
+        run: |
+          mkdir -p dist recovery
+          cp android/app/build/outputs/apk/release/app-release.apk dist/santa-luzia.apk
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk"
+          cd dist
+          sha256sum santa-luzia.apk > santa-luzia.apk.sha256
+          cd ..
+          cp "$RUNNER_TEMP/santa-luzia-release.jks" recovery/
+          cp "$RUNNER_TEMP/signing-password.txt" recovery/
+          echo "santa-luzia" > recovery/santa-luzia-signing-alias.txt
+          zip -j "$RUNNER_TEMP/santa-luzia-signing-backup.zip" recovery/*
+          openssl cms -encrypt -binary -aes-256-cbc \
+            -in "$RUNNER_TEMP/santa-luzia-signing-backup.zip" \
+            -out "$RUNNER_TEMP/santa-luzia-signing-backup.cms" \
+            -outform DER \
+            .github/ci-recovery-cert.pem
+
+      - name: Publicar download gratuito
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="android-v${APP_VERSION_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --clobber
+            gh release edit "$TAG" --latest --title "Santa Luzia ${APP_VERSION_NAME}"
+          else
+            gh release create "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 \
+              --target main \
+              --latest \
+              --title "Santa Luzia ${APP_VERSION_NAME}" \
+              --notes "Aplicativo Android oficial da Comunidade Santa Luzia. Baixe santa-luzia.apk para instalar."
+          fi
+
+      - name: Guardar recuperação criptografada por 1 dia
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-signing-backup-encrypted
+          path: ${{ runner.temp }}/santa-luzia-signing-backup.cms
+          if-no-files-found: error
+          retention-days: 1
