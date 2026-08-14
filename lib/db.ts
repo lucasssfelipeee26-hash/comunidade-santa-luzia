@@ -483,8 +483,7 @@ export function listarEscalas() {
       pessoas: escala.pessoas.map((pessoa) => {
         const usuario = pessoa.id ? buscarUsuario(pessoa.id) : undefined
         if (!usuario) return { ...pessoa }
-        const categoria: EscalaPessoa["categoria"] = usuario.funcao === "Acólito" ? "acolito" : "coroinha"
-        return { ...pessoa, nome: usuario.nome, categoria }
+        return { ...pessoa, nome: usuario.nome }
       }),
     }))
     .sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario))

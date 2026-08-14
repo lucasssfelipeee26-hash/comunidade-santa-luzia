@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { AlertCircle, CheckCircle2, Loader2, Trash2 } from "lucide-react"
+import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,17 @@ type Escala = {
 }
 
 type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
+
+type CategoriaEscala = "acolito" | "coroinha"
+
+const CATEGORIAS_ESCALA: Array<{ id: CategoriaEscala; titulo: string }> = [
+  { id: "acolito", titulo: "Acólitos" },
+  { id: "coroinha", titulo: "Coroinhas" },
+]
+
+function chaveSelecao(categoria: CategoriaEscala, membroId: string) {
+  return `${categoria}:${membroId}`
+}
 
 async function fetcher(url: string): Promise<EscalasResponse> {
   const response = await fetch(url, { cache: "no-store" })
@@ -42,6 +53,7 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
   const [selecionados, setSelecionados] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState<{ tipo: "erro" | "sucesso"; texto: string } | null>(null)
+  const [seletorAberto, setSeletorAberto] = useState<{ membroId: string; categoria: CategoriaEscala } | null>(null)
 
   const ativos = useMemo(
     () => membros
@@ -58,6 +70,46 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
     return ocupadas
   }, [selecionados])
 
+  const membroNoSeletor = seletorAberto
+    ? ativos.find((membro) => membro.id === seletorAberto.membroId) ?? null
+    : null
+  const chaveNoSeletor = seletorAberto
+    ? chaveSelecao(seletorAberto.categoria, seletorAberto.membroId)
+    : ""
+
+  useEffect(() => {
+    if (!seletorAberto) return
+    const overflowAnterior = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const fecharComEscape = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setSeletorAberto(null)
+    }
+    document.addEventListener("keydown", fecharComEscape)
+    return () => {
+      document.body.style.overflow = overflowAnterior
+      document.removeEventListener("keydown", fecharComEscape)
+    }
+  }, [seletorAberto])
+
+  function escolherFuncao(categoria: CategoriaEscala, membroId: string, funcao: string) {
+    setSelecionados((atual) => {
+      const proximo = { ...atual }
+      const chaveAtual = chaveSelecao(categoria, membroId)
+      const outraCategoria: CategoriaEscala = categoria === "acolito" ? "coroinha" : "acolito"
+      const chaveOutra = chaveSelecao(outraCategoria, membroId)
+
+      if (!funcao) {
+        delete proximo[chaveAtual]
+      } else {
+        // A mesma pessoa não pode ocupar os dois blocos na mesma escala.
+        delete proximo[chaveOutra]
+        proximo[chaveAtual] = funcao
+      }
+      return proximo
+    })
+    setSeletorAberto(null)
+  }
+
   async function publicar() {
     if (salvando) return
     setMensagem(null)
@@ -73,14 +125,16 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
       return
     }
 
-    const pessoas = ativos
-      .filter((m) => selecionados[m.id])
-      .map((m) => ({
-        id: m.id,
-        nome: m.nome,
-        categoria: m.funcao === "Acólito" ? "acolito" : "coroinha",
-        funcao: selecionados[m.id],
-      }))
+    const pessoas = CATEGORIAS_ESCALA.flatMap(({ id: categoria }) =>
+      ativos
+        .filter((membro) => selecionados[chaveSelecao(categoria, membro.id)])
+        .map((membro) => ({
+          id: membro.id,
+          nome: membro.nome,
+          categoria,
+          funcao: selecionados[chaveSelecao(categoria, membro.id)],
+        })),
+    )
 
     setSalvando(true)
     try {
@@ -139,46 +193,139 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
-        {(["Acólito", "Coroinha"] as const).map((categoria) => {
-          const lista = ativos.filter((m) => m.funcao === categoria)
-          const funcoes = FUNCOES_ESCALA
-          return (
-            <div key={categoria}>
-              <h3 className="mb-3 font-semibold">{categoria}s</h3>
-              {!lista.length ? (
-                <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                  Nenhum {categoria.toLowerCase()} aprovado cadastrado.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {lista.map((membro) => (
-                    <div key={membro.id} className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1fr_190px] sm:items-center">
-                      <span className="text-sm font-medium">{membro.nome}</span>
-                      <select
-                        aria-label={`Função de ${membro.nome}`}
-                        className="rounded-md border bg-background px-2 py-2 text-sm"
-                        value={selecionados[membro.id] ?? ""}
-                        onChange={(e) => setSelecionados((atual) => ({ ...atual, [membro.id]: e.target.value }))}
-                      >
-                        <option value="">Fora da escala</option>
-                        {funcoes.map((funcao) => {
-                          const ocupante = funcoesOcupadas.get(funcao)
-                          return (
-                            <option key={funcao} value={funcao} disabled={Boolean(ocupante && ocupante !== membro.id)}>
-                              {funcao}{ocupante && ocupante !== membro.id ? " — já atribuído" : ""}
-                            </option>
-                          )
-                        })}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              )}
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {CATEGORIAS_ESCALA.map((grupo) => (
+          <section key={grupo.id} className="min-w-0">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="font-serif text-xl font-semibold text-[#3a252a]">{grupo.titulo}</h3>
+              <span className="rounded-full bg-[#f8f2ed] px-3 py-1 text-xs font-semibold text-[#62575a]">
+                {ativos.length} {ativos.length === 1 ? "cadastro" : "cadastros"}
+              </span>
             </div>
-          )
-        })}
+
+            {!ativos.length ? (
+              <p className="rounded-2xl border border-dashed border-[#d9ccc5] bg-white px-4 py-7 text-center text-sm text-[#6f6466]">
+                Nenhum usuário aprovado cadastrado.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {ativos.map((membro) => {
+                  const chaveAtual = chaveSelecao(grupo.id, membro.id)
+                  const outraCategoria: CategoriaEscala = grupo.id === "acolito" ? "coroinha" : "acolito"
+                  const chaveOutra = chaveSelecao(outraCategoria, membro.id)
+                  const selecionadoNoOutro = selecionados[chaveOutra]
+                  return (
+                    <div key={chaveAtual} className="rounded-2xl border border-[#ddd2cc] bg-white p-3.5 shadow-[0_6px_18px_rgba(57,31,36,.04)]">
+                      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-semibold leading-5 text-[#2b2224]">{membro.nome}</span>
+                        {selecionadoNoOutro ? (
+                          <span className="rounded-full border border-[#d8c9c1] bg-[#f7f2ef] px-2.5 py-1 text-[10px] font-bold text-[#756a6d]">
+                            Em {outraCategoria === "acolito" ? "Acólitos" : "Coroinhas"}
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-[#d8c9c1] bg-[#faf7f4] px-2.5 py-1 text-[10px] font-bold text-[#756a6d]">
+                            Disponível
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        aria-haspopup="listbox"
+                        aria-expanded={seletorAberto?.membroId === membro.id && seletorAberto.categoria === grupo.id}
+                        onClick={() => setSeletorAberto({ membroId: membro.id, categoria: grupo.id })}
+                        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-2 border-[#d8cec8] bg-white px-4 py-3 text-left text-base font-medium text-[#282124] outline-none transition hover:border-[#a94c5d] focus-visible:border-[#8a1f35] focus-visible:ring-4 focus-visible:ring-[#8a1f35]/15"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{selecionados[chaveAtual] || "Fora da escala"}</span>
+                        <ChevronDown className="size-5 shrink-0 text-[#76192a]" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        ))}
       </div>
+
+      {membroNoSeletor && seletorAberto && (
+        <div
+          className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-3 sm:items-center sm:p-5"
+          onClick={() => setSeletorAberto(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-seletor-funcao"
+            className="flex max-h-[82dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[#ded1c9] bg-white text-[#251e20] shadow-2xl"
+            onClick={(evento) => evento.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[#eadfd9] bg-[#fffaf6] px-4 py-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#8a1f35]">
+                  {seletorAberto.categoria === "acolito" ? "Bloco de Acólitos" : "Bloco de Coroinhas"}
+                </p>
+                <h3 id="titulo-seletor-funcao" className="mt-1 truncate font-serif text-xl font-semibold text-[#2c2023]">
+                  {membroNoSeletor.nome}
+                </h3>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar lista de funções"
+                onClick={() => setSeletorAberto(null)}
+                className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[#ded1c9] bg-white text-[#6f2635]"
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div role="listbox" aria-label={`Funções disponíveis para ${membroNoSeletor.nome}`} className="overflow-y-auto overscroll-contain bg-white p-3 text-[#251e20]">
+              <button
+                type="button"
+                role="option"
+                aria-selected={!selecionados[chaveNoSeletor]}
+                onClick={() => escolherFuncao(seletorAberto.categoria, membroNoSeletor.id, "")}
+                className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${
+                  !selecionados[chaveNoSeletor]
+                    ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]"
+                    : "border-[#e2d8d2] bg-white text-[#2b2224]"
+                }`}
+              >
+                <span>Fora da escala</span>
+                {!selecionados[chaveNoSeletor] && <Check className="size-5 text-[#8a1f35]" aria-hidden="true" />}
+              </button>
+
+              {FUNCOES_ESCALA.map((funcao) => {
+                const ocupante = funcoesOcupadas.get(funcao)
+                const indisponivel = Boolean(ocupante && ocupante !== chaveNoSeletor)
+                const selecionada = selecionados[chaveNoSeletor] === funcao
+                return (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selecionada}
+                    key={funcao}
+                    disabled={indisponivel}
+                    onClick={() => escolherFuncao(seletorAberto.categoria, membroNoSeletor.id, funcao)}
+                    className={`mb-2 flex min-h-13 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${
+                      selecionada
+                        ? "border-[#8a1f35] bg-[#f8e9ed] text-[#711a2d]"
+                        : indisponivel
+                          ? "border-[#ebe5e1] bg-[#f6f3f1] text-[#827779]"
+                          : "border-[#e2d8d2] bg-white text-[#2b2224] hover:border-[#b86a78] hover:bg-[#fff9f7]"
+                    }`}
+                  >
+                    <span>
+                      {funcao}
+                      {indisponivel && <span className="mt-0.5 block text-xs font-medium text-[#827779]">Já atribuída</span>}
+                    </span>
+                    {selecionada && <Check className="size-5 shrink-0 text-[#8a1f35]" aria-hidden="true" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 space-y-2">
         <Label htmlFor="escala-observacoes">Observações</Label>
