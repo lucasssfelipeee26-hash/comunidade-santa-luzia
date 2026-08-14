@@ -5,8 +5,9 @@ const raiz = path.resolve(__dirname, "..")
 const android = path.join(raiz, "android")
 const appGradle = path.join(android, "app", "build.gradle")
 const variablesGradle = path.join(android, "variables.gradle")
-const origemSons = path.join(raiz, "native-assets", "android", "res", "raw")
-const destinoSons = path.join(android, "app", "src", "main", "res", "raw")
+const origemRecursos = path.join(raiz, "native-assets", "android", "res")
+const destinoRecursos = path.join(android, "app", "src", "main", "res")
+const manifestPath = path.join(android, "app", "src", "main", "AndroidManifest.xml")
 
 if (!fs.existsSync(appGradle)) throw new Error("Projeto Android ausente. Execute npm run android:add primeiro.")
 
@@ -26,9 +27,32 @@ if (fs.existsSync(variablesGradle)) {
   fs.writeFileSync(variablesGradle, variables)
 }
 
-fs.mkdirSync(destinoSons, { recursive: true })
-for (const arquivo of fs.readdirSync(origemSons)) {
-  if (arquivo.endsWith(".wav")) fs.copyFileSync(path.join(origemSons, arquivo), path.join(destinoSons, arquivo))
+if (!fs.existsSync(origemRecursos)) throw new Error("Recursos Android personalizados ausentes.")
+fs.cpSync(origemRecursos, destinoRecursos, { recursive: true, force: true })
+
+const splashPersonalizada = path.join(origemRecursos, "drawable", "splash.png")
+for (const pasta of fs.readdirSync(destinoRecursos, { withFileTypes: true })) {
+  if (pasta.isDirectory() && pasta.name.startsWith("drawable-") && fs.existsSync(path.join(destinoRecursos, pasta.name, "splash.png"))) {
+    fs.copyFileSync(splashPersonalizada, path.join(destinoRecursos, pasta.name, "splash.png"))
+  }
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36.`)
+if (fs.existsSync(manifestPath)) {
+  let manifest = fs.readFileSync(manifestPath, "utf8")
+  manifest = manifest.replace(/android:allowBackup="[^"]+"/, 'android:allowBackup="false"')
+  if (!manifest.includes("android:usesCleartextTraffic")) {
+    manifest = manifest.replace(
+      'android:allowBackup="false"',
+      'android:allowBackup="false"\n        android:usesCleartextTraffic="false"\n        android:networkSecurityConfig="@xml/network_security_config"\n        android:hardwareAccelerated="true"\n        android:enableOnBackInvokedCallback="true"',
+    )
+  }
+  if (!manifest.includes("android:windowSoftInputMode")) {
+    manifest = manifest.replace(
+      'android:exported="true">',
+      'android:exported="true"\n            android:resizeableActivity="true"\n            android:windowSoftInputMode="adjustResize">',
+    )
+  }
+  fs.writeFileSync(manifestPath, manifest)
+}
+
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, ícones adaptativos e rede HTTPS.`)

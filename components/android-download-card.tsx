@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { ArrowDownToLine, CheckCircle2, Loader2, MonitorSmartphone, ShieldCheck, Smartphone } from "lucide-react"
+import { Capacitor } from "@capacitor/core"
 
 type AndroidRelease = {
   available: boolean
@@ -14,8 +15,10 @@ export function AndroidDownloadCard() {
   const [release, setRelease] = useState<AndroidRelease | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [android, setAndroid] = useState(true)
+  const [instalado, setInstalado] = useState(false)
 
   useEffect(() => {
+    setInstalado(Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android")
     setAndroid(/Android/i.test(navigator.userAgent))
     fetch("/api/app/status", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
@@ -26,6 +29,16 @@ export function AndroidDownloadCard() {
 
   if (carregando) {
     return <div className="flex min-h-52 items-center justify-center rounded-[28px] border border-[#e5d9ca] bg-white"><Loader2 className="size-7 animate-spin text-[#7b1326]" aria-label="Carregando versão" /></div>
+  }
+
+  if (instalado) {
+    return (
+      <div className="rounded-[30px] border border-[#cfe4d9] bg-white p-7 text-center shadow-[0_22px_70px_rgba(72,34,23,.09)]">
+        <CheckCircle2 className="mx-auto size-14 text-[#0b6b4b]" />
+        <h2 className="mt-4 font-serif text-3xl font-semibold text-[#173d2d]">Aplicativo instalado</h2>
+        <p className="mt-2 text-sm leading-6 text-[#665d5f]">Você já está usando o Santa Luzia no Android. As próximas versões aparecerão como atualização dentro do próprio aplicativo.</p>
+      </div>
+    )
   }
 
   return (
