@@ -1,4 +1,4 @@
-name: Gerar índice litúrgico 2026
+name: Gerar liturgia offline 2026
 
 on:
   push:
@@ -12,20 +12,22 @@ jobs:
   gerar:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Gerar e auditar índice
+      - name: Gerar e auditar conteúdo offline
         run: |
           node scripts/gerar-indice-liturgico-2026.cjs
           node scripts/auditar-indice-liturgico-2026.cjs
-      - name: Salvar índice no ramo temporário
+          node scripts/gerar-liturgia-completa-2026.cjs
+          node scripts/auditar-liturgia-completa-2026.cjs
+      - name: Salvar conteúdo no ramo temporário
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/offline/iliturgia/indice-liturgico-2026.json
-          git commit -m "Gera índice litúrgico offline de 2026"
+          git add public/offline/iliturgia/indice-liturgico-2026.json public/offline/liturgia-completa
+          git commit -m "Gera liturgia completa offline de 2026"
           git push
