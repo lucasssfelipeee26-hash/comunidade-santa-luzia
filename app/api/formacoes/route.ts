@@ -36,7 +36,7 @@ export async function GET() {
   })
 
   return NextResponse.json(
-    { formacoes },
+    { formacoes, usuarioId: sessao.sub, tipoUsuario: sessao.tipo },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   )
 }

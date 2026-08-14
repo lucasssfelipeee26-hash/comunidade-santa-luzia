@@ -2,7 +2,12 @@
 
 import { useEffect } from "react"
 import { useSWRConfig } from "swr"
-import { salvarCacheEscalas, sincronizarRelatosAtrasoPendentes } from "@/lib/offline-data"
+import {
+  salvarCacheEscalas,
+  salvarCacheFormacoes,
+  sincronizarPresencasFormacaoPendentes,
+  sincronizarRelatosAtrasoPendentes,
+} from "@/lib/offline-data"
 
 type ServerStatus = {
   ok: boolean
@@ -52,11 +57,19 @@ export function ServerSyncRuntime() {
       try {
         const sincronizacaoLocal = Promise.all([
           sincronizarRelatosAtrasoPendentes().catch(() => ({ enviados: 0, restantes: 0 })),
+          sincronizarPresencasFormacaoPendentes().catch(() => ({ enviados: 0, restantes: 0 })),
           fetch("/api/escalas", { cache: "no-store", credentials: "same-origin" })
             .then(async (res) => {
               if (!res.ok) return false
               const json = await res.json()
               return json?.ok ? salvarCacheEscalas(json) : false
+            })
+            .catch(() => false),
+          fetch("/api/formacoes", { cache: "no-store", credentials: "same-origin" })
+            .then(async (res) => {
+              if (!res.ok) return false
+              const json = await res.json()
+              return Array.isArray(json?.formacoes) ? salvarCacheFormacoes(json) : false
             })
             .catch(() => false),
         ])
@@ -75,7 +88,7 @@ export function ServerSyncRuntime() {
           localStorage.setItem(RELEASE_KEY, status.appRelease)
         }
 
-        const [relatos] = await sincronizacaoLocal
+        const [relatos, presencasFormacao] = await sincronizacaoLocal
 
         const anterior = localStorage.getItem(REVISAO_KEY)
         const temaAnterior = localStorage.getItem(TEMA_KEY)
@@ -93,7 +106,13 @@ export function ServerSyncRuntime() {
           return
         }
 
-        if (mudou || forcarRevalidacao || relatos.enviados > 0 || Boolean(releaseAnterior && releaseAnterior !== status.appRelease)) {
+        if (
+          mudou ||
+          forcarRevalidacao ||
+          relatos.enviados > 0 ||
+          presencasFormacao.enviados > 0 ||
+          Boolean(releaseAnterior && releaseAnterior !== status.appRelease)
+        ) {
           await mutate(
             (key) =>
               typeof key === "string" &&

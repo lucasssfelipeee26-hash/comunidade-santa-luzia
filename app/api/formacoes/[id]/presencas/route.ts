@@ -34,6 +34,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       id: usuario.id,
       nome: usuario.nome,
       funcao: usuario.funcao,
+      tipo: usuario.tipo,
+      editavel: usuario.tipo !== "moderador" || usuario.id === sessao.sub,
+      motivo_bloqueio: usuario.tipo === "moderador" && usuario.id !== sessao.sub
+        ? "Outro moderador registra a própria presença."
+        : null,
       situacao: presenca?.status ?? "nao_registrado",
       justificativa: presenca?.justificativa ?? "",
       atualizado_em: presenca?.atualizado_em ?? null,
@@ -76,6 +81,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ erro: "A lista contém um usuário inválido ou duplicado." }, { status: 400 })
     }
     idsRecebidos.add(usuarioId)
+
+    const usuario = equipe.get(usuarioId)!
+    if (usuario.tipo === "moderador" && usuario.id !== sessao.sub) {
+      return NextResponse.json(
+        { erro: "Um moderador não pode alterar a presença de outro moderador." },
+        { status: 403 },
+      )
+    }
 
     const situacao = String(item.situacao ?? "") as SituacaoRecebida
     if (!["nao_registrado", "presente", "falta", "justificada"].includes(situacao)) {
