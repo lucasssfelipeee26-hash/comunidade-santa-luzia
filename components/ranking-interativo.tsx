@@ -7,6 +7,7 @@ import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
 import { QuizCountdown } from "@/components/quiz-countdown"
 import { Button } from "@/components/ui/button"
+import { HighContrastSelect } from "@/components/ui/high-contrast-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   OFFLINE_DATA_EVENT,
@@ -336,7 +337,17 @@ export function RankingInterativo() {
                 <h2 className="font-serif text-xl font-semibold text-primary">Reportar atraso</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Você pode salvar o relato mesmo sem internet. Ao reconectar, ele será enviado ao moderador e só aparecerá para o grupo depois da confirmação.</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <select value={atrasoAlvo} onChange={(e) => setAtrasoAlvo(e.target.value)} className="h-11 rounded-xl border border-border bg-white px-3"><option value="">Perfil</option>{dados.membros.map((m: any) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select>
+                  <HighContrastSelect
+                    value={atrasoAlvo}
+                    onValueChange={setAtrasoAlvo}
+                    dialogTitle="Selecionar perfil"
+                    placeholder="Perfil"
+                    options={dados.membros.map((m: any) => ({
+                      value: String(m.id),
+                      label: String(m.nome),
+                      description: m.funcao ? String(m.funcao) : undefined,
+                    }))}
+                  />
                   <input type="date" value={dataMissa} onChange={(e) => setDataMissa(e.target.value)} className="h-11 rounded-xl border border-border px-3" />
                   <input type="time" value={horarioMissa} onChange={(e) => setHorarioMissa(e.target.value)} className="h-11 rounded-xl border border-border px-3" />
                 </div>

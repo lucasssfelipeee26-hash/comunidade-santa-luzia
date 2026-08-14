@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { HighContrastSelect } from "@/components/ui/high-contrast-select"
 import { useStore } from "@/lib/store"
 
 type TipoRegistro = "advertencias" | "faltas" | "observacoes"
@@ -74,20 +75,19 @@ export function NovoRegistroModerador() {
           <form onSubmit={salvar} className="space-y-5 p-5">
             <div className="space-y-2">
               <Label htmlFor="membro-registro">Membro</Label>
-              <select
+              <HighContrastSelect
                 id="membro-registro"
                 value={membroId}
-                onChange={(e) => setMembroId(e.target.value)}
+                onValueChange={setMembroId}
                 required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-              >
-                <option value="">Selecione um acólito ou coroinha</option>
-                {ativos.map((membro) => (
-                  <option key={membro.id} value={membro.id}>
-                    {membro.nome} — {membro.funcao}
-                  </option>
-                ))}
-              </select>
+                dialogTitle="Selecionar acólito ou coroinha"
+                placeholder="Selecione um acólito ou coroinha"
+                options={ativos.map((membro) => ({
+                  value: membro.id,
+                  label: membro.nome,
+                  description: membro.funcao,
+                }))}
+              />
             </div>
 
             <div className="space-y-2">

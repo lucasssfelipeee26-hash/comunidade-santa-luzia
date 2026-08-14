@@ -292,6 +292,31 @@ html[data-site-theme="vinho-dourado"] {
   color-scheme: light;
 }
 
+/* Contraste defensivo para controles nativos ainda renderizados por navegadores
+   ou WebViews antigos. Os seletores principais usam o componente próprio,
+   mas estas regras impedem texto claro sobre fundo claro em campos futuros. */
+.app-mobile-shell select {
+  color-scheme: light !important;
+  background-color: #ffffff !important;
+  color: #241a1c !important;
+  -webkit-text-fill-color: #241a1c !important;
+  opacity: 1 !important;
+}
+
+.app-mobile-shell select option,
+.app-mobile-shell select optgroup {
+  background-color: #ffffff !important;
+  color: #241a1c !important;
+  -webkit-text-fill-color: #241a1c !important;
+  opacity: 1 !important;
+}
+
+.app-mobile-shell select option:checked {
+  background-color: #f8e5ea !important;
+  color: #571124 !important;
+  -webkit-text-fill-color: #571124 !important;
+}
+
 .area-restrita-shell ::selection {
   background: #ead27c;
   color: #501422;
