@@ -7,6 +7,14 @@ import { salvarCacheEscalas, sincronizarRelatosAtrasoPendentes } from "@/lib/off
 type ServerStatus = {
   ok: boolean
   appRelease?: string
+  android?: {
+    available: boolean
+    versionCode: number
+    versionName: string
+    required: boolean
+    highlights: string[]
+    downloadUrl: string
+  }
   revisaoDados: string
   revisaoTema?: string
   servidorEm: number
@@ -76,6 +84,7 @@ export function ServerSyncRuntime() {
         if (status.revisaoTema) localStorage.setItem(TEMA_KEY, status.revisaoTema)
         localStorage.setItem(ULTIMA_SYNC_KEY, String(Date.now()))
         definirEstado("online")
+        window.dispatchEvent(new CustomEvent("santa-luzia:app-status", { detail: status }))
 
         if (temaMudou) {
           window.location.reload()
