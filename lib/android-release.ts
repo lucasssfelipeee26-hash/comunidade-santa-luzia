@@ -3,6 +3,7 @@ import releaseConfig from "@/config/android-release.json"
 
 const REPOSITORIO = "lucasssfelipeee26-hash/comunidade-santa-luzia"
 const APK_PADRAO = `https://github.com/${REPOSITORIO}/releases/latest/download/santa-luzia.apk`
+const SITE_PADRAO = "https://comunidade-santa-luzia-production.up.railway.app"
 
 function inteiroPositivo(valor: string | undefined, padrao: number) {
   const numero = Number(valor)
@@ -19,6 +20,11 @@ function destaquesConfigurados() {
   return valor ? valor.split("|").map((item) => item.trim()).filter(Boolean) : releaseConfig.highlights
 }
 
+function urlPublica(caminho: string) {
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.trim() || SITE_PADRAO
+  return new URL(caminho, `${base.replace(/\/$/, "")}/`).toString()
+}
+
 export function obterReleaseAndroid() {
   const versionCode = inteiroPositivo(process.env.ANDROID_LATEST_VERSION_CODE, releaseConfig.versionCode)
   const versionName = process.env.ANDROID_LATEST_VERSION_NAME?.trim() || releaseConfig.versionName
@@ -31,7 +37,7 @@ export function obterReleaseAndroid() {
     publishedAt: process.env.ANDROID_RELEASE_PUBLISHED_AT?.trim() || releaseConfig.publishedAt,
     required: booleano(process.env.ANDROID_UPDATE_REQUIRED, releaseConfig.required),
     highlights: destaquesConfigurados(),
-    downloadUrl: `/downloads/Santa-Luzia-${versaoArquivo}.apk?version=${versionCode}`,
+    downloadUrl: urlPublica(`/downloads/Santa-Luzia-${versaoArquivo}.apk?version=${versionCode}`),
     releasePageUrl: `https://github.com/${REPOSITORIO}/releases/latest`,
   }
 }
