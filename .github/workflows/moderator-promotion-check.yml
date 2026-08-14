@@ -47,6 +47,10 @@ jobs:
           ! grep -q "<select" components/editor-escala.tsx
           grep -q 'titulo: "Acólitos"' components/editor-escala.tsx
           grep -q 'titulo: "Coroinhas"' components/editor-escala.tsx
+          grep -q 'funcaoCadastro: "Acólito"' components/editor-escala.tsx
+          grep -q 'funcaoCadastro: "Coroinha"' components/editor-escala.tsx
+          grep -q 'Selecionar ${grupo.singular}' components/editor-escala.tsx
+          grep -q 'Adicionar à escala' components/editor-escala.tsx
           grep -q 'role="listbox"' components/editor-escala.tsx
 
       - name: Testar autorização e promoção
@@ -105,6 +109,10 @@ jobs:
           grep -q '"nome":"Moderador Teste","usuario":"moderador.teste","funcao":"Acólito"' "$RUNNER_TEMP/equipe.json"
           grep -q '"nome":"Candidato Teste","usuario":"candidato.teste","funcao":"Acólito"' "$RUNNER_TEMP/equipe.json"
 
-          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X POST "http://127.0.0.1:3010/api/escalas" -H "Content-Type: application/json" --data '{"data":"2026-08-14","horario":"18:00","celebrante":"Padre Teste","pessoas":[{"id":"moderador-teste","categoria":"acolito","funcao":"Cruciferário"},{"id":"candidato-teste","categoria":"coroinha","funcao":"Turiferário"}]}' | tee "$RUNNER_TEMP/escala.json"
+          INVALID_CATEGORY_STATUS="$(curl -sS -o "$RUNNER_TEMP/categoria-invalida.json" -w '%{http_code}' -b "$RUNNER_TEMP/moderador.cookies" -X POST "http://127.0.0.1:3010/api/escalas" -H "Content-Type: application/json" --data '{"data":"2026-08-14","horario":"18:00","celebrante":"Padre Teste","pessoas":[{"id":"candidato-teste","categoria":"coroinha","funcao":"Turiferário"}]}')"
+          test "$INVALID_CATEGORY_STATUS" = "400"
+          grep -q 'só pode ser incluído em Acólitos' "$RUNNER_TEMP/categoria-invalida.json"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X POST "http://127.0.0.1:3010/api/escalas" -H "Content-Type: application/json" --data '{"data":"2026-08-14","horario":"18:00","celebrante":"Padre Teste","pessoas":[{"id":"moderador-teste","categoria":"acolito","funcao":"Cruciferário"},{"id":"candidato-teste","categoria":"acolito","funcao":"Turiferário"}]}' | tee "$RUNNER_TEMP/escala.json"
           grep -q '"nome":"Moderador Teste"' "$RUNNER_TEMP/escala.json"
-          grep -q '"nome":"Candidato Teste","funcao":"Turiferário","categoria":"coroinha"' "$RUNNER_TEMP/escala.json"
+          grep -q '"nome":"Candidato Teste","funcao":"Turiferário","categoria":"acolito"' "$RUNNER_TEMP/escala.json"

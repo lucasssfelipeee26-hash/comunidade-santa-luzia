@@ -58,11 +58,15 @@ export async function POST(req: Request) {
       (usuario.funcao !== "Acólito" && usuario.funcao !== "Coroinha")
     ) continue
 
-    const categoria: EscalaPessoa["categoria"] | null =
-      pessoa.categoria === "acolito" || pessoa.categoria === "coroinha"
-        ? pessoa.categoria
-        : null
-    if (!categoria) continue
+    const categoria: EscalaPessoa["categoria"] =
+      usuario.funcao === "Acólito" ? "acolito" : "coroinha"
+    if (pessoa.categoria !== categoria) {
+      const bloco = categoria === "acolito" ? "Acólitos" : "Coroinhas"
+      return NextResponse.json(
+        { ok: false, erro: `${usuario.nome} está cadastrado como ${usuario.funcao.toLowerCase()} e só pode ser incluído em ${bloco}.` },
+        { status: 400 },
+      )
+    }
 
     const funcao = String(pessoa.funcao ?? "").trim()
     if (!funcaoEscalaValida(funcao)) continue
