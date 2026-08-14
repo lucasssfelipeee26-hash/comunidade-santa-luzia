@@ -30,10 +30,22 @@ export function GerenciadorFormacoes() {
   }, [])
 
   async function criar(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setSaving(true); setErro("")
-    try { const form = new FormData(e.currentTarget); const r = await fetch("/api/formacoes", { method: "POST", body: form }); const j = await r.json(); if (!r.ok) throw new Error(j.erro); e.currentTarget.reset(); await carregar() }
-    catch (e) { setErro(e instanceof Error ? e.message : "Não foi possível publicar a formação.") }
-    finally { setSaving(false) }
+    e.preventDefault()
+    const formulario = e.currentTarget
+    setSaving(true)
+    setErro("")
+    try {
+      const form = new FormData(formulario)
+      const r = await fetch("/api/formacoes", { method: "POST", body: form })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.erro)
+      formulario.reset()
+      await carregar()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível publicar a formação.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function mudarStatus(item: FormacaoRow) {

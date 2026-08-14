@@ -6,9 +6,11 @@ on:
       - "app/api/membros/**"
       - "app/api/equipe/**"
       - "app/api/escalas/**"
+      - "app/api/formacoes/**"
       - "app/api/ranking/**"
       - "app/api/auth/login/route.ts"
       - "components/editor-escala.tsx"
+      - "components/gerenciador-formacoes.tsx"
       - "components/moderador-escala-page.tsx"
       - "components/moderator-promotion-panel.tsx"
       - "components/moderador-dashboard.tsx"
@@ -56,6 +58,13 @@ jobs:
           grep -q 'var(--app-bottom-nav-height)' components/editor-escala.tsx
           grep -q 'min-h-0 flex-1 touch-pan-y overflow-y-auto' components/editor-escala.tsx
 
+      - name: Validar publicação de formação
+        shell: bash
+        run: |
+          grep -q 'const formulario = e.currentTarget' components/gerenciador-formacoes.tsx
+          grep -q 'new FormData(formulario)' components/gerenciador-formacoes.tsx
+          grep -q 'formulario.reset()' components/gerenciador-formacoes.tsx
+          ! grep -q 'e.currentTarget.reset()' components/gerenciador-formacoes.tsx
       - name: Testar autorização e promoção
         shell: bash
         run: |
