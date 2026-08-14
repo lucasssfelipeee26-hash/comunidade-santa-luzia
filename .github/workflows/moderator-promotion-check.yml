@@ -13,10 +13,14 @@ on:
       - "components/gerenciador-formacoes.tsx"
       - "components/formacao-presencas-editor.tsx"
       - "components/formacao-membros.tsx"
+      - "components/controle-presencas-formacao.tsx"
+      - "components/moderador-presencas-page.tsx"
+      - "components/server-sync-runtime.tsx"
       - "components/moderador-escala-page.tsx"
       - "components/moderator-promotion-panel.tsx"
       - "components/moderador-dashboard.tsx"
       - "lib/db.ts"
+      - "lib/offline-data.ts"
       - "lib/store.tsx"
       - ".github/workflows/moderator-promotion-check.yml"
   workflow_dispatch:
@@ -74,7 +78,11 @@ jobs:
           grep -q 'Meu histórico de participação' components/formacao-membros.tsx
           grep -q 'Registrar presença' components/formacao-presencas-editor.tsx
           grep -q 'Falta justificada' components/formacao-membros.tsx
+          grep -q 'enviarOuEnfileirarMinhaPresencaFormacao' components/formacao-membros.tsx
+          grep -q 'sincronizarPresencasFormacaoPendentes' components/server-sync-runtime.tsx
+          grep -q 'Um moderador não pode alterar a presença de outro moderador' app/api/formacoes/\[id\]/presencas/route.ts
           grep -q 'todo o histórico de presença' components/gerenciador-formacoes.tsx
+          grep -q 'Controle de Presenças' components/moderador-presencas-page.tsx
           ! grep -q '<select' components/formacao-presencas-editor.tsx
 
       - name: Testar autorização e promoção
@@ -144,14 +152,60 @@ jobs:
           FORMACAO_ID="$(node -e 'const fs=require("fs");console.log(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).formacao.id)' "$RUNNER_TEMP/formacao.json")"
           test -n "$FORMACAO_ID"
 
+          curl -fsS -X POST "http://127.0.0.1:3010/api/auth/cadastro" \
+            -H "Content-Type: application/json" \
+            --data '{"nome":"Acolito Teste","usuario":"acolito.teste","funcao":"Acólito","email":"acolito@teste.invalid","senha":"Acolito!Teste#2026","dataNascimento":"2001-02-03"}' \
+            | tee "$RUNNER_TEMP/cadastro-acolito.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/cadastro-acolito.json"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" \
+            -X PATCH "http://127.0.0.1:3010/api/membros/acolito-teste/status" \
+            -H "Content-Type: application/json" \
+            --data '{"status":"aprovado"}' \
+            | tee "$RUNNER_TEMP/aprovar-acolito.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/aprovar-acolito.json"
+
+          curl -fsS -c "$RUNNER_TEMP/acolito.cookies" \
+            -X POST "http://127.0.0.1:3010/api/auth/login" \
+            -H "Content-Type: application/json" \
+            --data '{"usuario":"acolito.teste","senha":"Acolito!Teste#2026"}' \
+            | tee "$RUNNER_TEMP/login-acolito.json"
+          grep -q '"destino":"/area-restrita/membro"' "$RUNNER_TEMP/login-acolito.json"
+
           curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X PUT "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID/presencas" \
             -H "Content-Type: application/json" \
-            --data '{"presencas":[{"usuarioId":"moderador-teste","situacao":"presente","justificativa":""},{"usuarioId":"candidato-teste","situacao":"justificada","justificativa":"Compromisso familiar"}]}' \
+            --data '{"presencas":[{"usuarioId":"moderador-teste","situacao":"presente","justificativa":""},{"usuarioId":"acolito-teste","situacao":"falta","justificativa":""}]}' \
             | tee "$RUNNER_TEMP/presencas-formacao.json"
           grep -q '"ok":true' "$RUNNER_TEMP/presencas-formacao.json"
 
+          OUTRO_MODERADOR_STATUS="$(curl -sS -o "$RUNNER_TEMP/outro-moderador.json" -w '%{http_code}' \
+            -b "$RUNNER_TEMP/moderador.cookies" \
+            -X PUT "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID/presencas" \
+            -H "Content-Type: application/json" \
+            --data '{"presencas":[{"usuarioId":"candidato-teste","situacao":"presente","justificativa":""}]}')"
+          test "$OUTRO_MODERADOR_STATUS" = "403"
+          grep -q 'não pode alterar a presença de outro moderador' "$RUNNER_TEMP/outro-moderador.json"
+
+          curl -fsS -b "$RUNNER_TEMP/promovido.cookies" \
+            -X PUT "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID/minha-presenca" \
+            -H "Content-Type: application/json" \
+            --data '{"situacao":"justificada","justificativa":"Compromisso familiar","clientRequestId":"teste-promovido"}' \
+            | tee "$RUNNER_TEMP/minha-presenca-moderador.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/minha-presenca-moderador.json"
+
+          curl -fsS -b "$RUNNER_TEMP/acolito.cookies" \
+            -X PUT "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID/minha-presenca" \
+            -H "Content-Type: application/json" \
+            --data '{"situacao":"presente","justificativa":"","clientRequestId":"teste-acolito"}' \
+            | tee "$RUNNER_TEMP/minha-presenca-acolito.json"
+          grep -q '"ok":true' "$RUNNER_TEMP/minha-presenca-acolito.json"
+
           curl -fsS -b "$RUNNER_TEMP/promovido.cookies" "http://127.0.0.1:3010/api/formacoes" | tee "$RUNNER_TEMP/historico-formacao.json"
           grep -q '"minha_presenca":{"status":"justificada","justificativa":"Compromisso familiar"' "$RUNNER_TEMP/historico-formacao.json"
+
+          curl -fsS -b "$RUNNER_TEMP/moderador.cookies" "http://127.0.0.1:3010/api/formacoes/presencas/resumo" | tee "$RUNNER_TEMP/resumo-presencas.json"
+          grep -q '"presencas":2' "$RUNNER_TEMP/resumo-presencas.json"
+          grep -q '"justificadas":1' "$RUNNER_TEMP/resumo-presencas.json"
 
           curl -fsS -b "$RUNNER_TEMP/moderador.cookies" -X DELETE "http://127.0.0.1:3010/api/formacoes/$FORMACAO_ID" | tee "$RUNNER_TEMP/excluir-formacao.json"
           grep -q '"ok":true' "$RUNNER_TEMP/excluir-formacao.json"

@@ -4,6 +4,8 @@ const ESCALAS_KEY = "santa-luzia:offline:v1:escalas"
 const RANKING_KEY = "santa-luzia:offline:v1:ranking"
 const SESSAO_KEY = "santa-luzia:offline:v1:sessao"
 const ATRASOS_KEY = "santa-luzia:offline:v1:atrasos-pendentes"
+const FORMACOES_KEY = "santa-luzia:offline:v1:formacoes"
+const PRESENCAS_FORMACAO_KEY = "santa-luzia:offline:v1:presencas-formacao-pendentes"
 
 type CacheEnvelope<T> = {
   atualizadoEm: number
@@ -32,6 +34,29 @@ export type RelatoAtrasoPendente = {
 export type ResultadoRelatoAtraso =
   | { ok: true; pendente: false; resposta: any }
   | { ok: true; pendente: true; item: RelatoAtrasoPendente }
+  | { ok: false; erro: string }
+
+export type MinhaPresencaFormacaoSituacao = "presente" | "falta" | "justificada"
+
+export type MinhaPresencaFormacaoPayload = {
+  situacao: MinhaPresencaFormacaoSituacao
+  justificativa: string
+  clientRequestId: string
+}
+
+export type PresencaFormacaoPendente = {
+  id: string
+  usuarioId: string
+  formacaoId: string
+  criadoNoAparelhoEm: number
+  tentativas: number
+  ultimoErro?: string
+  payload: MinhaPresencaFormacaoPayload
+}
+
+export type ResultadoMinhaPresencaFormacao =
+  | { ok: true; pendente: false; resposta: any }
+  | { ok: true; pendente: true; item: PresencaFormacaoPendente }
   | { ok: false; erro: string }
 
 function lerJson<T>(chave: string): T | null {
@@ -74,6 +99,16 @@ export function salvarCacheEscalas<T>(dados: T) {
   return salvo
 }
 
+export function carregarCacheFormacoes<T>() {
+  return lerJson<CacheEnvelope<T>>(FORMACOES_KEY)
+}
+
+export function salvarCacheFormacoes<T>(dados: T) {
+  const salvo = salvarJson(FORMACOES_KEY, { atualizadoEm: Date.now(), dados } satisfies CacheEnvelope<T>)
+  if (salvo) emitirAtualizacao({ tipo: "formacoes" })
+  return salvo
+}
+
 export function carregarCacheRanking<T>() {
   return lerJson<CacheEnvelope<T>>(RANKING_KEY)
 }
@@ -95,6 +130,7 @@ export function limparDadosPrivadosOffline() {
   try {
     window.localStorage.removeItem(RANKING_KEY)
     window.localStorage.removeItem(SESSAO_KEY)
+    window.localStorage.removeItem(FORMACOES_KEY)
   } catch {}
   navigator.serviceWorker?.controller?.postMessage({ tipo: "LIMPAR_CACHE_PRIVADO" })
   if ("caches" in window) void window.caches.delete("santa-luzia-private-v1")
@@ -103,6 +139,8 @@ export function limparDadosPrivadosOffline() {
 export function limparDadosOfflineAposExclusao(usuarioId: string) {
   const restantes = listarRelatosAtrasoPendentes().filter((item) => item.reportadoPor !== usuarioId)
   salvarRelatosAtrasoPendentes(restantes)
+  const presencasRestantes = listarPresencasFormacaoPendentes().filter((item) => item.usuarioId !== usuarioId)
+  salvarPresencasFormacaoPendentes(presencasRestantes)
   limparDadosPrivadosOffline()
 }
 
@@ -223,5 +261,145 @@ export async function sincronizarRelatosAtrasoPendentes() {
   }
 
   salvarRelatosAtrasoPendentes(mantidos)
+  return { enviados, restantes: mantidos.length }
+}
+
+
+export function listarPresencasFormacaoPendentes(usuarioId?: string | null) {
+  const itens = lerJson<PresencaFormacaoPendente[]>(PRESENCAS_FORMACAO_KEY)
+  const validos = Array.isArray(itens)
+    ? itens.filter((item) => item?.id && item?.usuarioId && item?.formacaoId && item?.payload?.clientRequestId)
+    : []
+  return usuarioId ? validos.filter((item) => item.usuarioId === usuarioId) : validos
+}
+
+function salvarPresencasFormacaoPendentes(itens: PresencaFormacaoPendente[]) {
+  const salvo = salvarJson(PRESENCAS_FORMACAO_KEY, itens)
+  if (salvo) emitirAtualizacao({ tipo: "presencas-formacao", pendentes: itens.length })
+  return salvo
+}
+
+function colocarPresencaFormacaoNaFila(
+  formacaoId: string,
+  payload: Omit<MinhaPresencaFormacaoPayload, "clientRequestId"> & { clientRequestId?: string },
+  usuarioId: string,
+) {
+  const atuais = listarPresencasFormacaoPendentes()
+  const outros = atuais.filter((item) => item.usuarioId !== usuarioId || item.formacaoId !== formacaoId)
+  const clientRequestId = payload.clientRequestId || criarId()
+  const item: PresencaFormacaoPendente = {
+    id: clientRequestId,
+    usuarioId,
+    formacaoId,
+    criadoNoAparelhoEm: Date.now(),
+    tentativas: 0,
+    payload: { ...payload, clientRequestId },
+  }
+  salvarPresencasFormacaoPendentes([...outros, item])
+  return item
+}
+
+function removerPresencaFormacaoPendente(usuarioId: string, formacaoId: string) {
+  const atuais = listarPresencasFormacaoPendentes()
+  salvarPresencasFormacaoPendentes(
+    atuais.filter((item) => item.usuarioId !== usuarioId || item.formacaoId !== formacaoId),
+  )
+}
+
+export async function enviarOuEnfileirarMinhaPresencaFormacao(
+  formacaoId: string,
+  payload: Omit<MinhaPresencaFormacaoPayload, "clientRequestId">,
+  usuarioId: string,
+): Promise<ResultadoMinhaPresencaFormacao> {
+  const completo: MinhaPresencaFormacaoPayload = { ...payload, clientRequestId: criarId() }
+
+  if (typeof navigator !== "undefined" && navigator.onLine) {
+    try {
+      const response = await fetch(`/api/formacoes/${encodeURIComponent(formacaoId)}/minha-presenca`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(completo),
+      })
+      const json = await respostaJson(response)
+      if (response.ok) {
+        removerPresencaFormacaoPendente(usuarioId, formacaoId)
+        return { ok: true, pendente: false, resposta: json }
+      }
+      if (response.status < 500 && response.status !== 408 && response.status !== 429) {
+        return { ok: false, erro: String(json.erro || "Não foi possível registrar sua presença.") }
+      }
+    } catch {}
+  }
+
+  const item = colocarPresencaFormacaoNaFila(formacaoId, completo, usuarioId)
+  return { ok: true, pendente: true, item }
+}
+
+export async function sincronizarPresencasFormacaoPendentes() {
+  if (typeof window === "undefined" || !navigator.onLine) {
+    return { enviados: 0, restantes: listarPresencasFormacaoPendentes().length }
+  }
+
+  const todos = listarPresencasFormacaoPendentes()
+  if (!todos.length) return { enviados: 0, restantes: 0 }
+
+  let usuarioAtual = ""
+  try {
+    const sessao = await fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" })
+    const json = await sessao.json()
+    usuarioAtual = String(json?.sessao?.usuario?.id || "")
+  } catch {
+    return { enviados: 0, restantes: todos.length }
+  }
+  if (!usuarioAtual) return { enviados: 0, restantes: todos.length }
+
+  const mantidos: PresencaFormacaoPendente[] = []
+  let enviados = 0
+
+  for (let index = 0; index < todos.length; index += 1) {
+    const item = todos[index]
+    if (item.usuarioId !== usuarioAtual) {
+      mantidos.push(item)
+      continue
+    }
+
+    try {
+      const response = await fetch(`/api/formacoes/${encodeURIComponent(item.formacaoId)}/minha-presenca`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(item.payload),
+      })
+      const json = await respostaJson(response)
+
+      if (response.ok) {
+        enviados += 1
+        continue
+      }
+      if (response.status === 404 || response.status === 409) {
+        continue
+      }
+
+      const atualizado = {
+        ...item,
+        tentativas: item.tentativas + 1,
+        ultimoErro: String(json.erro || `HTTP ${response.status}`),
+      }
+      mantidos.push(atualizado)
+      if (response.status === 401 || response.status === 403 || response.status >= 500) {
+        mantidos.push(...todos.slice(index + 1))
+        break
+      }
+    } catch {
+      mantidos.push(
+        { ...item, tentativas: item.tentativas + 1, ultimoErro: "Sem conexão com o servidor." },
+        ...todos.slice(index + 1),
+      )
+      break
+    }
+  }
+
+  salvarPresencasFormacaoPendentes(mantidos)
   return { enviados, restantes: mantidos.length }
 }

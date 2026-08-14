@@ -10,6 +10,7 @@ import {
   UserCheck,
   UserX,
   Clock,
+  ClipboardCheck,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProfileSettings } from "@/components/profile-settings"
@@ -96,6 +97,22 @@ export function ModeradorDashboard() {
           <EstatCard label="Aguardando aprovação" valor={pendentes.length} destaque={pendentes.length > 0} />
           <EstatCard label="Advertências no mês" valor={advertenciasNoMes} alerta={advertenciasNoMes > 0} />
         </dl>
+
+        <Link
+          href="/area-restrita/moderador/presencas"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4 transition hover:border-primary/45 hover:bg-primary/10 sm:mb-8"
+        >
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <ClipboardCheck className="size-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <strong className="block text-primary">Controle de presenças das formações</strong>
+            <span className="mt-0.5 block text-sm text-muted-foreground">
+              Consulte presenças, faltas, justificativas e o histórico de toda a equipe.
+            </span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-primary" aria-hidden="true" />
+        </Link>
 
         {/* Cadastros pendentes de aprovação */}
         {pendentes.length > 0 && (

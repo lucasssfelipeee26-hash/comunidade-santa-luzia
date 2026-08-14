@@ -11,6 +11,9 @@ type Participante = {
   id: string
   nome: string
   funcao: string
+  tipo: "moderador" | "membro"
+  editavel: boolean
+  motivo_bloqueio: string | null
   situacao: Situacao
   justificativa: string
   atualizado_em: number | null
@@ -62,7 +65,7 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
 
   function alterarSituacao(usuarioId: string, situacao: Situacao) {
     setParticipantes((atuais) => atuais.map((item) =>
-      item.id === usuarioId
+      item.id === usuarioId && item.editavel
         ? { ...item, situacao, justificativa: situacao === "justificada" ? item.justificativa : "" }
         : item,
     ))
@@ -71,14 +74,14 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
 
   function alterarJustificativa(usuarioId: string, justificativa: string) {
     setParticipantes((atuais) => atuais.map((item) =>
-      item.id === usuarioId ? { ...item, justificativa } : item,
+      item.id === usuarioId && item.editavel ? { ...item, justificativa } : item,
     ))
     setMensagem(null)
   }
 
   async function salvar() {
     const semJustificativa = participantes.find(
-      (item) => item.situacao === "justificada" && item.justificativa.trim().length < 3,
+      (item) => item.editavel && item.situacao === "justificada" && item.justificativa.trim().length < 3,
     )
     if (semJustificativa) {
       setMensagem({ tipo: "erro", texto: `Informe a justificativa da falta de ${semJustificativa.nome}.` })
@@ -92,7 +95,7 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          presencas: participantes.map((item) => ({
+          presencas: participantes.filter((item) => item.editavel).map((item) => ({
             usuarioId: item.id,
             situacao: item.situacao,
             justificativa: item.justificativa,
@@ -148,11 +151,25 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
 
               <div className="space-y-3">
                 {participantes.map((participante) => (
-                  <article key={participante.id} className="rounded-2xl border border-[#e2d8d2] bg-white p-3.5">
-                    <div className="mb-3">
-                      <p className="font-semibold text-[#2b2224]">{participante.nome}</p>
-                      <p className="text-xs font-medium text-[#756d6f]">{participante.funcao}</p>
+                  <article key={participante.id} className={`rounded-2xl border p-3.5 ${participante.editavel ? "border-[#e2d8d2] bg-white" : "border-[#ded8d4] bg-[#f5f2f0]"}`}>
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-[#2b2224]">{participante.nome}</p>
+                        <p className="text-xs font-medium text-[#756d6f]">
+                          {participante.funcao}{participante.tipo === "moderador" ? " · Moderador" : ""}
+                        </p>
+                      </div>
+                      {!participante.editavel && (
+                        <span className="rounded-full border border-[#d7cec9] bg-white px-2.5 py-1 text-[11px] font-bold text-[#6e6567]">
+                          Somente leitura
+                        </span>
+                      )}
                     </div>
+                    {!participante.editavel && participante.motivo_bloqueio && (
+                      <p className="mb-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                        {participante.motivo_bloqueio}
+                      </p>
+                    )}
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label={`Presença de ${participante.nome}`}>
                       {OPCOES.map((opcao) => {
@@ -164,7 +181,8 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
                             role="radio"
                             aria-checked={ativa}
                             onClick={() => alterarSituacao(participante.id, opcao.id)}
-                            className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-bold transition ${ativa ? `${opcao.classe} ring-2 ring-current/20` : "border-[#ded5d0] bg-white text-[#5f5658]"}`}
+                            disabled={!participante.editavel}
+                            className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-65 ${ativa ? `${opcao.classe} ring-2 ring-current/20` : "border-[#ded5d0] bg-white text-[#5f5658]"}`}
                           >
                             {opcao.rotulo}
                           </button>
@@ -181,6 +199,7 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
                           id={`justificativa-${formacaoId}-${participante.id}`}
                           value={participante.justificativa}
                           onChange={(evento) => alterarJustificativa(participante.id, evento.target.value)}
+                          disabled={!participante.editavel}
                           maxLength={500}
                           placeholder="Informe o motivo da ausência"
                         />
@@ -192,7 +211,7 @@ export function FormacaoPresencasEditor({ formacaoId }: { formacaoId: string }) 
 
               <Button type="button" onClick={salvar} disabled={salvando} className="mt-4 w-full gap-2 sm:w-auto">
                 {salvando ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                {salvando ? "Salvando..." : "Salvar lista de presença"}
+                {salvando ? "Salvando..." : "Salvar alterações permitidas"}
               </Button>
             </>
           )}

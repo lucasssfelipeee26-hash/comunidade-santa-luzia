@@ -595,6 +595,10 @@ export function listarHistoricoFormacaoUsuario(usuarioId: string) {
     .sort((a, b) => b.atualizado_em - a.atualizado_em)
 }
 
+export function listarTodasPresencasFormacao() {
+  return [...store.formacao_presencas].sort((a, b) => b.atualizado_em - a.atualizado_em)
+}
+
 export function salvarPresencasFormacao(
   formacaoId: string,
   registros: Array<{ usuario_id: string; status: FormacaoPresencaStatus | null; justificativa: string | null }>,
