@@ -132,7 +132,7 @@ export function LoginForm() {
         Sem login: Liturgia Diária, Escala do Dia e Biblioteca.
       </p>
 
-      <Link href="/baixar" className="flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+      <Link data-web-download-only href="/baixar" className="flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:underline">
         <Download className="size-3.5" /> Baixar o aplicativo Android
       </Link>
 

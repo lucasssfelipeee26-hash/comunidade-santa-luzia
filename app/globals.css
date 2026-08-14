@@ -458,6 +458,19 @@ body.app-mobile-shell {
   }
 }
 
+/* O APK não exibe publicidade de instalação para quem já está no app. */
+[data-native-installed-only] {
+  display: none !important;
+}
+
+html[data-native-platform="android"] [data-web-download-only] {
+  display: none !important;
+}
+
+html[data-native-platform="android"] [data-native-installed-only] {
+  display: block !important;
+}
+
 /* WebView Android: efeitos de blur em superfícies fixas consomem GPU. */
 @media (max-width: 767px) {
   .app-mobile-shell [class*="backdrop-blur"] {

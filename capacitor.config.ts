@@ -21,9 +21,20 @@ const config: CapacitorConfig = {
   appName: "Santa Luzia",
   webDir: "android-web",
   backgroundColor: "#fffaf0",
+  loggingBehavior: "none",
+  zoomEnabled: false,
+  android: {
+    appendUserAgent: " SantaLuziaAndroid",
+    backgroundColor: "#fffaf0",
+    allowMixedContent: false,
+    captureInput: false,
+    webContentsDebuggingEnabled: false,
+    loggingBehavior: "none",
+  },
   ...(servidor ? { server: servidor } : {}),
   plugins: {
     LocalNotifications: {
+      smallIcon: "ic_stat_santa_luzia",
       iconColor: "#7b1326",
       sound: "santa_luzia_notification.wav",
     },
