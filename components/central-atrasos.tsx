@@ -5,6 +5,7 @@ import { CheckCircle2, Clock3, RefreshCw, Send, ShieldCheck, XCircle } from "luc
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
 import { Button } from "@/components/ui/button"
+import { enviarOuEnfileirarRelatoAtraso } from "@/lib/offline-data"
 
 type Membro = { id: string; nome: string; funcao: string }
 type Ocorrencia = {
@@ -106,21 +107,24 @@ export function CentralAtrasos() {
 
   async function reportar(e: React.FormEvent) {
     e.preventDefault()
-    if (!alvo) return
+    if (!alvo || !dados?.eu?.id) return
     setProcessando(true)
     setErro("")
     setMensagem("")
     try {
-      const r = await fetch("/api/ranking", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reportar_atraso", usuarioId: alvo, dataMissa, horarioMissa, observacao }),
-      })
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(j.erro || "Não foi possível enviar o relato.")
-      setMensagem(j.mensagem || "Relato enviado ao moderador.")
+      const resultado = await enviarOuEnfileirarRelatoAtraso(
+        { usuarioId: alvo, dataMissa, horarioMissa, observacao },
+        dados.eu.id,
+      )
+      if (!resultado.ok) throw new Error(resultado.erro || "Não foi possível enviar o relato.")
+      if (resultado.pendente) {
+        setMensagem("Sem internet: relato salvo neste aparelho. Ele será enviado automaticamente quando a conexão voltar.")
+      } else {
+        const resposta = resultado.resposta as { mensagem?: string }
+        setMensagem(resposta?.mensagem || "Relato enviado ao moderador.")
+        await carregar()
+      }
       setObservacao("")
-      await carregar()
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível enviar o relato.")
     } finally {
