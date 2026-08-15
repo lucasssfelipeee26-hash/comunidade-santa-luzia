@@ -16,7 +16,7 @@ const CaminhoDaLuzNativo = registerPlugin<PluginJogo>("CaminhoDaLuz")
 const CHAVE_PENDENTE = "santa-luzia:caminho-da-luz:nativo:resultado-pendente"
 
 export function CaminhoDaLuzEntry({ tipoUsuario, embedded = false }: { tipoUsuario: "moderador" | "membro"; embedded?: boolean }) {
-  const [plataforma, setPlataforma] = useState<"carregando" | "android" | "web">("carregando")
+  const [plataforma, setPlataforma] = useState<"carregando" | "android-nativo" | "compatibilidade">("carregando")
   const [abrindo, setAbrindo] = useState(false)
   const [offline, setOffline] = useState(false)
   const [mensagem, setMensagem] = useState("")
@@ -24,9 +24,10 @@ export function CaminhoDaLuzEntry({ tipoUsuario, embedded = false }: { tipoUsuar
 
   useEffect(() => {
     const android = Capacitor.getPlatform() === "android"
-    setPlataforma(android ? "android" : "web")
-    if (!android) return
+    const nativoDisponivel = android && Capacitor.isPluginAvailable("CaminhoDaLuz")
+    setPlataforma(nativoDisponivel ? "android-nativo" : "compatibilidade")
 
+    if (!android) return
     const atualizarRede = () => setOffline(!navigator.onLine)
     const online = () => { atualizarRede(); void sincronizarPendente() }
     atualizarRede()
@@ -88,7 +89,9 @@ export function CaminhoDaLuzEntry({ tipoUsuario, embedded = false }: { tipoUsuar
       if (navigator.onLine) await enviarResultado(pendente)
       else setMensagem("Resultado guardado no aplicativo. Ele será sincronizado quando a internet voltar.")
     } catch {
-      setErro("O módulo local da Missão do Altar ainda não está instalado nesta versão do aplicativo. Atualize o APK para jogar pelo celular.")
+      // Se uma instalação antiga reportar o plugin de forma incompleta, troca para o modo compatível sem bloquear a Jornada.
+      setPlataforma("compatibilidade")
+      setErro("")
     } finally {
       setAbrindo(false)
     }
@@ -97,7 +100,19 @@ export function CaminhoDaLuzEntry({ tipoUsuario, embedded = false }: { tipoUsuar
   if (plataforma === "carregando") {
     return <div className="rounded-3xl border border-white/70 bg-white/75 p-8 text-center text-muted-foreground">Preparando a Missão do Altar…</div>
   }
-  if (plataforma === "web") return <CaminhoDaLuzGame tipoUsuario={tipoUsuario} embedded={embedded} />
+
+  if (plataforma === "compatibilidade") {
+    return (
+      <div className="space-y-3">
+        <CaminhoDaLuzGame tipoUsuario={tipoUsuario} embedded={embedded} />
+        {Capacitor.getPlatform() === "android" && offline && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-center text-xs text-amber-950">
+            Conecte-se à internet para carregar esta versão nesta instalação. A versão Android atualizada mantém a Missão instalada no aparelho.
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const isMod = tipoUsuario === "moderador"
   const conteudo = (
