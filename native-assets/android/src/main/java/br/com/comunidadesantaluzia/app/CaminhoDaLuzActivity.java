@@ -59,7 +59,7 @@ public class CaminhoDaLuzActivity extends Activity {
         public void finish(int score, int level, String mode) {
             int scoreSeguro = Math.max(0, Math.min(1_000_000, score));
             int nivelSeguro = Math.max(1, Math.min(999, level));
-            String modoSeguro = mode == null ? "Caminho da Luz" : mode.trim();
+            String modoSeguro = mode == null ? "Missão do Altar" : mode.trim();
             if (modoSeguro.length() > 80) modoSeguro = modoSeguro.substring(0, 80);
 
             Intent resposta = new Intent();
