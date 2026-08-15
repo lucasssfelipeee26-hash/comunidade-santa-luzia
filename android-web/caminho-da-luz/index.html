@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#521123" />
-  <title>Caminho da Luz</title>
+  <title>Missão do Altar</title>
   <style>
     :root{--vinho:#7b1326;--vinho2:#521123;--ouro:#b98a39;--marfim:#fffaf0;--creme:#fff4d7;--texto:#392d30;--muted:#76696c;--linha:#eadbd5;--sec:#f5eadc}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:radial-gradient(circle at top,var(--creme) 0,var(--marfim) 34%,#f7eee5 100%);color:var(--texto);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button{font:inherit}.app{min-height:100vh;max-width:620px;margin:auto;padding:max(14px,env(safe-area-inset-top)) 12px max(26px,env(safe-area-inset-bottom))}
@@ -20,7 +20,7 @@
 <body>
   <main class="app">
     <header class="top">
-      <div class="brand"><small>Kis · jogo litúrgico</small><h1>Caminho da Luz</h1><p>Instalado no seu celular</p></div>
+      <div class="brand"><small>Jornada Litúrgica · jogo</small><h1>Missão do Altar</h1><p>Instalado no seu celular</p></div>
       <button class="close" id="fechar" aria-label="Fechar jogo">×</button>
     </header>
 
@@ -40,8 +40,8 @@
       <div class="steps" id="etapas"></div>
     </section>
 
-    <section class="boardframe"><div class="boardinner"><div class="board" id="board" aria-label="Tabuleiro do Caminho da Luz"></div></div></section>
-    <div class="msg" id="mensagem">Combine 3 ou mais símbolos litúrgicos para abrir o Caminho da Luz.</div>
+    <section class="boardframe"><div class="boardinner"><div class="board" id="board" aria-label="Tabuleiro da Missão do Altar"></div></div></section>
+    <div class="msg" id="mensagem">Combine 3 ou mais símbolos litúrgicos para avançar na Missão do Altar.</div>
     <div class="controls">
       <button class="pill" id="reiniciar">↻ Reiniciar</button>
       <button class="pill" id="som">🔊 Som</button>
@@ -53,10 +53,10 @@
   <div class="overlay" id="fim">
     <div class="modal">
       <div class="seal">✝️</div>
-      <div class="mini">Caminho registrado</div>
+      <div class="mini">Missão registrada</div>
       <h2>Rodada concluída</h2>
       <p id="resultadoFinal"></p>
-      <button class="primary" id="enviar">Voltar e sincronizar com o ranking</button>
+      <button class="primary" id="enviar">Voltar e sincronizar com a classificação</button>
       <button class="secondary" id="jogarNovamente">Jogar novamente</button>
     </div>
   </div>
@@ -80,7 +80,7 @@
   const meta=l=>650+Math.max(0,l-1)*240;
   const movesFor=l=>Math.max(18,28-Math.floor((l-1)/2));
   const phase=l=>l<=5?PHASES[l-1]:{name:`Jornada ${l}`,call:"Continue servindo e avançando",icon:"⭐"};
-  const mode=()=>level<=5?`Fase ${level} de 5 · ${PHASES[level-1].name}`:`Jornada infinita · Nível ${level}`;
+  const mode=()=>level<=5?`Missão do Altar · Fase ${level} de 5 · ${PHASES[level-1].name}`:`Missão do Altar · Jornada infinita · Nível ${level}`;
   const rnd=()=>Math.floor(Math.random()*SYMBOLS.length);
   const adjacent=(a,b)=>Math.abs(Math.floor(a/SIZE)-Math.floor(b/SIZE))+Math.abs(a%SIZE-b%SIZE)===1;
   const delay=ms=>new Promise(r=>setTimeout(r,ms));
@@ -108,7 +108,7 @@
   function renderSteps(){const root=el("etapas");root.innerHTML="";PHASES.forEach((_,i)=>{const d=document.createElement("i"),n=i+1;d.className="step"+(level>n?" done":level===n?" active":"");root.appendChild(d)})}
   function render(){
     const p=phase(level);
-    el("modo").textContent=mode();el("faseNome").textContent=p.name;el("faseChamada").textContent=p.call;el("faseIcone").textContent=p.icon;
+    el("modo").textContent=level<=5?`Fase ${level} de 5 · ${PHASES[level-1].name}`:`Jornada infinita · Nível ${level}`;el("faseNome").textContent=p.name;el("faseChamada").textContent=p.call;el("faseIcone").textContent=p.icon;
     el("pontos").textContent=totalScore;el("movimentos").textContent=moves;el("combo").textContent=`x${Math.max(1,combo+1)}`;el("metaTexto").textContent=`${phaseScore}/${meta(level)}`;el("progresso").style.width=`${Math.min(100,Math.round(phaseScore/meta(level)*100))}%`;
     el("som").textContent=sound?"🔊 Som":"🔇 Sem som";el("vibracao").textContent=vibrate?"📳 Vibração on":"📴 Vibração off";el("recorde").textContent=`🏆 Recorde local: ${Number(localStorage.getItem(KREC)||0)} · ✨`;renderSteps();
     const root=el("board");root.innerHTML="";board.forEach((p,i)=>{const b=document.createElement("button");b.className="cell"+(selected===i?" sel":"")+(!p?" empty":"");b.disabled=busy||moves<=0||!p||finished;b.textContent=p?SYMBOLS[p.t]:"";b.setAttribute("aria-label",p?`${NAMES[p.t]}, posição ${i+1}`:"Espaço vazio");b.onclick=()=>choose(i);root.appendChild(b)});save();
@@ -122,7 +122,7 @@
     if(!adjacent(selected,i)){selected=i;render();return}
     busy=true;const a=selected;selected=null;const old=[...board];[board[a],board[i]]=[board[i],board[a]];render();
     if(!matches(board).length){beep("err");buzz(65);await delay(120);board=old;busy=false;message("Essa troca não forma uma combinação. Procure símbolos vizinhos que fechem uma sequência.");render();return}
-    moves--;const res=await resolveCascade(board);phaseScore+=res.gainTotal;totalScore+=res.gainTotal;message(res.round>1?`Combo x${res.round}! A luz continua avançando.`:"Boa combinação! Continue o caminho.");
+    moves--;const res=await resolveCascade(board);phaseScore+=res.gainTotal;totalScore+=res.gainTotal;message(res.round>1?`Combo x${res.round}! Continue avançando na missão.`:"Boa combinação! Continue a missão.");
     if(phaseScore>=meta(level)){
       beep("phase");buzz(100);const done=level;level++;
       message(done<5?`${PHASES[done-1].name} concluída. Próxima etapa: ${PHASES[done].name}.`:done===5?"As cinco etapas foram concluídas. A Jornada Infinita começou!":`Nível ${done} concluído!`);
@@ -130,8 +130,8 @@
     }else if(moves<=0){finishRound();busy=false;render();return}
     busy=false;render();
   }
-  function reset(){selected=null;phaseScore=0;totalScore=0;level=1;moves=movesFor(1);combo=0;busy=false;finished=false;board=fresh();localStorage.removeItem(KSTATE);el("fim").classList.remove("show");message("Nova jornada iniciada. Combine 3 ou mais símbolos litúrgicos.");render()}
-  function finishRound(){finished=true;const rec=Number(localStorage.getItem(KREC)||0);if(totalScore>rec)localStorage.setItem(KREC,String(totalScore));localStorage.removeItem(KSTATE);el("resultadoFinal").innerHTML=`Você alcançou o nível <strong>${level}</strong> com <strong>${totalScore} pontos</strong>. Seu melhor resultado do dia será considerado no ranking.`;el("fim").classList.add("show")}
+  function reset(){selected=null;phaseScore=0;totalScore=0;level=1;moves=movesFor(1);combo=0;busy=false;finished=false;board=fresh();localStorage.removeItem(KSTATE);el("fim").classList.remove("show");message("Nova missão iniciada. Combine 3 ou mais símbolos litúrgicos.");render()}
+  function finishRound(){finished=true;const rec=Number(localStorage.getItem(KREC)||0);if(totalScore>rec)localStorage.setItem(KREC,String(totalScore));localStorage.removeItem(KSTATE);el("resultadoFinal").innerHTML=`Você alcançou o nível <strong>${level}</strong> com <strong>${totalScore} pontos</strong>. Seu melhor resultado do dia será considerado na classificação.`;el("fim").classList.add("show")}
   function send(){if(window.SantaLuziaGame&&typeof window.SantaLuziaGame.finish==="function")window.SantaLuziaGame.finish(Math.max(0,Math.trunc(totalScore)),Math.max(1,Math.trunc(level)),mode());else message("Este jogo foi aberto fora do aplicativo.")}
   function close(){if(window.SantaLuziaGame&&typeof window.SantaLuziaGame.close==="function")window.SantaLuziaGame.close();else if(history.length>1)history.back()}
 
