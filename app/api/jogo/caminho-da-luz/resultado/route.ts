@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       jaContabilizado: true,
       melhorado: false,
       pontosRanking: pontosAtuais,
-      pontosAdicionados: 0,
+      pontosTotalDia: pontosAtuais,
     })
   }
 
@@ -60,10 +60,10 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    jaContabilizado: pontosAtuais > 0,
+    jaContabilizado: false,
     melhorado: pontosAtuais > 0,
-    pontosRanking: pontosCalculados,
-    pontosAdicionados,
+    pontosRanking: pontosAdicionados,
+    pontosTotalDia: pontosCalculados,
     ajusteId: ajuste.id,
   })
 }
