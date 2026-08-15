@@ -21,6 +21,7 @@ type RespostaNotificacoes = {
 
 const CHAVE_EXIBIDAS = "santa-luzia:notificacoes-nativas-exibidas:v2"
 const CHAVE_PERMISSAO = "santa-luzia:notificacoes-permissao-solicitada:v1"
+const TIMEOUT_NOTIFICACOES = 6_500
 
 function idNumerico(texto: string) {
   let hash = 2166136261
@@ -43,6 +44,16 @@ function salvarExibidas(exibidas: Set<string>) {
   } catch {}
 }
 
+async function fetchComTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), TIMEOUT_NOTIFICACOES)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 export function NativeNotificationRuntime() {
   const router = useRouter()
 
@@ -51,6 +62,7 @@ export function NativeNotificationRuntime() {
     let sincronizando = false
     let removerListener: (() => Promise<void>) | undefined
     let timer: number | undefined
+    let canalPreparado = ""
 
     async function iniciar() {
       try {
@@ -63,7 +75,7 @@ export function NativeNotificationRuntime() {
         const handle = await LocalNotifications.addListener("localNotificationActionPerformed", ({ notification }) => {
           const notificacaoId = notification.extra?.notificacaoId
           if (typeof notificacaoId === "string") {
-            void fetch("/api/notificacoes", {
+            void fetchComTimeout("/api/notificacoes", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ id: notificacaoId }),
@@ -85,7 +97,7 @@ export function NativeNotificationRuntime() {
           if (cancelado || sincronizando || !navigator.onLine) return
           sincronizando = true
           try {
-            const resposta = await fetch("/api/notificacoes", { cache: "no-store", credentials: "same-origin" })
+            const resposta = await fetchComTimeout("/api/notificacoes", { cache: "no-store", credentials: "same-origin" })
             if (!resposta.ok) return
             const dados = await resposta.json() as RespostaNotificacoes
             if (!dados.autenticado || !dados.usuario?.id) return
@@ -99,7 +111,7 @@ export function NativeNotificationRuntime() {
 
             const prefs = loadSoundPreferences(dados.usuario.id)
             const config = androidNotificationConfig(prefs)
-            if (Capacitor.getPlatform() === "android") {
+            if (Capacitor.getPlatform() === "android" && canalPreparado !== config.channelId) {
               await LocalNotifications.createChannel({
                 id: config.channelId,
                 name: config.channelName,
@@ -110,6 +122,7 @@ export function NativeNotificationRuntime() {
                 lights: true,
                 lightColor: "#D4AF37",
               })
+              canalPreparado = config.channelId
             }
 
             const exibidas = lerExibidas()
