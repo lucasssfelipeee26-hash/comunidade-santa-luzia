@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { listarEscalas, salvarEscala, buscarUsuario, type EscalaPessoa } from "@/lib/db"
+import { listarEscalas, salvarEscala, buscarUsuario, listarMembrosAprovados, type EscalaPessoa } from "@/lib/db"
 import { funcaoEscalaValida } from "@/lib/escala-funcoes"
+import { notificarUsuarios } from "@/lib/notificacoes"
 
 export const dynamic = "force-dynamic"
 
@@ -58,8 +59,7 @@ export async function POST(req: Request) {
       (usuario.funcao !== "Acólito" && usuario.funcao !== "Coroinha")
     ) continue
 
-    const categoria: EscalaPessoa["categoria"] =
-      usuario.funcao === "Acólito" ? "acolito" : "coroinha"
+    const categoria: EscalaPessoa["categoria"] = usuario.funcao === "Acólito" ? "acolito" : "coroinha"
     if (pessoa.categoria !== categoria) {
       const bloco = categoria === "acolito" ? "Acólitos" : "Coroinhas"
       return NextResponse.json(
@@ -89,6 +89,29 @@ export async function POST(req: Request) {
     pessoas,
     observacoes: String(body?.observacoes ?? "").trim(),
   })
+
+  const equipe = listarMembrosAprovados()
+  const escalados = new Set(pessoas.map((p) => p.id).filter((id): id is string => Boolean(id)))
+  const naoEscalados = equipe.filter((m) => !escalados.has(m.id)).map((m) => m.id)
+  if (naoEscalados.length) {
+    notificarUsuarios(naoEscalados, {
+      chave: `escala-publicada:${escala.id}`,
+      tipo: "escala",
+      titulo: "Nova escala publicada",
+      mensagem: `Nova escala para ${data.split("-").reverse().join("/")} às ${horario}. Confira a equipe e as funções.`,
+      href: "/escala",
+    })
+  }
+  for (const pessoa of pessoas) {
+    if (!pessoa.id) continue
+    notificarUsuarios([pessoa.id], {
+      chave: `escala-publicada:${escala.id}`,
+      tipo: "escala",
+      titulo: "Você está na nova escala",
+      mensagem: `${data.split("-").reverse().join("/")} às ${horario} · sua função: ${pessoa.funcao}.`,
+      href: "/escala",
+    })
+  }
 
   return NextResponse.json({ ok: true, escala })
 }
