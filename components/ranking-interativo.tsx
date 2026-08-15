@@ -1,23 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { BookOpen, BrainCircuit, Clock3, CloudOff, CloudUpload, Crown, Medal, Send, ShieldCheck, Sparkles, Trophy } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { BookOpen, BrainCircuit, CloudOff, Crown, Medal, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
 import { QuizCountdown } from "@/components/quiz-countdown"
 import { Button } from "@/components/ui/button"
-import { HighContrastSelect } from "@/components/ui/high-contrast-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  OFFLINE_DATA_EVENT,
-  carregarCacheRanking,
-  enviarOuEnfileirarRelatoAtraso,
-  listarRelatosAtrasoPendentes,
-  salvarCacheRanking,
-} from "@/lib/offline-data"
-
-const emojis = ["⏰", "😅", "🙏", "✝️", "💛"]
+import { carregarCacheRanking, salvarCacheRanking } from "@/lib/offline-data"
 
 type QuizPublico = {
   id: string
@@ -61,12 +52,8 @@ export function RankingInterativo() {
   const [respostasManual, setRespostasManual] = useState<number[]>([])
   const [erro, setErro] = useState("")
   const [mensagem, setMensagem] = useState("")
-  const [atrasoAlvo, setAtrasoAlvo] = useState("")
-  const [dataMissa, setDataMissa] = useState("")
-  const [horarioMissa, setHorarioMissa] = useState("18:00")
   const [leituraLiberada, setLeituraLiberada] = useState<boolean | null>(null)
   const [dadosOffline, setDadosOffline] = useState(false)
-  const [pendentesLocais, setPendentesLocais] = useState(0)
   const tentativaAtiva = useRef(false)
 
   async function carregarDados() {
@@ -78,15 +65,11 @@ export function RankingInterativo() {
       setDados(j1)
       salvarCacheRanking(j1)
       setDadosOffline(false)
-      setPendentesLocais(listarRelatosAtrasoPendentes(j1.eu?.id).length)
-      if (!atrasoAlvo && j1.membros?.length) setAtrasoAlvo(j1.membros[0].id)
     } catch (e) {
       const cache = carregarCacheRanking<any>()
       if (cache?.dados?.eu) {
         setDados(cache.dados)
         setDadosOffline(true)
-        setPendentesLocais(listarRelatosAtrasoPendentes(cache.dados.eu.id).length)
-        if (!atrasoAlvo && cache.dados.membros?.length) setAtrasoAlvo(cache.dados.membros[0].id)
       } else {
         setErro(e instanceof Error ? e.message : "Erro ao carregar.")
       }
@@ -97,7 +80,7 @@ export function RankingInterativo() {
       const j2 = await r2.json()
       if (r2.ok) setQuizzes(j2.quizzes || [])
     } catch {
-      // Os quizzes exigem conexão; o ranking e o relato de atraso continuam disponíveis pelo cache.
+      // Os quizzes exigem conexão; a classificação continua disponível pelo cache.
     }
   }
 
@@ -133,16 +116,10 @@ export function RankingInterativo() {
   }, [])
 
   useEffect(() => {
-    const atualizarFila = () => setPendentesLocais(listarRelatosAtrasoPendentes(dados?.eu?.id).length)
     const atualizarServidor = () => void carregarDados()
-    atualizarFila()
-    window.addEventListener(OFFLINE_DATA_EVENT, atualizarFila)
     window.addEventListener("santa-luzia:server-sync", atualizarServidor)
-    return () => {
-      window.removeEventListener(OFFLINE_DATA_EVENT, atualizarFila)
-      window.removeEventListener("santa-luzia:server-sync", atualizarServidor)
-    }
-  }, [dados?.eu?.id])
+    return () => window.removeEventListener("santa-luzia:server-sync", atualizarServidor)
+  }, [])
 
   useEffect(() => {
     if (leituraLiberada === true) void carregarQuizAutomatico()
@@ -210,43 +187,6 @@ export function RankingInterativo() {
     await carregarDados()
   }
 
-  async function acao(payload: Record<string, unknown>) {
-    setErro("")
-    if (payload.action === "reportar_atraso") {
-      const resultado = await enviarOuEnfileirarRelatoAtraso({
-        usuarioId: String(payload.usuarioId || ""),
-        dataMissa: String(payload.dataMissa || ""),
-        horarioMissa: String(payload.horarioMissa || "18:00"),
-        escalaId: payload.escalaId ? String(payload.escalaId) : null,
-        observacao: payload.observacao ? String(payload.observacao) : "",
-      }, String(dados?.eu?.id || ""))
-
-      if (!resultado.ok) {
-        setErro(resultado.erro)
-        return
-      }
-      if (resultado.pendente) {
-        setPendentesLocais(listarRelatosAtrasoPendentes(dados?.eu?.id).length)
-        setMensagem("Relato salvo neste aparelho. Ele será enviado automaticamente quando a internet voltar.")
-        return
-      }
-      setMensagem(resultado.resposta.mensagem || "Relato enviado ao moderador para confirmação.")
-      await carregarDados()
-      return
-    }
-
-    const r = await fetch("/api/ranking", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-    const j = await r.json()
-    if (!r.ok) { setErro(j.erro || "Não foi possível concluir."); return }
-    setMensagem(j.mensagem || "Atualizado.")
-    await carregarDados()
-  }
-
-  const ocorrencias = useMemo(() => (dados?.ocorrencias || []).filter((o: any) => o.status === "confirmado"), [dados])
   if (!dados) return <div className="min-h-screen p-8 text-center text-muted-foreground">Carregando competição…</div>
   const isMod = dados.eu.tipo === "moderador"
 
@@ -266,11 +206,10 @@ export function RankingInterativo() {
         {dadosOffline && <div className="mb-4 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-950"><CloudOff className="size-4 shrink-0" />Modo sem internet: exibindo os últimos dados salvos neste aparelho.</div>}
 
         <Tabs defaultValue="hoje">
-          <TabsList className="grid w-full grid-cols-4 gap-1 rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-2xl">
+          <TabsList className="grid w-full grid-cols-3 gap-1 rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-2xl">
             <TabsTrigger value="hoje" className="min-h-12 flex-col text-[10px] sm:text-xs"><Sparkles className="size-4" />Hoje</TabsTrigger>
             <TabsTrigger value="competicao" className="min-h-12 flex-col text-[10px] sm:text-xs"><Trophy className="size-4" />Classificação</TabsTrigger>
             <TabsTrigger value="avulsos" className="min-h-12 flex-col text-[10px] sm:text-xs"><BrainCircuit className="size-4" />Avulsos</TabsTrigger>
-            <TabsTrigger value="pontualidade" className="min-h-12 flex-col text-[10px] sm:text-xs"><Clock3 className="size-4" />Atrasos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="hoje" className="mt-4">
@@ -329,35 +268,6 @@ export function RankingInterativo() {
             {quizzes.length === 0 && <div className="rounded-2xl bg-white/75 p-5 text-muted-foreground backdrop-blur-xl">Nenhum quiz avulso publicado.</div>}
             {quizzes.map((q) => <div key={q.id} className="rounded-2xl border border-white/70 bg-white/75 p-4 shadow-sm backdrop-blur-xl"><h3 className="font-serif text-lg font-semibold text-primary">{q.titulo}</h3><p className="mt-1 text-sm text-muted-foreground">{q.descricao}</p><Button className="mt-3" disabled={q.respondido} onClick={() => { setQuizManual(q); setRespostasManual(Array(q.perguntas.length).fill(-1)) }}>{q.respondido ? "Já respondido" : "Responder"}</Button></div>)}
             {quizManual && <section className="rounded-3xl border border-accent/40 bg-white/90 p-4 shadow-xl backdrop-blur-2xl"><h3 className="font-serif text-xl font-semibold text-primary">{quizManual.titulo}</h3><div className="mt-4 space-y-5">{quizManual.perguntas.map((p, i) => <fieldset key={p.id}><legend className="mb-2 font-semibold">{i + 1}. {p.enunciado}</legend><div className="grid gap-2">{p.opcoes.map((op, j) => <button type="button" key={j} onClick={() => setRespostasManual((old) => old.map((v, k) => k === i ? j : v))} className={`flex items-center gap-3 rounded-xl border p-3 text-left ${respostasManual[i] === j ? "border-primary bg-primary/5" : "border-border"}`}><b>{letra(j)}</b>{op}</button>)}</div></fieldset>)}</div><div className="mt-4 flex gap-2"><Button disabled={respostasManual.some((x) => x < 0)} onClick={responderManual}>Enviar</Button><Button variant="outline" onClick={() => setQuizManual(null)}>Fechar</Button></div></section>}
-          </TabsContent>
-
-          <TabsContent value="pontualidade" className="mt-4 space-y-4">
-            {!isMod && (
-              <section className="rounded-3xl border border-white/70 bg-white/75 p-4 shadow-sm backdrop-blur-xl">
-                <h2 className="font-serif text-xl font-semibold text-primary">Reportar atraso</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Você pode salvar o relato mesmo sem internet. Ao reconectar, ele será enviado ao moderador e só aparecerá para o grupo depois da confirmação.</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <HighContrastSelect
-                    value={atrasoAlvo}
-                    onValueChange={setAtrasoAlvo}
-                    dialogTitle="Selecionar perfil"
-                    placeholder="Perfil"
-                    options={dados.membros.map((m: any) => ({
-                      value: String(m.id),
-                      label: String(m.nome),
-                      description: m.funcao ? String(m.funcao) : undefined,
-                    }))}
-                  />
-                  <input type="date" value={dataMissa} onChange={(e) => setDataMissa(e.target.value)} className="h-11 rounded-xl border border-border px-3" />
-                  <input type="time" value={horarioMissa} onChange={(e) => setHorarioMissa(e.target.value)} className="h-11 rounded-xl border border-border px-3" />
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <Button className="gap-2" disabled={!atrasoAlvo || !dataMissa} onClick={() => acao({ action: "reportar_atraso", usuarioId: atrasoAlvo, dataMissa, horarioMissa })}><Send className="size-4" />Enviar para moderação</Button>
-                  {pendentesLocais > 0 && <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900"><CloudUpload className="size-3.5" />{pendentesLocais} relato(s) aguardando internet</span>}
-                </div>
-              </section>
-            )}
-            {ocorrencias.map((o: any) => { const rs = (dados.reacoes || []).filter((r: any) => r.ocorrencia_id === o.id); return <div key={o.id} className="rounded-2xl border border-amber-200/70 bg-white/75 p-4 backdrop-blur-xl"><p className="font-medium"><span className="text-primary">{o.usuario_nome}</span> teve um atraso confirmado em {String(o.data_missa).split("-").reverse().join("/")}.</p><div className="mt-2 flex flex-wrap gap-1.5">{emojis.map((e) => <button key={e} onClick={() => acao({ action: "reagir", ocorrenciaId: o.id, emoji: e })} className="rounded-full border bg-white px-2.5 py-1">{e} {rs.filter((r: any) => r.emoji === e).length || ""}</button>)}</div></div> })}
           </TabsContent>
         </Tabs>
       </main>
