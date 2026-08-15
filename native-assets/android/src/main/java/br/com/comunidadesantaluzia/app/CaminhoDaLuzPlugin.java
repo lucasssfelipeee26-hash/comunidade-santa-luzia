@@ -33,7 +33,7 @@ public class CaminhoDaLuzPlugin extends Plugin {
         resposta.put("cancelled", false);
         resposta.put("score", Math.max(0, data.getIntExtra("score", 0)));
         resposta.put("level", Math.max(1, data.getIntExtra("level", 1)));
-        resposta.put("mode", data.getStringExtra("mode") == null ? "Caminho da Luz" : data.getStringExtra("mode"));
+        resposta.put("mode", data.getStringExtra("mode") == null ? "Missão do Altar" : data.getStringExtra("mode"));
         call.resolve(resposta);
     }
 }
