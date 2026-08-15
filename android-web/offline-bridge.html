@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Santa Luzia Offline Bridge</title></head>
+<body>
+<script>
+(() => {
+  "use strict";
+  const SNAPSHOT_KEY = "santa-luzia:android-offline:snapshot:v1";
+  const QUEUE_KEY = "santa-luzia:android-offline:queue:v1";
+
+  function readQueue() {
+    try {
+      const value = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+      return Array.isArray(value) ? value : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeQueue(items) {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(Array.isArray(items) ? items : []));
+  }
+
+  function send(type, extra) {
+    if (window.parent === window) return;
+    window.parent.postMessage({ type, ...(extra || {}) }, "*");
+  }
+
+  window.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.type === "SL_OFFLINE_SAVE_SNAPSHOT") {
+      try {
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(data.snapshot || null));
+        send("SL_OFFLINE_SNAPSHOT_SAVED", { atualizadoEm: Date.now() });
+      } catch {}
+      return;
+    }
+
+    if (data.type === "SL_OFFLINE_GET_QUEUE") {
+      send("SL_OFFLINE_QUEUE", { items: readQueue() });
+      return;
+    }
+
+    if (data.type === "SL_OFFLINE_QUEUE_REMOVE") {
+      const ids = new Set(Array.isArray(data.ids) ? data.ids.map(String) : []);
+      writeQueue(readQueue().filter((item) => !ids.has(String(item && item.id))));
+      send("SL_OFFLINE_QUEUE", { items: readQueue() });
+      return;
+    }
+
+    if (data.type === "SL_OFFLINE_CLEAR") {
+      try {
+        localStorage.removeItem(SNAPSHOT_KEY);
+        localStorage.removeItem(QUEUE_KEY);
+      } catch {}
+      send("SL_OFFLINE_CLEARED");
+    }
+  });
+
+  send("SL_OFFLINE_BRIDGE_READY");
+})();
+</script>
+</body>
+</html>
