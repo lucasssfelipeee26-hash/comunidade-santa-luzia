@@ -3,6 +3,7 @@ const PRIVATE_CACHE = "santa-luzia-private-v2"
 const ACERVO_BASE = "/offline/iliturgia/"
 const LITURGIA_COMPLETA_BASE = "/offline/liturgia-completa/"
 const PRIVATE_PAGES = new Set([
+  "/",
   "/area-restrita",
   "/area-restrita/membro",
   "/area-restrita/moderador",
@@ -121,7 +122,10 @@ async function aquecerCachePrivado() {
         if (!response.ok || new URL(response.url).pathname !== pathname) continue
         const recursos = response.clone()
         await cache.put(pathname, response.clone())
-        if (pathname === paginaPrincipal) await cache.put("/area-restrita", response.clone())
+        if (pathname === paginaPrincipal) {
+          await cache.put("/area-restrita", response.clone())
+          await cache.put("/", response.clone())
+        }
         await cachearRecursosPagina(recursos)
       } catch {}
     }
