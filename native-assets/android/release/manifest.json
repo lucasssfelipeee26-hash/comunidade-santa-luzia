@@ -1,8 +1,10 @@
 {
-  "versionCode": 3,
-  "versionName": "1.0.2",
-  "fileName": "Santa-Luzia-1.0.2.apk",
-  "size": 5517264,
-  "sha256": "2471c59ae6e9574e1e3057f3426caba13e97092265339b10aef560cca314688d",
-  "parts": 43
+  "versionCode": 4,
+  "versionName": "1.0.3",
+  "fileName": "Santa-Luzia-1.0.3.apk",
+  "size": 5537885,
+  "sha256": "f920ebb34b9fbe5bb6f267521ff051325572432f2b31735da9f74ade6c1076c7",
+  "source": "github-release",
+  "releaseTag": "android-v1.0.3",
+  "releaseAsset": "santa-luzia.apk"
 }
