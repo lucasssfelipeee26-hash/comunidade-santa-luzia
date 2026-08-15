@@ -53,10 +53,28 @@ export async function GET(req: NextRequest) {
   const ano = Number.isInteger(anoParam) && anoParam >= 2020 && anoParam <= 2100 ? anoParam : nowCuiaba().ano
   const { config, ranking } = calcularRanking(ano)
   const membros = listarMembrosAprovados().map((m) => ({ id: m.id, nome: m.nome, funcao: m.funcao, foto: m.foto || null }))
-  const ocorrencias = listarPontualidadeOcorrencias(ctx.usuario.tipo === "moderador").map((o) => ({
-    id: o.id, usuario_id: o.usuario_id, usuario_nome: buscarUsuario(o.usuario_id)?.nome || "Membro", escala_id: o.escala_id,
-    data_missa: o.data_missa, horario_missa: o.horario_missa, limite_chegada: o.limite_chegada, observacao: o.observacao, status: o.status, criado_em: o.criado_em,
-  }))
+  const todasOcorrencias = listarPontualidadeOcorrencias(true)
+  const ocorrencias = todasOcorrencias
+    .filter((o) =>
+      ctx.usuario.tipo === "moderador" ||
+      o.status === "confirmado" ||
+      o.usuario_id === ctx.usuario.id ||
+      o.reportado_por === ctx.usuario.id
+    )
+    .map((o) => ({
+      id: o.id,
+      usuario_id: o.usuario_id,
+      usuario_nome: buscarUsuario(o.usuario_id)?.nome || "Membro",
+      escala_id: o.escala_id,
+      data_missa: o.data_missa,
+      horario_missa: o.horario_missa,
+      limite_chegada: o.limite_chegada,
+      observacao: o.observacao,
+      status: o.status,
+      criado_em: o.criado_em,
+      reportado_por: o.reportado_por,
+      reportado_por_nome: o.reportado_por ? (buscarUsuario(o.reportado_por)?.nome || "Membro") : null,
+    }))
   const reacoes = listarPontualidadeReacoes().map((r) => ({ ocorrencia_id: r.ocorrencia_id, emoji: r.emoji }))
 
   return NextResponse.json({
@@ -100,6 +118,9 @@ export async function POST(req: NextRequest) {
     const usuarioId = String(body.usuarioId || "")
     const escalaId = body.escalaId ? String(body.escalaId) : null
     const clientRequestId = String(body.clientRequestId || "").trim()
+    if (usuarioId === ctx.usuario.id) {
+      return NextResponse.json({ erro: "O atraso deve ser reportado por um colega." }, { status: 400 })
+    }
     if (clientRequestId && !/^[a-zA-Z0-9._:-]{8,100}$/.test(clientRequestId)) {
       return NextResponse.json({ erro: "Identificador do relato inválido." }, { status: 400 })
     }
