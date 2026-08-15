@@ -19,13 +19,37 @@ function pontosAcumuladosPorFase(faseConcluida: number) {
   return Math.min(30, 20 + (fase - 5) * 2)
 }
 
-export async function POST(req: NextRequest) {
+async function usuarioAtual() {
   const sessao = await lerSessao()
-  if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  if (!sessao) return null
   const usuario = buscarUsuario(sessao.sub)
-  if (!usuario || (usuario.tipo === "membro" && usuario.status !== "aprovado")) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  }
+  if (!usuario || (usuario.tipo === "membro" && usuario.status !== "aprovado")) return null
+  return usuario
+}
+
+function pontosDaMissaoHoje(usuarioId: string) {
+  const data = dataCuiaba()
+  const ano = Number(data.slice(0, 4))
+  const prefixoNovo = `Missão do Altar ${data}`
+  const prefixoLegado = `Caminho da Luz ${data}`
+  return listarRankingAjustes(ano)
+    .filter((a) => a.usuario_id === usuarioId && (a.motivo.startsWith(prefixoNovo) || a.motivo.startsWith(prefixoLegado)))
+    .reduce((total, ajuste) => total + ajuste.pontos, 0)
+}
+
+export async function GET() {
+  const usuario = await usuarioAtual()
+  if (!usuario) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
+  return NextResponse.json({
+    ok: true,
+    pontosTotalDia: pontosDaMissaoHoje(usuario.id),
+    limiteDiario: 30,
+  })
+}
+
+export async function POST(req: NextRequest) {
+  const usuario = await usuarioAtual()
+  if (!usuario) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const score = Math.trunc(Number(body.score || 0))
