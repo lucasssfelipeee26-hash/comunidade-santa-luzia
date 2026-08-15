@@ -30,21 +30,40 @@ export async function POST(req: NextRequest) {
   const data = dataCuiaba()
   const ano = Number(data.slice(0, 4))
   const prefixo = `Caminho da Luz ${data}`
-  const existente = listarRankingAjustes(ano).find((a) => a.usuario_id === usuario.id && a.motivo.startsWith(prefixo))
-  if (existente) {
-    return NextResponse.json({ ok: true, jaContabilizado: true, pontosRanking: existente.pontos })
-  }
 
   // O jogo roda no aparelho. O servidor recebe apenas um bônus diário limitado,
   // evitando que a pontuação bruta do minigame domine o Quiz Litúrgico.
-  const pontosRanking = Math.max(1, Math.min(30, Math.floor(score / 250) + Math.min(level, 10)))
+  const pontosCalculados = Math.max(1, Math.min(30, Math.floor(score / 250) + Math.min(level, 10)))
+  const ajustesHoje = listarRankingAjustes(ano).filter((a) => a.usuario_id === usuario.id && a.motivo.startsWith(prefixo))
+  const pontosAtuais = ajustesHoje.reduce((total, ajuste) => total + ajuste.pontos, 0)
+
+  // O jogador pode tentar novamente durante o dia. Só a melhora é acrescentada,
+  // portanto repetir partidas nunca ultrapassa o melhor bônus diário já alcançado.
+  if (pontosCalculados <= pontosAtuais) {
+    return NextResponse.json({
+      ok: true,
+      jaContabilizado: true,
+      melhorado: false,
+      pontosRanking: pontosAtuais,
+      pontosAdicionados: 0,
+    })
+  }
+
+  const pontosAdicionados = pontosCalculados - pontosAtuais
   const ajuste = salvarRankingAjuste({
     usuario_id: usuario.id,
-    pontos: pontosRanking,
-    motivo: `${prefixo} · ${mode} · score ${score} · nível ${level}`,
+    pontos: pontosAdicionados,
+    motivo: `${prefixo} · ${mode} · score ${score} · nível ${level} · melhor diário ${pontosCalculados}`,
     ano,
     criado_por: usuario.id,
   })
 
-  return NextResponse.json({ ok: true, jaContabilizado: false, pontosRanking, ajusteId: ajuste.id })
+  return NextResponse.json({
+    ok: true,
+    jaContabilizado: pontosAtuais > 0,
+    melhorado: pontosAtuais > 0,
+    pontosRanking: pontosCalculados,
+    pontosAdicionados,
+    ajusteId: ajuste.id,
+  })
 }
