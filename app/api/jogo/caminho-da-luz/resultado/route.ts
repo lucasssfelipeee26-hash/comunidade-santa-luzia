@@ -11,6 +11,14 @@ function dataCuiaba() {
   }).format(new Date())
 }
 
+function pontosAcumuladosPorFase(faseConcluida: number) {
+  const fase = Math.max(0, Math.trunc(faseConcluida))
+  if (fase <= 0) return 0
+  const base = [0, 2, 5, 9, 14, 20]
+  if (fase <= 5) return base[fase]
+  return Math.min(30, 20 + (fase - 5) * 2)
+}
+
 export async function POST(req: NextRequest) {
   const sessao = await lerSessao()
   if (!sessao) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -20,10 +28,17 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
-  const score = Math.trunc(Number(body.score))
-  const level = Math.trunc(Number(body.level))
+  const score = Math.trunc(Number(body.score || 0))
+  const level = Math.trunc(Number(body.level || 1))
+  const faseInformada = body.completedPhase == null ? null : Math.trunc(Number(body.completedPhase))
+  const faseConcluida = faseInformada == null ? Math.max(0, level - 1) : faseInformada
   const mode = String(body.mode || "Missão do Altar").slice(0, 80)
-  if (!Number.isFinite(score) || score < 0 || score > 1_000_000 || !Number.isFinite(level) || level < 1 || level > 999) {
+
+  if (
+    !Number.isFinite(score) || score < 0 || score > 1_000_000 ||
+    !Number.isFinite(level) || level < 1 || level > 999 ||
+    !Number.isFinite(faseConcluida) || faseConcluida < 0 || faseConcluida > 999
+  ) {
     return NextResponse.json({ erro: "Resultado inválido." }, { status: 400 })
   }
 
@@ -32,23 +47,26 @@ export async function POST(req: NextRequest) {
   const prefixoNovo = `Missão do Altar ${data}`
   const prefixoLegado = `Caminho da Luz ${data}`
 
-  // A Missão do Altar roda no aparelho. O servidor recebe apenas um bônus diário limitado,
-  // evitando que a pontuação bruta do minigame domine as demais atividades da Jornada Litúrgica.
-  const pontosCalculados = Math.max(1, Math.min(30, Math.floor(score / 250) + Math.min(level, 10)))
+  // A pontuação da Missão é conquistada por fase concluída e limitada a 30 pontos por dia.
+  // F1=2, F2=5 acumulados, F3=9, F4=14, F5=20; depois +2 por fase extra.
+  const pontosCalculados = pontosAcumuladosPorFase(faseConcluida)
   const ajustesHoje = listarRankingAjustes(ano).filter((a) =>
     a.usuario_id === usuario.id && (a.motivo.startsWith(prefixoNovo) || a.motivo.startsWith(prefixoLegado))
   )
   const pontosAtuais = ajustesHoje.reduce((total, ajuste) => total + ajuste.pontos, 0)
 
-  // O jogador pode tentar novamente durante o dia. Só a melhora é acrescentada,
-  // portanto repetir partidas nunca ultrapassa o melhor bônus diário já alcançado.
+  // A chamada pode acontecer ao concluir cada fase, ao terminar a rodada e novamente após
+  // reconexão. Só a diferença positiva é salva, então nunca há pontuação duplicada.
   if (pontosCalculados <= pontosAtuais) {
     return NextResponse.json({
       ok: true,
       jaContabilizado: true,
       melhorado: false,
       pontosRanking: pontosAtuais,
+      pontosAdicionados: 0,
       pontosTotalDia: pontosAtuais,
+      faseConcluida,
+      limiteDiario: 30,
     })
   }
 
@@ -56,7 +74,7 @@ export async function POST(req: NextRequest) {
   const ajuste = salvarRankingAjuste({
     usuario_id: usuario.id,
     pontos: pontosAdicionados,
-    motivo: `${prefixoNovo} · ${mode} · score ${score} · nível ${level} · melhor diário ${pontosCalculados}`,
+    motivo: `${prefixoNovo} · ${mode} · fase concluída ${faseConcluida} · score ${score} · total diário ${pontosCalculados}`,
     ano,
     criado_por: usuario.id,
   })
@@ -66,7 +84,10 @@ export async function POST(req: NextRequest) {
     jaContabilizado: false,
     melhorado: pontosAtuais > 0,
     pontosRanking: pontosAdicionados,
+    pontosAdicionados,
     pontosTotalDia: pontosCalculados,
+    faseConcluida,
+    limiteDiario: 30,
     ajusteId: ajuste.id,
   })
 }
