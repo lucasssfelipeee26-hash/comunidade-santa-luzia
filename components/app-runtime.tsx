@@ -7,6 +7,7 @@ import { ServerSyncRuntime } from "@/components/server-sync-runtime"
 import { AndroidUpdateRuntime } from "@/components/android-update-runtime"
 import { NativePlatformRuntime } from "@/components/native-platform-runtime"
 import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-runtime"
+import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
 
 export function AppRuntime({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export function AppRuntime({ children }: { children: React.ReactNode }) {
       <NativePlatformRuntime />
       <NativeNotificationRuntime />
       <GameRankingRefreshRuntime />
+      <AndroidOfflineSnapshotRuntime />
       <AndroidUpdateRuntime />
       <ServerSyncRuntime />
       <PullToRefresh />
