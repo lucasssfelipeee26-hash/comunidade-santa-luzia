@@ -1,0 +1,39 @@
+name: Validar ativação Android 1.0.3
+
+on:
+  push:
+    branches:
+      - agent/ativa-android-1.0.3
+    paths:
+      - .github/workflows/validate-android-103-activation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validar-android-103-activation
+  cancel-in-progress: true
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Validar build e APK publicado
+        run: npm run build
+      - name: Confirmar integridade do APK 1.0.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=public/downloads/Santa-Luzia-1.0.3.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" = "5537885"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "f920ebb34b9fbe5bb6f267521ff051325572432f2b31735da9f74ade6c1076c7"
