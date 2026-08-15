@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import { buscarUsuario, listarRankingAjustes, salvarRankingAjuste } from "@/lib/db"
+import { notificarMudancasRanking, snapshotRanking } from "@/lib/notificacoes-ranking"
 
 function dataCuiaba() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -70,17 +71,12 @@ export async function POST(req: NextRequest) {
   const ano = Number(data.slice(0, 4))
   const prefixoNovo = `Missão do Altar ${data}`
   const prefixoLegado = `Caminho da Luz ${data}`
-
-  // A pontuação da Missão é conquistada por fase concluída e limitada a 30 pontos por dia.
-  // F1=2, F2=5 acumulados, F3=9, F4=14, F5=20; depois +2 por fase extra.
   const pontosCalculados = pontosAcumuladosPorFase(faseConcluida)
   const ajustesHoje = listarRankingAjustes(ano).filter((a) =>
     a.usuario_id === usuario.id && (a.motivo.startsWith(prefixoNovo) || a.motivo.startsWith(prefixoLegado))
   )
   const pontosAtuais = ajustesHoje.reduce((total, ajuste) => total + ajuste.pontos, 0)
 
-  // A chamada pode acontecer ao concluir cada fase, ao terminar a rodada e novamente após
-  // reconexão. Só a diferença positiva é salva, então nunca há pontuação duplicada.
   if (pontosCalculados <= pontosAtuais) {
     return NextResponse.json({
       ok: true,
@@ -94,6 +90,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  const antes = snapshotRanking(ano)
   const pontosAdicionados = pontosCalculados - pontosAtuais
   const ajuste = salvarRankingAjuste({
     usuario_id: usuario.id,
@@ -102,6 +99,7 @@ export async function POST(req: NextRequest) {
     ano,
     criado_por: usuario.id,
   })
+  notificarMudancasRanking(ano, antes, usuario.id, `missao:${data}:${faseConcluida}`)
 
   return NextResponse.json({
     ok: true,
