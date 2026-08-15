@@ -1,4 +1,4 @@
-name: Preparar Android 1.0.3
+name: Preparar Android 1.0.3 unsigned
 
 on:
   push:
@@ -6,15 +6,14 @@ on:
       - agent/android-1.0.3-release
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: preparar-android-103
+  group: preparar-android-103-unsigned
   cancel-in-progress: true
 
 jobs:
   preparar:
-    if: ${{ !contains(github.event.head_commit.message, '[release-artifact]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -24,8 +23,6 @@ jobs:
       APP_VERSION_NAME: 1.0.3
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,83 +39,18 @@ jobs:
           npx cap add android
           npx cap sync android
           node scripts/prepare-android.cjs
-      - name: Exigir chave permanente de assinatura
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          test -n "$ANDROID_KEYSTORE_BASE64"
-          test -n "$ANDROID_KEYSTORE_PASSWORD"
-          test -n "$ANDROID_KEY_ALIAS"
-          test -n "$ANDROID_KEY_PASSWORD"
-      - name: Preparar assinatura
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/santa-luzia-upload.jks
-        run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
-          node scripts/configure-android-signing.cjs
-      - name: Gerar APK assinado
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/santa-luzia-upload.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Gerar APK release sem assinatura
         working-directory: android
         run: ./gradlew assembleRelease
-      - name: Empacotar APK exato no repositório
+      - name: Localizar APK unsigned
         run: |
-          APK=android/app/build/outputs/apk/release/app-release.apk
+          APK=android/app/build/outputs/apk/release/app-release-unsigned.apk
           test -f "$APK"
-          rm -rf native-assets/android/release/parts
-          mkdir -p native-assets/android/release/parts
-          split -b 131072 -d -a 3 "$APK" native-assets/android/release/parts/part-
-          node <<'NODE'
-          const fs = require('fs')
-          const crypto = require('crypto')
-          const apk = 'android/app/build/outputs/apk/release/app-release.apk'
-          const bytes = fs.readFileSync(apk)
-          const size = bytes.length
-          const sha256 = crypto.createHash('sha256').update(bytes).digest('hex')
-          const parts = fs.readdirSync('native-assets/android/release/parts').filter(n => /^part-\d+$/.test(n)).length
-          const manifest = { versionCode: 4, versionName: '1.0.3', fileName: 'Santa-Luzia-1.0.3.apk', size, sha256, parts }
-          const config = {
-            versionCode: 4,
-            versionName: '1.0.3',
-            publishedAt: '2026-08-15',
-            required: false,
-            apkSize: size,
-            apkSha256: sha256,
-            highlights: [
-              'Novo jogo Caminho da Luz dentro do aplicativo',
-              'Jogo funciona localmente no celular, inclusive sem internet',
-              'Pontuação do jogo integrada ao ranking do Kis',
-              'Melhor resultado diário com sincronização segura'
-            ]
-          }
-          fs.writeFileSync('native-assets/android/release/manifest.json', JSON.stringify(manifest, null, 2) + '\n')
-          fs.writeFileSync('config/android-release.json', JSON.stringify(config, null, 2) + '\n')
-          fs.writeFileSync('/tmp/android-103-metadata.txt', `size=${size}\nsha256=${sha256}\nparts=${parts}\n`)
-          console.log(fs.readFileSync('/tmp/android-103-metadata.txt', 'utf8'))
-          NODE
-      - name: Validar APK materializado pelo site
-        run: npm run build
-      - name: Guardar APK assinado como artefato
+          sha256sum "$APK"
+      - name: Guardar APK unsigned
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-1.0.3-signed
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: santa-luzia-1.0.3-unsigned
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 7
-      - name: Gravar artefato exato na branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add config/android-release.json native-assets/android/release/manifest.json native-assets/android/release/parts
-          git commit -m "[release-artifact] prepara APK Android 1.0.3"
-          git push origin HEAD:agent/android-1.0.3-release
