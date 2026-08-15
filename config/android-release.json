@@ -1,14 +1,14 @@
 {
-  "versionCode": 3,
-  "versionName": "1.0.2",
-  "publishedAt": "2026-08-14",
+  "versionCode": 4,
+  "versionName": "1.0.3",
+  "publishedAt": "2026-08-15",
   "required": false,
-  "apkSize": 5517264,
-  "apkSha256": "2471c59ae6e9574e1e3057f3426caba13e97092265339b10aef560cca314688d",
+  "apkSize": 5537885,
+  "apkSha256": "f920ebb34b9fbe5bb6f267521ff051325572432f2b31735da9f74ade6c1076c7",
   "highlights": [
-    "Atualizações baixadas e verificadas dentro do aplicativo",
-    "Barra de progresso moderna durante o download",
-    "Correção do redirecionamento para 0.0.0.0:8080",
-    "Instalação segura sem apagar seus dados e sua sessão"
+    "Caminho da Luz agora funciona localmente no aplicativo Android",
+    "Pontuação do jogo integrada ao ranking Kis",
+    "Jornada infinita, sons, vibração, combos e progressão no jogo",
+    "Atualização assinada com a mesma identidade das versões anteriores"
   ]
 }
