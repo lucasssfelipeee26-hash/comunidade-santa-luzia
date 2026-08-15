@@ -1,4 +1,4 @@
-import { listarMembrosAprovados, listarRespostasQuiz, obterRankingConfig } from "@/lib/db"
+import { listarMembrosAprovados, listarRankingAjustes, listarRespostasQuiz, obterRankingConfig } from "@/lib/db"
 
 export type RankingLinha = {
   posicao: number
@@ -27,14 +27,17 @@ function participantes() {
 export function calcularRanking(ano: number): { config: ReturnType<typeof obterRankingConfig>; ranking: RankingLinha[] } {
   const prefixoAno = `liturgia-auto:${ano}-`
   const respostas = listarRespostasQuiz().filter((r) => r.quiz_id.startsWith(prefixoAno))
+  const ajustesDoAno = listarRankingAjustes(ano)
   const config = obterRankingConfig(ano)
 
   const linhas = participantes().map((usuario) => {
     const minhas = respostas.filter((r) => r.usuario_id === usuario.id)
-    const pontos = minhas.reduce((s, r) => s + r.pontos, 0)
+    const pontosLiturgia = minhas.reduce((s, r) => s + r.pontos, 0)
     const possivel = minhas.reduce((s, r) => s + r.total_pontos, 0)
     const acertos = minhas.reduce((s, r) => s + r.acertos, 0)
-    const aproveitamento = possivel > 0 ? Math.round((pontos / possivel) * 100) : 0
+    const ajustes = ajustesDoAno.filter((a) => a.usuario_id === usuario.id).reduce((s, a) => s + a.pontos, 0)
+    const pontos = pontosLiturgia + ajustes
+    const aproveitamento = possivel > 0 ? Math.round((pontosLiturgia / possivel) * 100) : 0
     return {
       posicao: 0,
       usuarioId: usuario.id,
@@ -46,10 +49,10 @@ export function calcularRanking(ano: number): { config: ReturnType<typeof obterR
       quizzesRespondidos: minhas.length,
       aproveitamento,
       formacao: 0,
-      liturgia: pontos,
+      liturgia: pontosLiturgia,
       pontualidade: 0,
       reconhecimento: 0,
-      ajustes: 0,
+      ajustes,
       reconhecimentos: 0,
       atrasosConfirmados: 0,
       escalasNoAno: 0,
