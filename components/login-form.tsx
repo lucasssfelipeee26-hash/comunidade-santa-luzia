@@ -39,6 +39,7 @@ export function LoginForm() {
         return
       }
       emitAppFeedback("success")
+      navigator.serviceWorker?.controller?.postMessage({ tipo: "AQUECER_CACHE_PRIVADO" })
       const solicitado = searchParams.get("destino")
       const destinoSeguro = solicitado && solicitado.startsWith("/") && !solicitado.startsWith("//") ? solicitado : null
       router.replace(destinoSeguro ?? res.destino ?? "/area-restrita")
