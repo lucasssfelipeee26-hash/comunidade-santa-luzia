@@ -49,6 +49,12 @@ if (fs.existsSync(manifestPath)) {
       '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />',
     )
   }
+  if (!manifest.includes("android.permission.POST_NOTIFICATIONS")) {
+    manifest = manifest.replace(
+      '<uses-permission android:name="android.permission.INTERNET" />',
+      '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+    )
+  }
   manifest = manifest.replace(/android:allowBackup="[^"]+"/, 'android:allowBackup="false"')
   if (!manifest.includes("android:usesCleartextTraffic")) {
     manifest = manifest.replace(
@@ -71,4 +77,4 @@ if (fs.existsSync(manifestPath)) {
   fs.writeFileSync(manifestPath, manifest)
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, ícones adaptativos, rede HTTPS e Caminho da Luz local.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS e Caminho da Luz local.`)
