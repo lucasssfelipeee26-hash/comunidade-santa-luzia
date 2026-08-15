@@ -40,6 +40,8 @@ export function LoginForm() {
       }
       emitAppFeedback("success")
       navigator.serviceWorker?.controller?.postMessage({ tipo: "AQUECER_CACHE_PRIVADO" })
+      window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync"))
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync")), 900)
       const solicitado = searchParams.get("destino")
       const destinoSeguro = solicitado && solicitado.startsWith("/") && !solicitado.startsWith("//") ? solicitado : null
       router.replace(destinoSeguro ?? res.destino ?? "/area-restrita")
