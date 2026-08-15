@@ -1,4 +1,4 @@
-const CACHE = "santa-luzia-offline-v19"
+const CACHE = "santa-luzia-offline-v20"
 const PRIVATE_CACHE = "santa-luzia-private-v2"
 const ACERVO_BASE = "/offline/iliturgia/"
 const LITURGIA_COMPLETA_BASE = "/offline/liturgia-completa/"
@@ -47,17 +47,40 @@ function ehApiPrivadaOffline(pathname) {
     /^\/api\/membros\/[^/]+$/.test(pathname)
 }
 
-async function buscarEReter(cache, request, chave, validarDestino = false) {
+async function buscarEReter(cache, request, chave) {
   try {
     const response = await fetch(request)
-    if (response.ok) {
-      const destinoOk = !validarDestino || new URL(response.url).pathname === new URL(request.url).pathname
-      if (destinoOk) await cache.put(chave, response.clone())
-    }
+    if (response.ok) await cache.put(chave, response.clone())
     return response
   } catch {
     return (await cache.match(chave)) || Response.error()
   }
+}
+
+async function cachearRecursosPagina(response) {
+  try {
+    const html = await response.text()
+    const recursos = new Set()
+    for (const match of html.matchAll(/(?:src|href)=["']([^"']+)["']/g)) {
+      const valor = match[1]
+      if (valor.startsWith("/_next/static/") || valor.startsWith("/icons/") || /\.(?:css|js|woff2?)($|\?)/.test(valor)) {
+        recursos.add(valor)
+      }
+    }
+    if (!recursos.size) return
+    const cache = await caches.open(CACHE)
+    for (const recurso of recursos) {
+      try {
+        const request = new Request(new URL(recurso, self.location.origin).toString(), {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        })
+        const asset = await fetch(request)
+        if (asset.ok) await cache.put(recurso, asset.clone())
+      } catch {}
+    }
+  } catch {}
 }
 
 async function aquecerCachePrivado() {
@@ -95,8 +118,10 @@ async function aquecerCachePrivado() {
         })
         const response = await fetch(request)
         if (!response.ok || new URL(response.url).pathname !== pathname) continue
+        const recursos = response.clone()
         await cache.put(pathname, response.clone())
         if (pathname === paginaPrincipal) await cache.put("/area-restrita", response.clone())
+        await cachearRecursosPagina(recursos)
       } catch {}
     }
 
@@ -229,7 +254,6 @@ self.addEventListener("fetch", (event) => {
         if (response.ok && ["/liturgia", "/visitante", "/escala"].includes(url.pathname)) await cache.put(url.pathname, response.clone())
         if (response.ok && paginaPrivadaOffline && new URL(response.url).pathname === url.pathname) {
           await privateCache.put(url.pathname, response.clone())
-          event.waitUntil(aquecerCachePrivado())
         }
         return response
       } catch {
