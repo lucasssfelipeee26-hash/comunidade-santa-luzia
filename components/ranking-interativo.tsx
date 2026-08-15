@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { BookOpen, BrainCircuit, CloudOff, Crown, Gamepad2, Medal, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
@@ -44,7 +43,6 @@ function Posicao({ valor }: { valor: number }) {
 }
 
 export function RankingInterativo() {
-  const searchParams = useSearchParams()
   const [dados, setDados] = useState<any>(null)
   const [quizzes, setQuizzes] = useState<QuizPublico[]>([])
   const [quizAuto, setQuizAuto] = useState<QuizAuto | null>(null)
@@ -57,6 +55,7 @@ export function RankingInterativo() {
   const [mensagem, setMensagem] = useState("")
   const [leituraLiberada, setLeituraLiberada] = useState<boolean | null>(null)
   const [dadosOffline, setDadosOffline] = useState(false)
+  const [abaAtiva, setAbaAtiva] = useState("hoje")
   const tentativaAtiva = useRef(false)
 
   async function carregarDados() {
@@ -114,8 +113,13 @@ export function RankingInterativo() {
 
   useEffect(() => {
     void carregarDados()
-    try { setLeituraLiberada(localStorage.getItem(chaveLeituraHoje()) === "1") }
-    catch { setLeituraLiberada(false) }
+    try {
+      setLeituraLiberada(localStorage.getItem(chaveLeituraHoje()) === "1")
+      const aba = new URLSearchParams(window.location.search).get("aba")
+      if (aba === "missao" || aba === "classificacao" || aba === "avulsos" || aba === "hoje") setAbaAtiva(aba)
+    } catch {
+      setLeituraLiberada(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -192,7 +196,6 @@ export function RankingInterativo() {
 
   if (!dados) return <div className="min-h-screen p-8 text-center text-muted-foreground">Carregando Jornada Litúrgica…</div>
   const isMod = dados.eu.tipo === "moderador"
-  const abaInicial = searchParams.get("aba") === "missao" ? "missao" : searchParams.get("aba") === "classificacao" ? "classificacao" : "hoje"
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff8e5_0%,#fff_42%,#faf7f1_100%)]">
@@ -212,7 +215,7 @@ export function RankingInterativo() {
         {mensagem && <div className="mb-4 rounded-2xl border border-accent/40 bg-white/80 p-3 text-sm backdrop-blur-xl">{mensagem}</div>}
         {dadosOffline && <div className="mb-4 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-950"><CloudOff className="size-4 shrink-0" />Modo sem internet: exibindo os últimos dados salvos neste aparelho.</div>}
 
-        <Tabs defaultValue={abaInicial}>
+        <Tabs value={abaAtiva} onValueChange={setAbaAtiva}>
           <TabsList className="grid w-full grid-cols-4 gap-1 rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-2xl">
             <TabsTrigger value="hoje" className="min-h-12 flex-col text-[9px] sm:text-xs"><BrainCircuit className="size-4" />Quiz de Hoje</TabsTrigger>
             <TabsTrigger value="missao" className="min-h-12 flex-col text-[9px] sm:text-xs"><Gamepad2 className="size-4" />Missão</TabsTrigger>
