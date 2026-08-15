@@ -68,7 +68,7 @@ public class CaminhoDaLuzActivity extends Activity {
             resposta.putExtra("mode", modoSeguro);
             runOnUiThread(() -> {
                 setResult(Activity.RESULT_OK, resposta);
-                finish();
+                CaminhoDaLuzActivity.this.finish();
             });
         }
 
@@ -76,7 +76,7 @@ public class CaminhoDaLuzActivity extends Activity {
         public void close() {
             runOnUiThread(() -> {
                 setResult(Activity.RESULT_CANCELED);
-                finish();
+                CaminhoDaLuzActivity.this.finish();
             });
         }
     }
