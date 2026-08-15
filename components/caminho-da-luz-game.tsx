@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { CloudOff, RotateCcw, Sparkles, Trophy, Volume2, VolumeX, Vibrate } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
@@ -101,8 +101,6 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
   const [ocupado, setOcupado] = useState(false)
   const [offline, setOffline] = useState(false)
   const [rankingMsg, setRankingMsg] = useState("")
-  const scoreRef = useRef(score); const nivelRef = useRef(nivel)
-  scoreRef.current = score; nivelRef.current = nivel
 
   const meta = metaDaFase(nivel)
   const modo = nivel <= 5 ? `Fase ${nivel} de 5` : `Jornada infinita · Nível ${nivel}`
