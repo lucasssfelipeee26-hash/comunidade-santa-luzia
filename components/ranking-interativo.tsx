@@ -2,9 +2,11 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { BookOpen, BrainCircuit, CloudOff, Crown, Medal, ShieldCheck, Sparkles, Trophy } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { BookOpen, BrainCircuit, CloudOff, Crown, Gamepad2, Medal, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
+import { CaminhoDaLuzEntry } from "@/components/caminho-da-luz-entry"
 import { QuizCountdown } from "@/components/quiz-countdown"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -42,6 +44,7 @@ function Posicao({ valor }: { valor: number }) {
 }
 
 export function RankingInterativo() {
+  const searchParams = useSearchParams()
   const [dados, setDados] = useState<any>(null)
   const [quizzes, setQuizzes] = useState<QuizPublico[]>([])
   const [quizAuto, setQuizAuto] = useState<QuizAuto | null>(null)
@@ -61,7 +64,7 @@ export function RankingInterativo() {
     try {
       const r1 = await fetch("/api/ranking", { cache: "no-store" })
       const j1 = await r1.json()
-      if (!r1.ok) throw new Error(j1.erro || "Erro ao carregar competição.")
+      if (!r1.ok) throw new Error(j1.erro || "Erro ao carregar a Jornada Litúrgica.")
       setDados(j1)
       salvarCacheRanking(j1)
       setDadosOffline(false)
@@ -80,7 +83,7 @@ export function RankingInterativo() {
       const j2 = await r2.json()
       if (r2.ok) setQuizzes(j2.quizzes || [])
     } catch {
-      // Os quizzes exigem conexão; a classificação continua disponível pelo cache.
+      // Os quizzes exigem conexão; a classificação e o jogo continuam disponíveis conforme seus próprios modos offline.
     }
   }
 
@@ -187,17 +190,21 @@ export function RankingInterativo() {
     await carregarDados()
   }
 
-  if (!dados) return <div className="min-h-screen p-8 text-center text-muted-foreground">Carregando competição…</div>
+  if (!dados) return <div className="min-h-screen p-8 text-center text-muted-foreground">Carregando Jornada Litúrgica…</div>
   const isMod = dados.eu.tipo === "moderador"
+  const abaInicial = searchParams.get("aba") === "missao" ? "missao" : searchParams.get("aba") === "classificacao" ? "classificacao" : "hoje"
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff8e5_0%,#fff_42%,#faf7f1_100%)]">
-      <AreaHeader titulo="Quiz Litúrgico" subtitulo="Leia a Liturgia e depois participe da competição" voltarHref={isMod ? "/area-restrita/moderador" : "/area-restrita/membro"} menu={isMod ? <ModeradorMenu /> : <MembroMenu />} />
+      <AreaHeader titulo="Jornada Litúrgica" subtitulo="Quiz, Missão do Altar e classificação em uma única experiência" voltarHref={isMod ? "/area-restrita/moderador" : "/area-restrita/membro"} menu={isMod ? <ModeradorMenu /> : <MembroMenu />} />
       <main className="mx-auto max-w-6xl px-3 py-4 pb-24 sm:px-4 sm:py-8">
         <section className="mb-5 overflow-hidden rounded-3xl border border-white/70 bg-white/70 p-5 shadow-[0_18px_50px_rgba(82,49,25,.10)] backdrop-blur-2xl">
           <div className="flex items-center gap-3">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg"><BrainCircuit className="size-6" /></span>
-            <div><h1 className="font-serif text-2xl font-semibold text-primary">Competição do Quiz</h1><p className="text-sm text-muted-foreground">O quiz diário usa a mesma Liturgia apresentada no aplicativo. A classificação mostra 1º, 2º, 3º e todas as demais posições.</p></div>
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg"><Sparkles className="size-6" /></span>
+            <div>
+              <h1 className="font-serif text-2xl font-semibold text-primary">Jornada Litúrgica</h1>
+              <p className="text-sm text-muted-foreground">Aprenda com a Liturgia, jogue a Missão do Altar e avance na classificação com a equipe.</p>
+            </div>
           </div>
         </section>
 
@@ -205,11 +212,12 @@ export function RankingInterativo() {
         {mensagem && <div className="mb-4 rounded-2xl border border-accent/40 bg-white/80 p-3 text-sm backdrop-blur-xl">{mensagem}</div>}
         {dadosOffline && <div className="mb-4 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-950"><CloudOff className="size-4 shrink-0" />Modo sem internet: exibindo os últimos dados salvos neste aparelho.</div>}
 
-        <Tabs defaultValue="hoje">
-          <TabsList className="grid w-full grid-cols-3 gap-1 rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-2xl">
-            <TabsTrigger value="hoje" className="min-h-12 flex-col text-[10px] sm:text-xs"><Sparkles className="size-4" />Hoje</TabsTrigger>
-            <TabsTrigger value="competicao" className="min-h-12 flex-col text-[10px] sm:text-xs"><Trophy className="size-4" />Classificação</TabsTrigger>
-            <TabsTrigger value="avulsos" className="min-h-12 flex-col text-[10px] sm:text-xs"><BrainCircuit className="size-4" />Avulsos</TabsTrigger>
+        <Tabs defaultValue={abaInicial}>
+          <TabsList className="grid w-full grid-cols-4 gap-1 rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-2xl">
+            <TabsTrigger value="hoje" className="min-h-12 flex-col text-[9px] sm:text-xs"><BrainCircuit className="size-4" />Quiz de Hoje</TabsTrigger>
+            <TabsTrigger value="missao" className="min-h-12 flex-col text-[9px] sm:text-xs"><Gamepad2 className="size-4" />Missão</TabsTrigger>
+            <TabsTrigger value="classificacao" className="min-h-12 flex-col text-[9px] sm:text-xs"><Trophy className="size-4" />Classificação</TabsTrigger>
+            <TabsTrigger value="avulsos" className="min-h-12 flex-col text-[9px] sm:text-xs"><Sparkles className="size-4" />Avulsos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="hoje" className="mt-4">
@@ -220,7 +228,7 @@ export function RankingInterativo() {
                 <div className="py-8 text-center">
                   <BookOpen className="mx-auto size-12 text-primary" />
                   <h2 className="mt-3 font-serif text-2xl font-semibold text-primary">Primeiro, leia a Liturgia de hoje</h2>
-                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">O quiz não aparece automaticamente no login. Leia as leituras e o Evangelho e, no final da Liturgia, toque em “Concluir leitura e ir ao Quiz”.</p>
+                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Leia as leituras e o Evangelho e, no final da Liturgia, toque em “Concluir leitura e ir ao Quiz”.</p>
                   <Button asChild className="mt-4"><Link href="/visitante#liturgia">Abrir Liturgia Diária</Link></Button>
                 </div>
               ) : autoConcluido ? (
@@ -252,8 +260,13 @@ export function RankingInterativo() {
             </section>
           </TabsContent>
 
-          <TabsContent value="competicao" className="mt-4 space-y-2">
-            {(dados.ranking || []).length === 0 && <div className="rounded-2xl bg-white/75 p-5 text-muted-foreground">A classificação aparecerá assim que os participantes responderem o Quiz da Liturgia.</div>}
+          <TabsContent value="missao" className="mt-4">
+            <CaminhoDaLuzEntry tipoUsuario={dados.eu.tipo} embedded />
+          </TabsContent>
+
+          <TabsContent value="classificacao" className="mt-4 space-y-2">
+            <div className="mb-3 rounded-2xl border border-primary/10 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur-xl">A classificação reúne os pontos do Quiz Litúrgico, atividades válidas e o melhor bônus diário conquistado na Missão do Altar.</div>
+            {(dados.ranking || []).length === 0 && <div className="rounded-2xl bg-white/75 p-5 text-muted-foreground">A classificação aparecerá assim que os participantes começarem a pontuar.</div>}
             {(dados.ranking || []).map((l: any) => (
               <div key={l.usuarioId} className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/75 p-3 shadow-sm backdrop-blur-xl">
                 <Posicao valor={l.posicao} />
