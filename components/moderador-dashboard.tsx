@@ -67,7 +67,7 @@ function EstatCard({
 export function ModeradorDashboard() {
   const { membros, equipe, aprovarMembro, recusarMembro } = useStore()
   const pendentes = membros.filter((m) => m.status === "pendente")
-  const ativos = membros.filter((m) => m.status === "aprovado")
+  const ativos = equipe
   const acolitos = equipe.filter((m) => m.funcao === "Acólito")
   const coroinhas = equipe.filter((m) => m.funcao === "Coroinha")
   const advertenciasNoMes = equipe.reduce((soma, m) => soma + contarNoMesAtual(m.advertencias), 0)
