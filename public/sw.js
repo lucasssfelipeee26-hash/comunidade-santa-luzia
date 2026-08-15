@@ -1,4 +1,4 @@
-const CACHE = "santa-luzia-offline-v20"
+const CACHE = "santa-luzia-offline-v21"
 const PRIVATE_CACHE = "santa-luzia-private-v2"
 const ACERVO_BASE = "/offline/iliturgia/"
 const LITURGIA_COMPLETA_BASE = "/offline/liturgia-completa/"
@@ -42,6 +42,7 @@ function ehApiPrivadaOffline(pathname) {
   return pathname === "/api/auth/me" ||
     pathname === "/api/formacoes" ||
     pathname === "/api/ranking" ||
+    pathname === "/api/notificacoes" ||
     pathname === "/api/membros" ||
     pathname === "/api/equipe" ||
     /^\/api\/membros\/[^/]+$/.test(pathname)
@@ -105,8 +106,8 @@ async function aquecerCachePrivado() {
     const paginaPrincipal = moderador ? "/area-restrita/moderador" : "/area-restrita/membro"
     const paginas = [paginaPrincipal, "/formacao", "/area-restrita/ranking", "/area-restrita/atrasos"]
     const apis = moderador
-      ? ["/api/membros", "/api/equipe", "/api/formacoes", "/api/ranking"]
-      : [`/api/membros/${encodeURIComponent(usuarioId)}`, "/api/formacoes", "/api/ranking"]
+      ? ["/api/membros", "/api/equipe", "/api/formacoes", "/api/ranking", "/api/notificacoes"]
+      : [`/api/membros/${encodeURIComponent(usuarioId)}`, "/api/formacoes", "/api/ranking", "/api/notificacoes"]
 
     for (const pathname of paginas) {
       try {
