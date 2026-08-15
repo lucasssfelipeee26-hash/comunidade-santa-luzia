@@ -23,7 +23,8 @@ export function OfflineLiturgiaRuntime() {
     }
 
     const aoCliqueOffline = (event: MouseEvent) => {
-      if (navigator.onLine || event.defaultPrevented || event.button !== 0) return
+      const semRede = !navigator.onLine || document.documentElement.dataset.syncState === "offline"
+      if (!semRede || event.defaultPrevented || event.button !== 0) return
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
       const alvo = event.target
       if (!(alvo instanceof Element)) return
@@ -31,7 +32,7 @@ export function OfflineLiturgiaRuntime() {
       if (!link || link.target === "_blank" || link.hasAttribute("download")) return
 
       const url = new URL(link.href, window.location.href)
-      if (url.origin !== window.location.origin || url.hash && url.pathname === window.location.pathname) return
+      if (url.origin !== window.location.origin || (url.hash && url.pathname === window.location.pathname)) return
 
       event.preventDefault()
       event.stopPropagation()
