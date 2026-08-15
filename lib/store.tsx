@@ -167,7 +167,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "aprovado" }),
-    }).then(() => globalMutate("/api/membros"))
+    }).then(() => Promise.all([globalMutate("/api/membros"), globalMutate("/api/equipe")]))
   }, [])
 
   const recusarMembro = useCallback((id: string) => {
@@ -175,7 +175,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "recusado" }),
-    }).then(() => globalMutate("/api/membros"))
+    }).then(() => Promise.all([globalMutate("/api/membros"), globalMutate("/api/equipe")]))
   }, [])
 
   const promoverMembro = useCallback<Ctx["promoverMembro"]>(async (id) => {
