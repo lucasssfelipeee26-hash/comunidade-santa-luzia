@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { atualizarQuiz, buscarQuiz, buscarRespostaQuiz, buscarUsuario, excluirQuiz, listarQuizzes, salvarQuiz, type QuizPergunta, type QuizOrigem } from "@/lib/db"
+import { atualizarQuiz, buscarQuiz, buscarRespostaQuiz, buscarUsuario, excluirQuiz, listarMembrosAprovados, listarQuizzes, salvarQuiz, type QuizPergunta, type QuizOrigem } from "@/lib/db"
 import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
 import { garantirQuizLiturgiaOffline } from "@/lib/quiz-liturgia-offline"
+import { notificarUsuarios } from "@/lib/notificacoes"
 
 async function contexto() {
   const sessao = await lerSessao()
@@ -30,6 +31,19 @@ function limparPerguntas(input: unknown): QuizPergunta[] {
   }).filter((p) => p.enunciado.length >= 3 && p.opcoes.length === 3 && p.opcoes.every(Boolean) && p.correta >= 0)
 }
 
+function notificarQuizAvulso(quiz: { id: string; titulo: string; descricao: string; origem: QuizOrigem }) {
+  if (quiz.origem === "liturgia") return
+  const ids = listarMembrosAprovados().map((m) => m.id)
+  if (!ids.length) return
+  notificarUsuarios(ids, {
+    chave: `quiz-avulso:${quiz.id}`,
+    tipo: "avulso",
+    titulo: "Novo quiz avulso disponível",
+    mensagem: quiz.descricao ? `${quiz.titulo} · ${quiz.descricao}` : quiz.titulo,
+    href: "/area-restrita/ranking?aba=avulsos",
+  })
+}
+
 export async function GET(req: NextRequest) {
   const ctx = await contexto()
   if (!ctx) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
@@ -40,8 +54,6 @@ export async function GET(req: NextRequest) {
 
   const admin = req.nextUrl.searchParams.get("admin") === "1" && ctx.usuario.tipo === "moderador"
   let quizzes = listarQuizzes(admin)
-
-  // Um Quiz Litúrgico só existe para o usuário quando a Liturgia da mesma data existe offline.
   quizzes = quizzes.filter((q) => q.origem !== "liturgia" || Boolean(q.data_referencia && obterLiturgiaLocal(q.data_referencia)))
   if (!admin) quizzes = quizzes.filter((q) => q.origem !== "liturgia" || q.data_referencia === hoje)
 
@@ -98,6 +110,17 @@ export async function POST(req: NextRequest) {
   }
 
   const id = String(body.id || "")
-  if (id && buscarQuiz(id)) return NextResponse.json({ ok: true, quiz: atualizarQuiz(id, dados) })
-  return NextResponse.json({ ok: true, quiz: salvarQuiz({ ...dados, criado_por: ctx.usuario.id }) })
+  if (id) {
+    const existente = buscarQuiz(id)
+    if (existente) {
+      const eraAtivo = existente.ativo
+      const quiz = atualizarQuiz(id, dados)
+      if (quiz?.ativo && !eraAtivo) notificarQuizAvulso(quiz)
+      return NextResponse.json({ ok: true, quiz })
+    }
+  }
+
+  const quiz = salvarQuiz({ ...dados, criado_por: ctx.usuario.id })
+  if (quiz.ativo) notificarQuizAvulso(quiz)
+  return NextResponse.json({ ok: true, quiz })
 }
