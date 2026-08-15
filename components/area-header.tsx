@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, LogOut } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { NotificationCenter } from "@/components/notification-center"
 import { site } from "@/lib/site"
 
 export function AreaHeader({
@@ -55,6 +56,7 @@ export function AreaHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          <NotificationCenter />
           {menu}
           <button
             type="button"
