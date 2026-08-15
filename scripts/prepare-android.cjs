@@ -10,6 +10,8 @@ const destinoRecursos = path.join(android, "app", "src", "main", "res")
 const origemJava = path.join(raiz, "native-assets", "android", "src", "main", "java")
 const destinoJava = path.join(android, "app", "src", "main", "java")
 const manifestPath = path.join(android, "app", "src", "main", "AndroidManifest.xml")
+const origemLiturgiaOffline = path.join(raiz, "public", "offline", "liturgia-completa")
+const destinoLiturgiaOffline = path.join(android, "app", "src", "main", "assets", "public", "offline", "liturgia-completa")
 
 if (!fs.existsSync(appGradle)) throw new Error("Projeto Android ausente. Execute npm run android:add primeiro.")
 
@@ -33,6 +35,9 @@ if (!fs.existsSync(origemRecursos)) throw new Error("Recursos Android personaliz
 fs.cpSync(origemRecursos, destinoRecursos, { recursive: true, force: true })
 if (!fs.existsSync(origemJava)) throw new Error("Código nativo Android personalizado ausente.")
 fs.cpSync(origemJava, destinoJava, { recursive: true, force: true })
+if (!fs.existsSync(origemLiturgiaOffline)) throw new Error("Pacote anual da Liturgia offline ausente.")
+fs.mkdirSync(destinoLiturgiaOffline, { recursive: true })
+fs.cpSync(origemLiturgiaOffline, destinoLiturgiaOffline, { recursive: true, force: true })
 
 const splashPersonalizada = path.join(origemRecursos, "drawable", "splash.png")
 for (const pasta of fs.readdirSync(destinoRecursos, { withFileTypes: true })) {
@@ -77,4 +82,4 @@ if (fs.existsSync(manifestPath)) {
   fs.writeFileSync(manifestPath, manifest)
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS e Caminho da Luz local.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, Liturgia anual e Caminho da Luz local.`)
