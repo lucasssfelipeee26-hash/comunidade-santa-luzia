@@ -105,7 +105,7 @@ function tocarSom(tipo: "match" | "combo" | "erro" | "fase", ativo: boolean) {
   } catch {}
 }
 
-export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "membro" }) {
+export function CaminhoDaLuzGame({ tipoUsuario, embedded = false }: { tipoUsuario: "moderador" | "membro"; embedded?: boolean }) {
   const [tabuleiro, setTabuleiro] = useState<Celula[]>(() => tabuleiroInicial())
   const [selecionada, setSelecionada] = useState<number | null>(null)
   const [pontosFase, setPontosFase] = useState(0)
@@ -113,7 +113,7 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
   const [nivel, setNivel] = useState(1)
   const [movimentos, setMovimentos] = useState(movimentosDaFase(1))
   const [combo, setCombo] = useState(0)
-  const [mensagem, setMensagem] = useState("Combine 3 ou mais símbolos litúrgicos para abrir o Caminho da Luz.")
+  const [mensagem, setMensagem] = useState("Combine 3 ou mais símbolos litúrgicos para avançar na Missão do Altar.")
   const [som, setSom] = useState(true)
   const [vibrar, setVibrar] = useState(true)
   const [ocupado, setOcupado] = useState(false)
@@ -171,10 +171,10 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j.erro || "Não foi possível enviar a pontuação.")
-      setRankingMsg(j.jaContabilizado ? `Seu melhor bônus de hoje continua em ${j.pontosRanking} ponto(s) no ranking.` : `+${j.pontosRanking} ponto(s) enviados para o ranking.`)
+      setRankingMsg(j.jaContabilizado ? `Seu melhor bônus de hoje continua em ${j.pontosRanking} ponto(s) na classificação.` : `+${j.pontosRanking} ponto(s) enviados para a classificação.`)
       return true
     } catch {
-      setRankingMsg("Resultado salvo neste celular. Ele será enviado ao ranking quando a internet voltar.")
+      setRankingMsg("Resultado salvo neste celular. Ele será enviado para a classificação quando a internet voltar.")
       return false
     }
   }
@@ -210,13 +210,13 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
       localStorage.removeItem(CHAVE_ESTADO)
     } catch {}
 
-    const pendente = { score: scoreFinal, level: nivel, mode: modo, salvoEm: Date.now() }
+    const pendente = { score: scoreFinal, level: nivel, mode: `Missão do Altar · ${modo}`, salvoEm: Date.now() }
     if (navigator.onLine) {
-      const ok = await enviarResultado(scoreFinal, nivel, modo)
+      const ok = await enviarResultado(scoreFinal, nivel, pendente.mode)
       if (!ok) try { localStorage.setItem(CHAVE_PENDENTE, JSON.stringify(pendente)) } catch {}
     } else {
       try { localStorage.setItem(CHAVE_PENDENTE, JSON.stringify(pendente)) } catch {}
-      setRankingMsg("Resultado salvo neste celular. Ele será enviado ao ranking quando a internet voltar.")
+      setRankingMsg("Resultado salvo neste celular. Ele será enviado para a classificação quando a internet voltar.")
     }
     setFim(true)
   }
@@ -248,7 +248,7 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
     const novoTotal = pontosTotais + resolvido.ganho
     setPontosFase(novoFase)
     setPontosTotais(novoTotal)
-    setMensagem(resolvido.cascatas > 1 ? `Combo x${resolvido.cascatas}! A luz continua avançando.` : "Boa combinação! Continue o caminho.")
+    setMensagem(resolvido.cascatas > 1 ? `Combo x${resolvido.cascatas}! Continue avançando na missão.` : "Boa combinação! Continue a missão.")
 
     if (novoFase >= meta) {
       tocarSom("fase", som); vibracao(100)
@@ -266,7 +266,7 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
     }
 
     if (restantes <= 0) {
-      setMensagem("Fim da rodada. Seu caminho foi registrado.")
+      setMensagem("Fim da rodada. Sua missão foi registrada.")
       await finalizarRodada(novoTotal)
     }
     setOcupado(false)
@@ -280,7 +280,7 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
     setNivel(1)
     setMovimentos(movimentosDaFase(1))
     setCombo(0)
-    setMensagem("Nova jornada iniciada. Combine 3 ou mais símbolos litúrgicos.")
+    setMensagem("Nova missão iniciada. Combine 3 ou mais símbolos litúrgicos.")
     setRankingMsg("")
     setFim(false)
     setOcupado(false)
@@ -288,82 +288,88 @@ export function CaminhoDaLuzGame({ tipoUsuario }: { tipoUsuario: "moderador" | "
   }
 
   const isMod = tipoUsuario === "moderador"
-  return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff4d7_0%,#fffaf0_34%,#f7eee5_100%)]">
-      <AreaHeader titulo="Caminho da Luz" subtitulo="Jogo litúrgico do Kis" voltarHref={isMod ? "/area-restrita/moderador" : "/area-restrita/membro"} menu={isMod ? <ModeradorMenu /> : <MembroMenu />} />
-      <main className="mx-auto max-w-xl px-3 py-4 pb-24 sm:px-4">
-        <section className="relative overflow-hidden rounded-[30px] border border-primary/15 bg-white/85 p-4 shadow-[0_24px_70px_rgba(82,17,35,.14)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-primary/5 blur-2xl" />
-          <div className="relative flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[.2em] text-primary">{modo}</p>
-              <h1 className="mt-1 font-serif text-3xl font-semibold text-primary">{fase.nome}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">{fase.chamada}</p>
-            </div>
-            <span className="flex size-14 shrink-0 items-center justify-center rounded-[20px] border border-primary/10 bg-primary text-2xl text-white shadow-lg">{fase.icone}</span>
+  const conteudo = (
+    <div className={embedded ? "mx-auto max-w-xl" : "mx-auto max-w-xl px-3 py-4 pb-24 sm:px-4"}>
+      <section className="relative overflow-hidden rounded-[30px] border border-primary/15 bg-white/85 p-4 shadow-[0_24px_70px_rgba(82,17,35,.14)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-primary/5 blur-2xl" />
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[.2em] text-primary">Missão do Altar · {modo}</p>
+            <h2 className="mt-1 font-serif text-3xl font-semibold text-primary">{fase.nome}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{fase.chamada}</p>
           </div>
-
-          <div className="relative mt-4 grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl border border-primary/10 bg-secondary/65 p-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Pontos</p><p className="mt-0.5 text-lg font-black text-primary">{pontosTotais}</p></div>
-            <div className="rounded-2xl border border-primary/10 bg-secondary/65 p-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Movimentos</p><p className="mt-0.5 text-lg font-black text-primary">{movimentos}</p></div>
-            <div className="rounded-2xl border border-primary/10 bg-secondary/65 p-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Combo</p><p className="mt-0.5 text-lg font-black text-primary">x{Math.max(1, combo + 1)}</p></div>
-          </div>
-
-          <div className="relative mt-4">
-            <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground"><span>Progresso da etapa</span><span>{pontosFase}/{meta}</span></div>
-            <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300" style={{ width: `${progresso}%` }} /></div>
-            <div className="mt-3 grid grid-cols-5 gap-1.5">
-              {FASES.map((item, i) => {
-                const etapa = i + 1
-                const ativa = nivel === etapa
-                const concluida = nivel > etapa
-                return <div key={item.nome} title={item.nome} className={`h-1.5 rounded-full transition ${concluida ? "bg-amber-500" : ativa ? "bg-primary" : "bg-secondary"}`} />
-              })}
-            </div>
-          </div>
-        </section>
-
-        {offline && <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/95 p-3 text-xs text-amber-950"><CloudOff className="size-4 shrink-0"/>O jogo continua funcionando sem internet. O resultado será sincronizado depois.</div>}
-        {rankingMsg && <div className="mt-3 rounded-2xl border border-primary/15 bg-white/85 p-3 text-sm text-primary shadow-sm">{rankingMsg}</div>}
-
-        <section className="mt-3 rounded-[30px] border border-primary/10 bg-[linear-gradient(145deg,rgba(82,17,35,.09),rgba(185,138,57,.08))] p-2.5 shadow-[0_22px_55px_rgba(82,17,35,.13)]">
-          <div className="grid grid-cols-8 gap-1.5 rounded-[24px] border border-white/80 bg-white/70 p-2 shadow-inner" aria-label="Tabuleiro do Caminho da Luz">
-            {tabuleiro.map((p, i) => (
-              <button
-                key={p?.id || i}
-                type="button"
-                disabled={!p || ocupado || movimentos <= 0 || fim}
-                onClick={() => void escolher(i)}
-                aria-label={p ? `${NOMES[p.tipo]}, posição ${i + 1}` : "Espaço vazio"}
-                className={`aspect-square rounded-xl border text-[clamp(1rem,5.2vw,1.75rem)] shadow-[0_4px_10px_rgba(82,17,35,.08)] transition duration-150 active:scale-90 ${selecionada === i ? "z-10 scale-110 border-primary bg-primary/10 ring-2 ring-primary/25" : "border-white/90 bg-white/95 hover:border-primary/20"}`}
-              >
-                {p ? SIMBOLOS[p.tipo] : ""}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <div className="mt-3 rounded-2xl border border-white/70 bg-white/75 p-3 text-center text-sm leading-5 text-muted-foreground shadow-sm backdrop-blur-xl">{mensagem}</div>
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <Button variant="outline" onClick={reiniciar}><RotateCcw className="size-4"/>Reiniciar</Button>
-          <Button variant="outline" onClick={() => { const n = !som; setSom(n); localStorage.setItem(CHAVE_SOM, n ? "1" : "0") }}>{som ? <Volume2 className="size-4"/> : <VolumeX className="size-4"/>}{som ? "Som" : "Sem som"}</Button>
-          <Button variant="outline" onClick={() => { const n = !vibrar; setVibrar(n); localStorage.setItem(CHAVE_VIBRAR, n ? "1" : "0") }}><Vibrate className="size-4"/>Vibração {vibrar ? "on" : "off"}</Button>
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-[20px] border border-primary/10 bg-primary text-2xl text-white shadow-lg">{fase.icone}</span>
         </div>
-        <div className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground"><Trophy className="size-4"/>Recorde local: {recorde} <Sparkles className="size-4"/></div>
-      </main>
+
+        <div className="relative mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-2xl border border-primary/10 bg-secondary/65 p-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Pontos</p><p className="mt-0.5 text-lg font-black text-primary">{pontosTotais}</p></div>
+          <div className="rounded-2xl border border-primary/10 bg-secondary/65 p-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Movimentos</p><p className="mt-0.5 text-lg font-black text-primary">{movimentos}</p></div>
+          <div className="rounded-2xl border border-primary/10 bg-secondary/65 p-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Combo</p><p className="mt-0.5 text-lg font-black text-primary">x{Math.max(1, combo + 1)}</p></div>
+        </div>
+
+        <div className="relative mt-4">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground"><span>Progresso da etapa</span><span>{pontosFase}/{meta}</span></div>
+          <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300" style={{ width: `${progresso}%` }} /></div>
+          <div className="mt-3 grid grid-cols-5 gap-1.5">
+            {FASES.map((item, i) => {
+              const etapa = i + 1
+              const ativa = nivel === etapa
+              const concluida = nivel > etapa
+              return <div key={item.nome} title={item.nome} className={`h-1.5 rounded-full transition ${concluida ? "bg-amber-500" : ativa ? "bg-primary" : "bg-secondary"}`} />
+            })}
+          </div>
+        </div>
+      </section>
+
+      {offline && <div className="mt-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50/95 p-3 text-xs text-amber-950"><CloudOff className="size-4 shrink-0"/>A missão continua funcionando sem internet. O resultado será sincronizado depois.</div>}
+      {rankingMsg && <div className="mt-3 rounded-2xl border border-primary/15 bg-white/85 p-3 text-sm text-primary shadow-sm">{rankingMsg}</div>}
+
+      <section className="mt-3 rounded-[30px] border border-primary/10 bg-[linear-gradient(145deg,rgba(82,17,35,.09),rgba(185,138,57,.08))] p-2.5 shadow-[0_22px_55px_rgba(82,17,35,.13)]">
+        <div className="grid grid-cols-8 gap-1.5 rounded-[24px] border border-white/80 bg-white/70 p-2 shadow-inner" aria-label="Tabuleiro da Missão do Altar">
+          {tabuleiro.map((p, i) => (
+            <button
+              key={p?.id || i}
+              type="button"
+              disabled={!p || ocupado || movimentos <= 0 || fim}
+              onClick={() => void escolher(i)}
+              aria-label={p ? `${NOMES[p.tipo]}, posição ${i + 1}` : "Espaço vazio"}
+              className={`aspect-square rounded-xl border text-[clamp(1rem,5.2vw,1.75rem)] shadow-[0_4px_10px_rgba(82,17,35,.08)] transition duration-150 active:scale-90 ${selecionada === i ? "z-10 scale-110 border-primary bg-primary/10 ring-2 ring-primary/25" : "border-white/90 bg-white/95 hover:border-primary/20"}`}
+            >
+              {p ? SIMBOLOS[p.tipo] : ""}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-3 rounded-2xl border border-white/70 bg-white/75 p-3 text-center text-sm leading-5 text-muted-foreground shadow-sm backdrop-blur-xl">{mensagem}</div>
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        <Button variant="outline" onClick={reiniciar}><RotateCcw className="size-4"/>Reiniciar</Button>
+        <Button variant="outline" onClick={() => { const n = !som; setSom(n); localStorage.setItem(CHAVE_SOM, n ? "1" : "0") }}>{som ? <Volume2 className="size-4"/> : <VolumeX className="size-4"/>}{som ? "Som" : "Sem som"}</Button>
+        <Button variant="outline" onClick={() => { const n = !vibrar; setVibrar(n); localStorage.setItem(CHAVE_VIBRAR, n ? "1" : "0") }}><Vibrate className="size-4"/>Vibração {vibrar ? "on" : "off"}</Button>
+      </div>
+      <div className="mt-4 flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground"><Trophy className="size-4"/>Recorde local: {recorde} <Sparkles className="size-4"/></div>
 
       {fim && (
         <div className="fixed inset-0 z-[100] grid place-items-center bg-[#271018]/75 p-4 backdrop-blur-md">
           <section className="w-full max-w-sm rounded-[32px] border border-white/60 bg-[#fffaf0] p-6 text-center shadow-2xl">
             <span className="mx-auto flex size-16 items-center justify-center rounded-[22px] bg-primary text-3xl text-white shadow-lg">✝️</span>
-            <p className="mt-4 text-[10px] font-black uppercase tracking-[.18em] text-primary">Caminho registrado</p>
+            <p className="mt-4 text-[10px] font-black uppercase tracking-[.18em] text-primary">Missão registrada</p>
             <h2 className="mt-1 font-serif text-3xl font-semibold text-primary">Rodada concluída</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">Você alcançou o nível {nivel} com <strong className="text-primary">{pontosTotais} pontos</strong>. Seu melhor resultado do dia será considerado no ranking.</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">Você alcançou o nível {nivel} com <strong className="text-primary">{pontosTotais} pontos</strong>. Seu melhor resultado do dia será considerado na classificação.</p>
             {rankingMsg && <p className="mt-3 rounded-2xl bg-white p-3 text-xs font-medium text-primary">{rankingMsg}</p>}
             <Button className="mt-5 w-full" onClick={reiniciar}><Sparkles className="size-4"/>Jogar novamente</Button>
           </section>
         </div>
       )}
+    </div>
+  )
+
+  if (embedded) return conteudo
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff4d7_0%,#fffaf0_34%,#f7eee5_100%)]">
+      <AreaHeader titulo="Missão do Altar" subtitulo="Jogo da Jornada Litúrgica" voltarHref={isMod ? "/area-restrita/moderador" : "/area-restrita/membro"} menu={isMod ? <ModeradorMenu /> : <MembroMenu />} />
+      <main>{conteudo}</main>
     </div>
   )
 }
