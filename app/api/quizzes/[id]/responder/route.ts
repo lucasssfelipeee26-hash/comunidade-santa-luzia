@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import { buscarQuiz, buscarRespostaQuiz, buscarUsuario, salvarRespostaQuiz } from "@/lib/db"
 import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
+import { notificarMudancasRanking, snapshotRanking } from "@/lib/notificacoes-ranking"
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return { perguntaId: p.id, correto, correta: p.correta, explicacao: p.explicacao || null }
   })
 
+  const ano = Number(dataCuiabaIso().slice(0, 4))
+  const antes = snapshotRanking(ano)
   const resultado = salvarRespostaQuiz({ quiz_id: quiz.id, usuario_id: usuario.id, respostas, acertos, pontos, total_pontos: totalPontos })
+  notificarMudancasRanking(ano, antes, usuario.id, `quiz:${quiz.id}`)
   return NextResponse.json({ ok: true, resultado, detalhes })
 }
