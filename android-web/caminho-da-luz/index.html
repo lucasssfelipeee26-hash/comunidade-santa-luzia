@@ -6,46 +6,54 @@
   <meta name="theme-color" content="#521123" />
   <title>Caminho da Luz</title>
   <style>
-    :root{--vinho:#7b1326;--vinho2:#521123;--ouro:#b98a39;--marfim:#fffaf0;--texto:#392d30;--muted:#76696c}
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:radial-gradient(circle at top,#fff2cf 0,#fff 36%,#f8f1e8 100%);color:var(--texto);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button{font:inherit}
-    .app{min-height:100vh;padding:max(14px,env(safe-area-inset-top)) 12px max(24px,env(safe-area-inset-bottom));max-width:620px;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--vinho)}h1{font-family:Georgia,serif;color:var(--vinho);font-size:28px;margin:2px 0 3px}.sub{font-size:13px;color:var(--muted)}.close{width:42px;height:42px;border:1px solid #eadbd5;border-radius:16px;background:#fff;color:var(--vinho);font-size:20px;box-shadow:0 8px 24px #52112312}
-    .card{border:1px solid #efe0d8;background:#ffffffdc;border-radius:26px;padding:14px;box-shadow:0 18px 50px #52112314;backdrop-filter:blur(12px)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.stat{background:#fff7ea;border-radius:17px;padding:9px;text-align:center}.stat small{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.stat strong{display:block;color:var(--vinho);font-size:18px;margin-top:2px}.bar{height:8px;background:#f2e7dd;border-radius:999px;overflow:hidden;margin-top:11px}.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--vinho),var(--ouro));border-radius:inherit;transition:width .25s}.bartext{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--muted)}
-    .boardwrap{margin-top:12px}.board{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}.cell{aspect-ratio:1;border:1px solid #f1e6df;border-radius:12px;background:#fff;font-size:clamp(18px,6.2vw,32px);display:grid;place-items:center;box-shadow:0 4px 12px #5211230d;transition:transform .12s,border-color .12s,background .12s}.cell:active{transform:scale(.9)}.cell.sel{transform:scale(1.06);border:2px solid var(--vinho);background:#fff0f2}.cell.empty{opacity:.2}.cell:disabled{cursor:default}
-    .msg{margin-top:11px;text-align:center;padding:10px 12px;border-radius:16px;background:#ffffffb8;color:var(--muted);font-size:13px;min-height:39px}.controls{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}.pill{border:1px solid #e8dad3;background:#fff;color:var(--vinho);min-height:40px;padding:0 13px;border-radius:14px;font-weight:700}.record{text-align:center;color:var(--muted);font-size:11px;margin-top:11px}
-    .overlay{position:fixed;inset:0;background:#271018b8;display:none;place-items:center;padding:18px;z-index:9;backdrop-filter:blur(7px)}.overlay.show{display:grid}.modal{width:min(100%,420px);background:var(--marfim);border-radius:30px;padding:24px;text-align:center;box-shadow:0 30px 90px #0005}.seal{width:64px;height:64px;border-radius:22px;background:var(--vinho);color:#fff;display:grid;place-items:center;font-size:31px;margin:auto}.modal h2{font-family:Georgia,serif;color:var(--vinho);font-size:27px;margin:15px 0 6px}.modal p{color:var(--muted);line-height:1.55}.primary{width:100%;min-height:50px;border:0;border-radius:16px;background:var(--vinho);color:#fff;font-weight:800;margin-top:10px}.secondary{width:100%;min-height:44px;border:1px solid #e2d3ca;border-radius:14px;background:#fff;color:var(--vinho);font-weight:700;margin-top:8px}
-    @media(max-width:380px){.board{gap:3px}.cell{border-radius:9px}.card{padding:10px}.stats{gap:5px}}
+    :root{--vinho:#7b1326;--vinho2:#521123;--ouro:#b98a39;--marfim:#fffaf0;--creme:#fff4d7;--texto:#392d30;--muted:#76696c;--linha:#eadbd5;--sec:#f5eadc}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:radial-gradient(circle at top,var(--creme) 0,var(--marfim) 34%,#f7eee5 100%);color:var(--texto);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button{font:inherit}.app{min-height:100vh;max-width:620px;margin:auto;padding:max(14px,env(safe-area-inset-top)) 12px max(26px,env(safe-area-inset-bottom))}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.brand small{display:block;font-size:9px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--vinho)}.brand h1{font-family:Georgia,serif;color:var(--vinho);font-size:26px;line-height:1.05;margin:4px 0 2px}.brand p{font-size:12px;color:var(--muted);margin:0}.close{width:42px;height:42px;border:1px solid #eadbd5;border-radius:16px;background:#ffffffdf;color:var(--vinho);font-size:22px;box-shadow:0 8px 24px #52112312}
+    .hero{position:relative;overflow:hidden;border:1px solid #7b132622;background:#ffffffdf;border-radius:30px;padding:15px;box-shadow:0 24px 70px #52112320;backdrop-filter:blur(12px)}.glow{position:absolute;width:150px;height:150px;border-radius:50%;right:-55px;top:-65px;background:#7b13260d;filter:blur(22px)}.phasehead{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.eyebrow{font-size:9px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--vinho)}.phasehead h2{font-family:Georgia,serif;color:var(--vinho);font-size:29px;margin:3px 0 1px}.phasehead p{font-size:13px;color:var(--muted);margin:0}.seal{width:56px;height:56px;display:grid;place-items:center;border-radius:20px;background:var(--vinho);color:#fff;font-size:25px;box-shadow:0 12px 28px #5211232b}
+    .stats{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:13px}.stat{border:1px solid #7b132616;background:#f7ecddcc;border-radius:17px;padding:9px 5px;text-align:center}.stat small{display:block;font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.stat strong{display:block;color:var(--vinho);font-size:18px;margin-top:1px}.progressrow{display:flex;justify-content:space-between;margin-top:13px;font-size:9px;font-weight:700;color:var(--muted)}.bar{height:9px;background:var(--sec);border-radius:999px;overflow:hidden;margin-top:5px}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--vinho),#d49b35);border-radius:inherit;transition:width .28s}.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:10px}.step{height:6px;background:var(--sec);border-radius:999px}.step.done{background:#d49b35}.step.active{background:var(--vinho)}
+    .boardframe{margin-top:11px;padding:8px;border:1px solid #7b13261a;border-radius:30px;background:linear-gradient(145deg,#7b132614,#b98a3916);box-shadow:0 22px 55px #5211231f}.boardinner{padding:7px;border:1px solid #ffffffdd;border-radius:24px;background:#ffffffb8;box-shadow:inset 0 1px 9px #5211230c}.board{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}.cell{aspect-ratio:1;border:1px solid #ffffffed;border-radius:12px;background:#fffffff2;font-size:clamp(17px,5.4vw,29px);display:grid;place-items:center;box-shadow:0 4px 10px #52112313;transition:transform .14s,border-color .14s,background .14s}.cell:active{transform:scale(.9)}.cell.sel{z-index:2;transform:scale(1.1);border:2px solid var(--vinho);background:#fff0f2;box-shadow:0 7px 20px #52112326}.cell.empty{opacity:.15}.cell:disabled{cursor:default}
+    .msg{margin-top:10px;min-height:44px;display:grid;place-items:center;text-align:center;padding:9px 12px;border:1px solid #ffffffdc;border-radius:17px;background:#ffffffbf;color:var(--muted);font-size:12px;line-height:1.45;box-shadow:0 7px 20px #5211230c}.controls{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:9px}.pill{border:1px solid #e6d5cd;background:#fff;color:var(--vinho);min-height:40px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:800}.record{text-align:center;color:var(--muted);font-size:11px;font-weight:600;margin-top:11px}
+    .overlay{position:fixed;inset:0;background:#271018c2;display:none;place-items:center;padding:18px;z-index:20;backdrop-filter:blur(7px)}.overlay.show{display:grid}.modal{width:min(100%,390px);background:var(--marfim);border:1px solid #ffffff99;border-radius:32px;padding:24px;text-align:center;box-shadow:0 30px 90px #0006}.modal .seal{margin:auto;width:66px;height:66px;border-radius:22px;font-size:31px}.modal .mini{margin-top:15px;font-size:9px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--vinho)}.modal h2{font-family:Georgia,serif;color:var(--vinho);font-size:29px;margin:3px 0 6px}.modal p{color:var(--muted);font-size:14px;line-height:1.55}.primary,.secondary{width:100%;border-radius:16px;font-weight:850}.primary{min-height:50px;border:0;background:var(--vinho);color:#fff;margin-top:10px}.secondary{min-height:45px;border:1px solid #e2d3ca;background:#fff;color:var(--vinho);margin-top:8px}
+    @media(max-width:380px){.board{gap:3px}.cell{border-radius:9px}.hero{padding:12px}.boardframe{padding:6px}.boardinner{padding:5px}.stats{gap:5px}}
   </style>
 </head>
 <body>
   <main class="app">
-    <div class="top">
-      <div><div class="eyebrow" id="modo">Fase 1 de 5</div><h1>Caminho da Luz</h1><div class="sub">Jogo litúrgico instalado no seu celular</div></div>
+    <header class="top">
+      <div class="brand"><small>Kis · jogo litúrgico</small><h1>Caminho da Luz</h1><p>Instalado no seu celular</p></div>
       <button class="close" id="fechar" aria-label="Fechar jogo">×</button>
-    </div>
+    </header>
 
-    <section class="card">
+    <section class="hero">
+      <div class="glow"></div>
+      <div class="phasehead">
+        <div><div class="eyebrow" id="modo">Fase 1 de 5 · Entrada</div><h2 id="faseNome">Entrada</h2><p id="faseChamada">Prepare o coração</p></div>
+        <div class="seal" id="faseIcone">✝️</div>
+      </div>
       <div class="stats">
         <div class="stat"><small>Pontos</small><strong id="pontos">0</strong></div>
         <div class="stat"><small>Movimentos</small><strong id="movimentos">28</strong></div>
         <div class="stat"><small>Combo</small><strong id="combo">x1</strong></div>
       </div>
+      <div class="progressrow"><span>Progresso da etapa</span><span id="metaTexto">0/650</span></div>
       <div class="bar"><i id="progresso"></i></div>
-      <div class="bartext"><span>Meta da fase</span><span id="metaTexto">0/650</span></div>
+      <div class="steps" id="etapas"></div>
     </section>
 
-    <section class="card boardwrap"><div class="board" id="board" aria-label="Tabuleiro do Caminho da Luz"></div></section>
-    <div class="msg" id="mensagem">Combine 3 ou mais símbolos litúrgicos.</div>
+    <section class="boardframe"><div class="boardinner"><div class="board" id="board" aria-label="Tabuleiro do Caminho da Luz"></div></div></section>
+    <div class="msg" id="mensagem">Combine 3 ou mais símbolos litúrgicos para abrir o Caminho da Luz.</div>
     <div class="controls">
       <button class="pill" id="reiniciar">↻ Reiniciar</button>
       <button class="pill" id="som">🔊 Som</button>
-      <button class="pill" id="vibracao">📳 Vibração</button>
+      <button class="pill" id="vibracao">📳 Vibração on</button>
     </div>
-    <div class="record" id="recorde">🏆 Recorde local: 0</div>
+    <div class="record" id="recorde">🏆 Recorde local: 0 · ✨</div>
   </main>
 
   <div class="overlay" id="fim">
     <div class="modal">
       <div class="seal">✝️</div>
+      <div class="mini">Caminho registrado</div>
       <h2>Rodada concluída</h2>
       <p id="resultadoFinal"></p>
       <button class="primary" id="enviar">Voltar e sincronizar com o ranking</button>
@@ -56,28 +64,83 @@
 <script>
 (() => {
   "use strict";
-  const SIZE=8, SYMBOLS=["✝️","🕯️","🏆","📖","🌿","🕊️","🔥","⭐"], NAMES=["Cruz","Vela","Cálice","Missal","Naveta","Paz","Turíbulo","Alfaia"];
-  const KSTATE="santa-luzia:caminho-da-luz:nativo:estado:v1", KSOUND="santa-luzia:caminho-da-luz:nativo:som", KVIB="santa-luzia:caminho-da-luz:nativo:vibrar", KREC="santa-luzia:caminho-da-luz:nativo:recorde";
-  const el=id=>document.getElementById(id); let board=[], selected=null, phaseScore=0,totalScore=0,level=1,moves=28,combo=0,busy=false, sound=localStorage.getItem(KSOUND)!=="0", vibrate=localStorage.getItem(KVIB)!=="0";
-  const meta=l=>650+Math.max(0,l-1)*240, movesFor=l=>Math.max(18,28-Math.floor((l-1)/2)), mode=()=>level<=5?`Fase ${level} de 5`:`Jornada infinita · Nível ${level}`;
-  const rnd=()=>Math.floor(Math.random()*SYMBOLS.length), adjacent=(a,b)=>Math.abs(Math.floor(a/SIZE)-Math.floor(b/SIZE))+Math.abs(a%SIZE-b%SIZE)===1;
+  const SIZE=8;
+  const SYMBOLS=["✝️","🕯️","🏆","📖","🌿","🕊️","🔥","⭐"];
+  const NAMES=["Cruz","Vela","Cálice","Missal","Naveta","Paz","Turíbulo","Alfaia"];
+  const PHASES=[
+    {name:"Entrada",call:"Prepare o coração",icon:"✝️"},
+    {name:"Palavra",call:"Escute e anuncie",icon:"📖"},
+    {name:"Ofertório",call:"Entregue seus dons",icon:"🌿"},
+    {name:"Eucaristia",call:"Permaneça na presença",icon:"🏆"},
+    {name:"Envio",call:"Leve a luz adiante",icon:"🕊️"}
+  ];
+  const KSTATE="santa-luzia:caminho-da-luz:nativo:estado:v2",KSOUND="santa-luzia:caminho-da-luz:nativo:som",KVIB="santa-luzia:caminho-da-luz:nativo:vibrar",KREC="santa-luzia:caminho-da-luz:nativo:recorde";
+  const el=id=>document.getElementById(id);
+  let board=[],selected=null,phaseScore=0,totalScore=0,level=1,moves=28,combo=0,busy=false,sound=localStorage.getItem(KSOUND)!=="0",vibrate=localStorage.getItem(KVIB)!=="0",finished=false;
+  const meta=l=>650+Math.max(0,l-1)*240;
+  const movesFor=l=>Math.max(18,28-Math.floor((l-1)/2));
+  const phase=l=>l<=5?PHASES[l-1]:{name:`Jornada ${l}`,call:"Continue servindo e avançando",icon:"⭐"};
+  const mode=()=>level<=5?`Fase ${level} de 5 · ${PHASES[level-1].name}`:`Jornada infinita · Nível ${level}`;
+  const rnd=()=>Math.floor(Math.random()*SYMBOLS.length);
+  const adjacent=(a,b)=>Math.abs(Math.floor(a/SIZE)-Math.floor(b/SIZE))+Math.abs(a%SIZE-b%SIZE)===1;
+  const delay=ms=>new Promise(r=>setTimeout(r,ms));
 
-  function matches(b){const out=new Set();for(let r=0;r<SIZE;r++){let s=0;while(s<SIZE){const t=b[r*SIZE+s],v=t&&t.t;let e=s+1;while(v!=null&&e<SIZE&&b[r*SIZE+e]&&b[r*SIZE+e].t===v)e++;if(v!=null&&e-s>=3)for(let c=s;c<e;c++)out.add(r*SIZE+c);s=e}}for(let c=0;c<SIZE;c++){let s=0;while(s<SIZE){const t=b[s*SIZE+c],v=t&&t.t;let e=s+1;while(v!=null&&e<SIZE&&b[e*SIZE+c]&&b[e*SIZE+c].t===v)e++;if(v!=null&&e-s>=3)for(let r=s;r<e;r++)out.add(r*SIZE+c);s=e}}return [...out]}
+  function matches(b){
+    const out=new Set();
+    for(let r=0;r<SIZE;r++){let s=0;while(s<SIZE){const v=b[r*SIZE+s]&&b[r*SIZE+s].t;let e=s+1;while(v!=null&&e<SIZE&&b[r*SIZE+e]&&b[r*SIZE+e].t===v)e++;if(v!=null&&e-s>=3)for(let c=s;c<e;c++)out.add(r*SIZE+c);s=e}}
+    for(let c=0;c<SIZE;c++){let s=0;while(s<SIZE){const v=b[s*SIZE+c]&&b[s*SIZE+c].t;let e=s+1;while(v!=null&&e<SIZE&&b[e*SIZE+c]&&b[e*SIZE+c].t===v)e++;if(v!=null&&e-s>=3)for(let r=s;r<e;r++)out.add(r*SIZE+c);s=e}}
+    return [...out];
+  }
   function fresh(){let b=[];for(let tries=0;tries<50;tries++){b=Array.from({length:SIZE*SIZE},()=>({t:rnd(),id:Math.random().toString(36).slice(2)}));if(!matches(b).length)break}return b}
   function drop(b){const n=[...b];for(let c=0;c<SIZE;c++){const col=[];for(let r=SIZE-1;r>=0;r--){const p=n[r*SIZE+c];if(p)col.push(p)}for(let r=SIZE-1;r>=0;r--)n[r*SIZE+c]=col[SIZE-1-r]||{t:rnd(),id:Math.random().toString(36).slice(2)}}return n}
-  const delay=ms=>new Promise(r=>setTimeout(r,ms));
   function buzz(ms=25){if(vibrate&&navigator.vibrate)navigator.vibrate(ms)}
-  function beep(kind){if(!sound)return;try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C,o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);const f=kind==="err"?150:kind==="phase"?720:kind==="combo"?560:420;o.frequency.value=f;o.frequency.exponentialRampToValueAtTime(kind==="err"?110:f*1.35,c.currentTime+.11);g.gain.value=.07;g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.14);o.start();o.stop(c.currentTime+.15);setTimeout(()=>c.close(),220)}catch{}}
-  function save(){try{localStorage.setItem(KSTATE,JSON.stringify({board,phaseScore,totalScore,level,moves}))}catch{}}
-  function load(){try{const s=JSON.parse(localStorage.getItem(KSTATE)||"null");if(s&&Array.isArray(s.board)&&s.board.length===64){board=s.board;phaseScore=Number(s.phaseScore)||0;totalScore=Number(s.totalScore)||0;level=Math.max(1,Number(s.level)||1);moves=Math.max(0,Number(s.moves)||movesFor(level));return}}catch{} board=fresh();moves=movesFor(level)}
-  function render(){el("modo").textContent=mode();el("pontos").textContent=totalScore;el("movimentos").textContent=moves;el("combo").textContent=`x${Math.max(1,combo+1)}`;el("metaTexto").textContent=`${phaseScore}/${meta(level)}`;el("progresso").style.width=`${Math.min(100,Math.round(phaseScore/meta(level)*100))}%`;el("som").textContent=sound?"🔊 Som":"🔇 Sem som";el("vibracao").textContent=vibrate?"📳 Vibração":"📴 Vibração off";el("recorde").textContent=`🏆 Recorde local: ${Number(localStorage.getItem(KREC)||0)}`;const root=el("board");root.innerHTML="";board.forEach((p,i)=>{const b=document.createElement("button");b.className="cell"+(selected===i?" sel":"")+(!p?" empty":"");b.disabled=busy||moves<=0||!p;b.textContent=p?SYMBOLS[p.t]:"";b.setAttribute("aria-label",p?`${NAMES[p.t]}, posição ${i+1}`:"Espaço vazio");b.onclick=()=>choose(i);root.appendChild(b)});save()}
+  function beep(kind){
+    if(!sound)return;
+    try{
+      const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ctx=new C;
+      const notes=kind==="err"?[150,110]:kind==="phase"?[520,660,820]:kind==="combo"?[440,560,700]:[420,560];
+      notes.forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime+i*.055;o.connect(g);g.connect(ctx.destination);o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(kind==="phase"?.055:.04,t);g.gain.exponentialRampToValueAtTime(.001,t+.12);o.start(t);o.stop(t+.13)});
+      setTimeout(()=>ctx.close(),500);
+    }catch{}
+  }
+  function save(){if(finished)return;try{localStorage.setItem(KSTATE,JSON.stringify({board,phaseScore,totalScore,level,moves}))}catch{}}
+  function load(){try{const s=JSON.parse(localStorage.getItem(KSTATE)||"null");if(s&&Array.isArray(s.board)&&s.board.length===64){board=s.board;phaseScore=Number(s.phaseScore)||0;totalScore=Number(s.totalScore)||0;level=Math.max(1,Number(s.level)||1);moves=Math.max(0,Number(s.moves)||movesFor(level));return}}catch{}board=fresh();moves=movesFor(level)}
+  function renderSteps(){const root=el("etapas");root.innerHTML="";PHASES.forEach((_,i)=>{const d=document.createElement("i"),n=i+1;d.className="step"+(level>n?" done":level===n?" active":"");root.appendChild(d)})}
+  function render(){
+    const p=phase(level);
+    el("modo").textContent=mode();el("faseNome").textContent=p.name;el("faseChamada").textContent=p.call;el("faseIcone").textContent=p.icon;
+    el("pontos").textContent=totalScore;el("movimentos").textContent=moves;el("combo").textContent=`x${Math.max(1,combo+1)}`;el("metaTexto").textContent=`${phaseScore}/${meta(level)}`;el("progresso").style.width=`${Math.min(100,Math.round(phaseScore/meta(level)*100))}%`;
+    el("som").textContent=sound?"🔊 Som":"🔇 Sem som";el("vibracao").textContent=vibrate?"📳 Vibração on":"📴 Vibração off";el("recorde").textContent=`🏆 Recorde local: ${Number(localStorage.getItem(KREC)||0)} · ✨`;renderSteps();
+    const root=el("board");root.innerHTML="";board.forEach((p,i)=>{const b=document.createElement("button");b.className="cell"+(selected===i?" sel":"")+(!p?" empty":"");b.disabled=busy||moves<=0||!p||finished;b.textContent=p?SYMBOLS[p.t]:"";b.setAttribute("aria-label",p?`${NAMES[p.t]}, posição ${i+1}`:"Espaço vazio");b.onclick=()=>choose(i);root.appendChild(b)});save();
+  }
   function message(t){el("mensagem").textContent=t}
-  async function resolveCascade(b){let cur=b,round=0,totalGain=0;while(true){const m=matches(cur);if(!m.length)break;round++;const gain=m.length*20*round;totalGain+=gain;const removed=[...cur];m.forEach(i=>removed[i]=null);board=removed;render();await delay(105);cur=drop(removed);board=cur;render();await delay(125)}combo=Math.max(0,round-1);phaseScore+=totalGain;totalScore+=totalGain;beep(round>1?"combo":"match");buzz(round>1?55:25);return round}
-  async function choose(i){if(busy||moves<=0)return;if(selected==null){selected=i;buzz(10);render();return}if(selected===i){selected=null;render();return}if(!adjacent(selected,i)){selected=i;render();return}busy=true;const a=selected;selected=null;const old=[...board];[board[a],board[i]]=[board[i],board[a]];render();if(!matches(board).length){beep("err");buzz(65);await delay(120);board=old;busy=false;message("Essa troca não forma uma combinação.");render();return}moves--;const casc=await resolveCascade(board);message(casc>1?`Combo x${casc}! Continue assim.`:"Boa combinação!");if(phaseScore>=meta(level)){beep("phase");buzz(100);const done=level;level++;message(done<5?`Fase ${done} concluída!`:done===5?"As cinco fases foram concluídas. A Jornada Infinita começou!":`Nível ${done} concluído!`);await delay(600);phaseScore=0;moves=movesFor(level);combo=0;board=fresh()}else if(moves<=0){finishRound();busy=false;render();return}busy=false;render()}
-  function reset(){selected=null;phaseScore=0;totalScore=0;level=1;moves=movesFor(1);combo=0;busy=false;board=fresh();localStorage.removeItem(KSTATE);el("fim").classList.remove("show");message("Nova jornada iniciada.");render()}
-  function finishRound(){const rec=Number(localStorage.getItem(KREC)||0);if(totalScore>rec)localStorage.setItem(KREC,String(totalScore));localStorage.removeItem(KSTATE);el("resultadoFinal").textContent=`Você chegou ao nível ${level} com ${totalScore} ponto(s). O aplicativo vai usar esse resultado para atualizar o seu melhor bônus diário.`;el("fim").classList.add("show")}
-  function send(){const m=mode();if(window.SantaLuziaGame&&typeof window.SantaLuziaGame.finish==="function"){window.SantaLuziaGame.finish(Math.max(0,Math.trunc(totalScore)),Math.max(1,Math.trunc(level)),m)}else{message("Este jogo foi aberto fora do aplicativo.")}}
-  el("reiniciar").onclick=reset;el("som").onclick=()=>{sound=!sound;localStorage.setItem(KSOUND,sound?"1":"0");render()};el("vibracao").onclick=()=>{vibrate=!vibrate;localStorage.setItem(KVIB,vibrate?"1":"0");render()};el("fechar").onclick=()=>window.SantaLuziaGame&&window.SantaLuziaGame.close?window.SantaLuziaGame.close():history.back();el("enviar").onclick=send;el("jogarNovamente").onclick=reset;
+  async function resolveCascade(b){let cur=b,round=0,gainTotal=0;while(true){const m=matches(cur);if(!m.length)break;round++;gainTotal+=m.length*20*round;const removed=[...cur];m.forEach(i=>removed[i]=null);board=removed;render();await delay(110);cur=drop(removed);board=cur;render();await delay(135)}combo=Math.max(0,round-1);beep(round>1?"combo":"match");buzz(round>1?55:25);return{round,gainTotal}}
+  async function choose(i){
+    if(busy||moves<=0||finished)return;
+    if(selected==null){selected=i;buzz(10);render();return}
+    if(selected===i){selected=null;render();return}
+    if(!adjacent(selected,i)){selected=i;render();return}
+    busy=true;const a=selected;selected=null;const old=[...board];[board[a],board[i]]=[board[i],board[a]];render();
+    if(!matches(board).length){beep("err");buzz(65);await delay(120);board=old;busy=false;message("Essa troca não forma uma combinação. Procure símbolos vizinhos que fechem uma sequência.");render();return}
+    moves--;const res=await resolveCascade(board);phaseScore+=res.gainTotal;totalScore+=res.gainTotal;message(res.round>1?`Combo x${res.round}! A luz continua avançando.`:"Boa combinação! Continue o caminho.");
+    if(phaseScore>=meta(level)){
+      beep("phase");buzz(100);const done=level;level++;
+      message(done<5?`${PHASES[done-1].name} concluída. Próxima etapa: ${PHASES[done].name}.`:done===5?"As cinco etapas foram concluídas. A Jornada Infinita começou!":`Nível ${done} concluído!`);
+      render();await delay(650);phaseScore=0;moves=movesFor(level);combo=0;board=fresh();
+    }else if(moves<=0){finishRound();busy=false;render();return}
+    busy=false;render();
+  }
+  function reset(){selected=null;phaseScore=0;totalScore=0;level=1;moves=movesFor(1);combo=0;busy=false;finished=false;board=fresh();localStorage.removeItem(KSTATE);el("fim").classList.remove("show");message("Nova jornada iniciada. Combine 3 ou mais símbolos litúrgicos.");render()}
+  function finishRound(){finished=true;const rec=Number(localStorage.getItem(KREC)||0);if(totalScore>rec)localStorage.setItem(KREC,String(totalScore));localStorage.removeItem(KSTATE);el("resultadoFinal").innerHTML=`Você alcançou o nível <strong>${level}</strong> com <strong>${totalScore} pontos</strong>. Seu melhor resultado do dia será considerado no ranking.`;el("fim").classList.add("show")}
+  function send(){if(window.SantaLuziaGame&&typeof window.SantaLuziaGame.finish==="function")window.SantaLuziaGame.finish(Math.max(0,Math.trunc(totalScore)),Math.max(1,Math.trunc(level)),mode());else message("Este jogo foi aberto fora do aplicativo.")}
+  function close(){if(window.SantaLuziaGame&&typeof window.SantaLuziaGame.close==="function")window.SantaLuziaGame.close();else if(history.length>1)history.back()}
+
+  el("reiniciar").onclick=reset;
+  el("som").onclick=()=>{sound=!sound;localStorage.setItem(KSOUND,sound?"1":"0");render()};
+  el("vibracao").onclick=()=>{vibrate=!vibrate;localStorage.setItem(KVIB,vibrate?"1":"0");render()};
+  el("fechar").onclick=close;
+  el("enviar").onclick=send;
+  el("jogarNovamente").onclick=reset;
   load();render();
 })();
 </script>
