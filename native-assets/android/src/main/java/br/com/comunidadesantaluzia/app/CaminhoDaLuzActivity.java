@@ -14,6 +14,9 @@ public class CaminhoDaLuzActivity extends Activity {
     private static final String URL_JOGO = "file:///android_asset/public/caminho-da-luz/index.html";
     private static final String PREFIXO_LOCAL = "file:///android_asset/public/caminho-da-luz/";
     private WebView webView;
+    private int checkpointScore = 0;
+    private int checkpointLevel = 1;
+    private String checkpointMode = "Missão do Altar";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,18 +57,32 @@ public class CaminhoDaLuzActivity extends Activity {
         webView.loadUrl(URL_JOGO);
     }
 
+    private Intent resultado(int score, int level, String mode) {
+        int scoreSeguro = Math.max(0, Math.min(1_000_000, score));
+        int nivelSeguro = Math.max(1, Math.min(999, level));
+        String modoSeguro = mode == null ? "Missão do Altar" : mode.trim();
+        if (modoSeguro.length() > 80) modoSeguro = modoSeguro.substring(0, 80);
+        Intent resposta = new Intent();
+        resposta.putExtra("score", scoreSeguro);
+        resposta.putExtra("level", nivelSeguro);
+        resposta.putExtra("mode", modoSeguro);
+        return resposta;
+    }
+
     private final class GameBridge {
         @JavascriptInterface
-        public void finish(int score, int level, String mode) {
-            int scoreSeguro = Math.max(0, Math.min(1_000_000, score));
-            int nivelSeguro = Math.max(1, Math.min(999, level));
-            String modoSeguro = mode == null ? "Missão do Altar" : mode.trim();
-            if (modoSeguro.length() > 80) modoSeguro = modoSeguro.substring(0, 80);
+        public void checkpoint(int score, int level, String mode) {
+            checkpointScore = Math.max(checkpointScore, Math.max(0, Math.min(1_000_000, score)));
+            checkpointLevel = Math.max(checkpointLevel, Math.max(1, Math.min(999, level)));
+            if (mode != null && !mode.trim().isEmpty()) {
+                checkpointMode = mode.trim().length() > 80 ? mode.trim().substring(0, 80) : mode.trim();
+            }
+        }
 
-            Intent resposta = new Intent();
-            resposta.putExtra("score", scoreSeguro);
-            resposta.putExtra("level", nivelSeguro);
-            resposta.putExtra("mode", modoSeguro);
+        @JavascriptInterface
+        public void finish(int score, int level, String mode) {
+            checkpoint(score, level, mode);
+            Intent resposta = resultado(checkpointScore, checkpointLevel, checkpointMode);
             runOnUiThread(() -> {
                 setResult(Activity.RESULT_OK, resposta);
                 CaminhoDaLuzActivity.this.finish();
@@ -75,10 +92,24 @@ public class CaminhoDaLuzActivity extends Activity {
         @JavascriptInterface
         public void close() {
             runOnUiThread(() -> {
-                setResult(Activity.RESULT_CANCELED);
+                if (checkpointLevel > 1) {
+                    setResult(Activity.RESULT_OK, resultado(checkpointScore, checkpointLevel, checkpointMode));
+                } else {
+                    setResult(Activity.RESULT_CANCELED);
+                }
                 CaminhoDaLuzActivity.this.finish();
             });
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (checkpointLevel > 1) {
+            setResult(Activity.RESULT_OK, resultado(checkpointScore, checkpointLevel, checkpointMode));
+        } else {
+            setResult(Activity.RESULT_CANCELED);
+        }
+        super.onBackPressed();
     }
 
     @Override
