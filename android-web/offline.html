@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#7b1326" />
+  <title>Santa Luzia · Offline</title>
+  <style>
+    :root{--vinho:#7b1326;--vinho2:#521123;--ouro:#b88724;--verde:#0b4b35;--creme:#fffaf0;--card:#fff;--texto:#342a2c;--muted:#74686a;--borda:#e8ddd5;--ok:#146c43;--warn:#8a5b08;--danger:#a61b2b}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fff5df 0,#fffaf0 190px,#f7f2ec 100%);color:var(--texto);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}.app{max-width:760px;margin:auto;padding:calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 92px)}
+    .top{border:1px solid #7b132622;background:#ffffffeb;border-radius:26px;padding:16px;box-shadow:0 18px 55px #52112318}.brand{display:flex;align-items:center;gap:12px}.seal{width:48px;height:48px;border-radius:17px;display:grid;place-items:center;background:var(--vinho);color:#fff;font-size:23px}.brand small{display:block;color:var(--ouro);font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.brand h1{font-family:Georgia,serif;color:var(--vinho);font-size:25px;margin:2px 0 0}.status{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:15px;background:#fff5d6;border:1px solid #ead291;padding:9px 11px;font-size:12px;color:#6e5117}.status strong{color:#5b3e08}.retry{border:0;border-radius:11px;background:var(--vinho);color:#fff;padding:8px 11px;font-size:11px;font-weight:800}
+    .nav{display:flex;gap:7px;overflow:auto;padding:12px 2px 8px;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}.nav button{white-space:nowrap;border:1px solid var(--borda);border-radius:999px;background:#fff;color:var(--vinho);padding:9px 12px;font-size:12px;font-weight:800}.nav button.on{border-color:var(--vinho);background:var(--vinho);color:#fff}.page{display:none}.page.on{display:block}.hero{margin:8px 0 12px;border-radius:24px;padding:18px;background:linear-gradient(135deg,#641125,#8a1938);color:#fff;box-shadow:0 18px 48px #52112320}.hero small{font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#f4d77e}.hero h2{font-family:Georgia,serif;font-size:28px;margin:5px 0 4px}.hero p{margin:0;color:#fffbe8d8;font-size:13px;line-height:1.5}.grid{display:grid;gap:10px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.card{border:1px solid var(--borda);border-radius:20px;background:var(--card);padding:15px;box-shadow:0 8px 25px #5211230b}.card h3{font-family:Georgia,serif;color:var(--vinho);font-size:20px;margin:0 0 8px}.card h4{margin:0 0 5px;color:var(--verde)}.muted{color:var(--muted);font-size:12px;line-height:1.5}.value{font-size:25px;font-weight:800;color:var(--vinho)}.pill{display:inline-flex;border-radius:999px;padding:4px 8px;background:#7b132610;color:var(--vinho);font-size:10px;font-weight:800}.empty{border:1px dashed #d7cbc2;border-radius:18px;padding:20px;text-align:center;color:var(--muted);font-size:13px;background:#ffffff99}.list{display:grid;gap:10px}.row{border:1px solid var(--borda);border-radius:17px;background:#fff;padding:13px}.rowhead{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}.row strong{color:var(--vinho)}.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}.action{border:1px solid #d7cbc2;border-radius:12px;background:#fff;padding:9px 11px;color:var(--vinho);font-size:11px;font-weight:800}.action.primary{border-color:var(--vinho);background:var(--vinho);color:#fff}.action.good{border-color:#99caae;background:#edf9f2;color:#146c43}.action.warn{border-color:#e3c779;background:#fff8dd;color:#72510a}.pending{margin-top:9px;border:1px solid #94c8e8;background:#eef8ff;color:#235d7b;border-radius:12px;padding:8px 10px;font-size:11px;font-weight:700}.rank{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:8px;border-bottom:1px solid #eee5df;padding:10px 1px}.rank:last-child{border:0}.pos{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:#7b132610;color:var(--vinho);font-weight:900}.points{font-weight:900;color:var(--ouro)}label{display:grid;gap:5px;color:#51484a;font-size:11px;font-weight:800}input,select,textarea{width:100%;border:1px solid #d8cdc5;border-radius:12px;background:#fff;padding:11px;color:var(--texto)}textarea{min-height:72px;resize:vertical}.form{display:grid;gap:10px}.notice{border-radius:16px;padding:11px 12px;font-size:12px;line-height:1.5}.notice.ok{border:1px solid #9ac8ac;background:#eef9f2;color:#145f3d}.notice.warn{border:1px solid #e1c36c;background:#fff8dd;color:#74520b}.lit h4{font-family:Georgia,serif;color:var(--vinho);font-size:19px;margin:15px 0 5px}.lit p{white-space:pre-line;font-size:14px;line-height:1.65;margin:4px 0}.lit .ref{color:var(--ouro);font-weight:800;font-size:12px}.bottom{position:fixed;z-index:20;left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100% - 18px),742px);display:grid;grid-template-columns:repeat(5,1fr);gap:4px;border:1px solid #ded2c8;background:#fffffff2;backdrop-filter:blur(14px);padding:6px;border-radius:20px;box-shadow:0 15px 55px #27101825}.bottom button{border:0;background:transparent;border-radius:14px;padding:8px 2px;color:#76686b;font-size:9px;font-weight:800}.bottom button.on{background:#7b132611;color:var(--vinho)}.bottom b{display:block;font-size:18px;margin-bottom:2px}@media(max-width:460px){.grid.two{grid-template-columns:1fr}.hero h2{font-size:25px}.card{padding:13px}.app{padding-left:9px;padding-right:9px}}
+  </style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <div class="brand"><div class="seal">✦</div><div><small>Comunidade Santa Luzia</small><h1>Modo offline</h1></div></div>
+    <div class="status"><span>📴 <strong>Sem internet.</strong> Dados já sincronizados continuam disponíveis.</span><button class="retry" id="reconectar">Reconectar</button></div>
+  </header>
+  <nav class="nav" id="nav"></nav>
+  <section class="page" id="painel"></section>
+  <section class="page" id="liturgia"></section>
+  <section class="page" id="formacao"></section>
+  <section class="page" id="jornada"></section>
+  <section class="page" id="escala"></section>
+  <section class="page" id="atrasos"></section>
+</main>
+<nav class="bottom" id="bottom"></nav>
+<script>
+(() => {
+  "use strict";
+  const SERVER = "https://comunidade-santa-luzia-production.up.railway.app";
+  const SNAPSHOT_KEY = "santa-luzia:android-offline:snapshot:v1";
+  const QUEUE_KEY = "santa-luzia:android-offline:queue:v1";
+  const tabs = [
+    ["painel","⌂","Painel"],
+    ["liturgia","✝","Liturgia"],
+    ["formacao","📖","Formação"],
+    ["jornada","🏆","Jornada"],
+    ["escala","📅","Escala"],
+    ["atrasos","⏰","Atrasos"],
+  ];
+  let active = "painel";
+  let snapshot = readJson(SNAPSHOT_KEY, null);
+
+  function readJson(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v == null ? fallback : v; } catch { return fallback; } }
+  function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+  function fmtDate(v){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(v||"")))return esc(v||"");const [y,m,d]=String(v).split("-");return `${d}/${m}/${y}`;}
+  function nowIso(){const d=new Date(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return `${d.getFullYear()}-${m}-${day}`;}
+  function id(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():`local-${Date.now()}-${Math.random().toString(36).slice(2)}`;}
+  function queue(){const q=readJson(QUEUE_KEY,[]);return Array.isArray(q)?q:[];}
+  function saveQueue(q){localStorage.setItem(QUEUE_KEY,JSON.stringify(q));}
+  function queueItem(item){const q=queue();q.push(item);saveQueue(q);render();}
+  function session(){return snapshot?.auth?.sessao||null;}
+  function user(){return session()?.usuario||snapshot?.ranking?.eu||null;}
+  function profile(){return snapshot?.perfil?.membro||user()||null;}
+  function formations(){return Array.isArray(snapshot?.formacoes?.formacoes)?snapshot.formacoes.formacoes:[];}
+  function rankings(){return Array.isArray(snapshot?.ranking?.ranking)?snapshot.ranking.ranking:[];}
+  function members(){return Array.isArray(snapshot?.ranking?.membros)?snapshot.ranking.membros:[];}
+  function occurrences(){return Array.isArray(snapshot?.ranking?.ocorrencias)?snapshot.ranking.ocorrencias:[];}
+  function scales(){return Array.isArray(snapshot?.escalas?.escalas)?snapshot.escalas.escalas:[];}
+  function pendingForFormation(fid){return queue().slice().reverse().find(x=>x.tipo==="formacao-presenca"&&x.formacaoId===fid);}
+
+  function setActive(name){active=name;document.querySelectorAll(".page").forEach(x=>x.classList.toggle("on",x.id===name));document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab===name));window.scrollTo({top:0,behavior:"instant"});if(name==="liturgia")loadLiturgia();}
+  function navs(){
+    document.getElementById("nav").innerHTML=tabs.map(([k,i,n])=>`<button data-tab="${k}">${i} ${n}</button>`).join("");
+    document.getElementById("bottom").innerHTML=tabs.filter(x=>x[0]!=="liturgia").map(([k,i,n])=>`<button data-tab="${k}"><b>${i}</b>${n}</button>`).join("");
+    document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>setActive(b.dataset.tab)));
+  }
+
+  function renderPainel(){
+    const p=profile(),u=user(),q=queue(),updated=snapshot?.atualizadoEm?new Date(snapshot.atualizadoEm).toLocaleString("pt-BR"):"não informado";
+    const myId=String(u?.id||"");
+    const next=scales().filter(s=>s.data>=nowIso()&&Array.isArray(s.pessoas)&&s.pessoas.some(x=>String(x.id||"")===myId)).sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario))[0];
+    document.getElementById("painel").innerHTML=`
+      <div class="hero"><small>Meu acesso · disponível no aparelho</small><h2>${esc(p?.nome||u?.nome||"Santa Luzia")}</h2><p>${esc(p?.funcao||u?.funcao||session()?.tipo||"Usuário")} · última sincronização ${esc(updated)}</p></div>
+      ${!snapshot?`<div class="notice warn">Este aparelho ainda não possui uma sessão privada sincronizada. Conecte à internet uma vez, entre na sua conta e abra o painel; depois ele ficará disponível aqui.</div>`:""}
+      <div class="grid two">
+        <div class="card"><h3>Perfil</h3><div class="value">${esc(p?.funcao||"—")}</div><p class="muted">${p?.desde?`Na equipe desde ${esc(p.desde)}`:"Dados do último acesso sincronizado."}</p></div>
+        <div class="card"><h3>Pendências offline</h3><div class="value">${q.length}</div><p class="muted">Serão enviadas automaticamente quando o aplicativo voltar à internet.</p></div>
+      </div>
+      <div class="card" style="margin-top:10px"><h3>Próxima escala</h3>${next?`<h4>${fmtDate(next.data)} · ${esc(next.horario)}</h4><p class="muted">Celebrante: ${esc(next.celebrante||"Não informado")}</p>`:`<p class="muted">Nenhuma próxima escala sincronizada para este perfil.</p>`}</div>
+      <div class="card" style="margin-top:10px"><h3>Histórico do perfil</h3><div class="grid two"><div><span class="pill">Justificativas</span><div class="value">${Array.isArray(p?.justificativas)?p.justificativas.length:0}</div></div><div><span class="pill">Faltas</span><div class="value">${Array.isArray(p?.faltas)?p.faltas.length:0}</div></div><div><span class="pill">Advertências</span><div class="value">${Array.isArray(p?.advertencias)?p.advertencias.length:0}</div></div><div><span class="pill">Observações</span><div class="value">${Array.isArray(p?.observacoes)?p.observacoes.length:0}</div></div></div></div>`;
+  }
+
+  async function loadLiturgia(){
+    const root=document.getElementById("liturgia");root.innerHTML=`<div class="hero"><small>Liturgia no próprio APK</small><h2>Liturgia Diária</h2><p>Leituras e orações disponíveis sem internet.</p></div><div class="card"><p class="muted">Carregando a liturgia local…</p></div>`;
+    const iso=nowIso(),month=iso.slice(0,7);
+    try{
+      const res=await fetch(`/offline/liturgia-completa/${month}.json`);const pack=await res.json();const d=pack?.dias?.[iso];
+      if(!d)throw new Error();
+      const bloco=(titulo,arr)=>Array.isArray(arr)&&arr.length?arr.map(x=>`<h4>${esc(x.titulo||titulo)}</h4>${x.referencia?`<div class="ref">${esc(x.referencia)}</div>`:""}${x.refrao?`<p><strong>${esc(x.refrao)}</strong></p>`:""}<p>${esc(x.texto||"")}</p>`).join(""):"";
+      root.innerHTML=`<div class="hero"><small>${esc(d.cor||"Liturgia")}</small><h2>${esc(d.liturgia||"Liturgia Diária")}</h2><p>${esc(d.data||fmtDate(iso))}</p></div><div class="card lit">${d.oracoes?.coleta?`<h4>Oração do dia</h4><p>${esc(d.oracoes.coleta)}</p>`:""}${bloco("Primeira Leitura",d.leituras?.primeiraLeitura)}${bloco("Salmo",d.leituras?.salmo)}${bloco("Segunda Leitura",d.leituras?.segundaLeitura)}${bloco("Evangelho",d.leituras?.evangelho)}${d.oracoes?.oferendas?`<h4>Sobre as oferendas</h4><p>${esc(d.oracoes.oferendas)}</p>`:""}${d.oracoes?.comunhao?`<h4>Depois da comunhão</h4><p>${esc(d.oracoes.comunhao)}</p>`:""}</div>`;
+    }catch{root.innerHTML=`<div class="hero"><small>Liturgia local</small><h2>Liturgia Diária</h2><p>Conteúdo offline</p></div><div class="empty">A liturgia deste mês não foi encontrada dentro deste APK.</div>`;}
+  }
+
+  function renderFormation(){
+    const items=formations().slice().sort((a,b)=>String(a.data).localeCompare(String(b.data))),u=user();
+    document.getElementById("formacao").innerHTML=`<div class="hero"><small>Central de Formação</small><h2>Formações</h2><p>Consulte conteúdos e marque sua situação; a marcação fica no aparelho até a internet voltar.</p></div><div class="list" id="formation-list">${items.length?items.map(f=>{
+      const pend=pendingForFormation(f.id),pres=pend?.payload?.situacao||f.minha_presenca?.status||"";
+      return `<article class="row"><div class="rowhead"><div><strong>${esc(f.titulo)}</strong><div class="muted">${fmtDate(f.data)}${f.horario?` · ${esc(f.horario)}`:""} · Tema: ${esc(f.tema||"")}</div></div><span class="pill">${f.status==="cancelada"?"Cancelada":"Formação"}</span></div>${f.descricao?`<p class="muted">${esc(f.descricao)}</p>`:""}${f.status!=="cancelada"&&u?`<div class="actions"><button class="action good" data-pres="presente" data-fid="${esc(f.id)}">Presente</button><button class="action" data-pres="falta" data-fid="${esc(f.id)}">Falta</button><button class="action warn" data-pres="justificada" data-fid="${esc(f.id)}">Justificada</button></div>`:""}${pres?`<div class="pending">${pend?"⏳ Pendente de sincronização":"✓ Última situação sincronizada"}: ${esc(pres)}</div>`:""}</article>`;
+    }).join(""):`<div class="empty">Nenhuma formação foi sincronizada neste aparelho.</div>`}</div>`;
+    document.querySelectorAll("[data-pres]").forEach(b=>b.addEventListener("click",()=>{
+      const situacao=b.dataset.pres,fid=b.dataset.fid;if(!fid||!u?.id)return;let justificativa="";if(situacao==="justificada"){justificativa=prompt("Informe o motivo da falta justificada:","")||"";if(justificativa.trim().length<3)return;}
+      const cid=id();const q=queue().filter(x=>!(x.tipo==="formacao-presenca"&&x.formacaoId===fid));q.push({id:cid,tipo:"formacao-presenca",formacaoId:fid,criadoEm:Date.now(),payload:{situacao,justificativa,clientRequestId:cid}});saveQueue(q);render();setActive("formacao");
+    }));
+  }
+
+  function renderJourney(){
+    const r=rankings(),u=user(),mine=r.find(x=>String(x.usuarioId)===String(u?.id));
+    document.getElementById("jornada").innerHTML=`<div class="hero"><small>Jornada Litúrgica</small><h2>Missão e Classificação</h2><p>O jogo fica no celular. A classificação abaixo é a última versão recebida do servidor.</p></div><div class="grid two"><div class="card"><h3>Minha posição</h3><div class="value">${mine?`#${mine.posicao}`:"—"}</div><p class="muted">${mine?`${mine.pontos} pontos`:"Ainda sem dados sincronizados."}</p></div><div class="card"><h3>Missão do Altar</h3><button class="action primary" id="abrir-jogo">Jogar offline</button><p class="muted">Progresso do jogo permanece local no aparelho.</p></div></div><div class="card" style="margin-top:10px"><h3>Classificação</h3>${r.length?r.slice(0,20).map(x=>`<div class="rank"><div class="pos">${x.posicao}</div><div><strong>${esc(x.nome)}</strong><div class="muted">${esc(x.funcao||"")}</div></div><div class="points">${x.pontos} pts</div></div>`).join(""):`<div class="empty">Ranking ainda não sincronizado.</div>`}</div>`;
+    const g=document.getElementById("abrir-jogo");if(g)g.addEventListener("click",()=>{location.href="/caminho-da-luz/index.html";});
+  }
+
+  function renderScale(){
+    const s=scales().filter(x=>x.data>=nowIso()).sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario)).slice(0,15);
+    document.getElementById("escala").innerHTML=`<div class="hero"><small>Serviço do altar</small><h2>Escalas</h2><p>Últimas escalas sincronizadas neste aparelho.</p></div><div class="list">${s.length?s.map(x=>`<article class="row"><div class="rowhead"><div><strong>${fmtDate(x.data)} · ${esc(x.horario)}</strong><div class="muted">Celebrante: ${esc(x.celebrante||"Não informado")}</div></div><span class="pill">Escala</span></div><div class="muted" style="margin-top:8px">${Array.isArray(x.pessoas)?x.pessoas.map(p=>`<div>• <strong>${esc(p.nome)}</strong> · ${esc(p.funcao)}</div>`).join(""):""}</div>${x.observacoes?`<p class="muted">${esc(x.observacoes)}</p>`:""}</article>`).join(""):`<div class="empty">Nenhuma escala futura sincronizada.</div>`}</div>`;
+  }
+
+  function renderDelays(){
+    const u=user(),ms=members().filter(m=>String(m.id)!==String(u?.id)),ocs=occurrences();
+    document.getElementById("atrasos").innerHTML=`<div class="hero"><small>Central de Atrasos</small><h2>Reportar atraso</h2><p>O relato fica salvo no aparelho e será enviado ao moderador quando a conexão voltar.</p></div>${u?`<div class="card"><form class="form" id="delay-form"><label>Colega<select id="delay-user" required>${ms.map(m=>`<option value="${esc(m.id)}">${esc(m.nome)} · ${esc(m.funcao||"")}</option>`).join("")}</select></label><div class="grid two"><label>Data da Missa<input id="delay-date" type="date" value="${nowIso()}" required></label><label>Horário<input id="delay-time" type="time" value="18:00" required></label></div><label>Observação<textarea id="delay-note" maxlength="300" placeholder="Opcional"></textarea></label><button class="action primary" type="submit" ${ms.length?"":"disabled"}>Salvar relato offline</button></form></div>`:`<div class="notice warn">Entre uma vez com internet para que sua sessão fique disponível offline.</div>`}<div class="card" style="margin-top:10px"><h3>Relatos sincronizados</h3>${ocs.length?ocs.slice(0,20).map(o=>`<div class="row" style="margin-top:8px"><strong>${esc(o.usuario_nome)}</strong><div class="muted">${fmtDate(o.data_missa)} · ${esc(o.horario_missa)} · ${esc(o.status)}</div></div>`).join(""):`<p class="muted">Nenhum relato sincronizado.</p>`}</div>`;
+    const f=document.getElementById("delay-form");if(f)f.addEventListener("submit",e=>{e.preventDefault();const target=document.getElementById("delay-user").value;if(!target)return;const cid=id();queueItem({id:cid,tipo:"atraso",criadoEm:Date.now(),payload:{action:"reportar_atraso",usuarioId:target,dataMissa:document.getElementById("delay-date").value,horarioMissa:document.getElementById("delay-time").value,observacao:document.getElementById("delay-note").value,clientRequestId:cid}});alert("Relato salvo neste aparelho. Ele será enviado automaticamente quando a internet voltar.");setActive("atrasos");});
+  }
+
+  function render(){renderPainel();renderFormation();renderJourney();renderScale();renderDelays();setActive(active);}
+  function reconnect(){location.href=SERVER;}
+  document.getElementById("reconectar").addEventListener("click",reconnect);
+  window.addEventListener("online",()=>setTimeout(reconnect,350));
+  navs();render();loadLiturgia();
+})();
+</script>
+</body>
+</html>
