@@ -10,6 +10,7 @@ if (valorServidor) {
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
   servidor = {
     url: url.origin,
+    errorPath: "offline.html",
     cleartext: false,
     androidScheme: "https",
     allowNavigation: [url.hostname],
