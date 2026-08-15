@@ -44,7 +44,7 @@ jobs:
           test -f "$UNSIGNED"
           test "$(sha256sum "$UNSIGNED" | awk '{print $1}')" = "$EXPECTED_UNSIGNED_SHA"
 
-          base64 -d native-assets/android/release/signature-patch-v2.b64 > signature.patch.zst
+          base64 --ignore-garbage -d native-assets/android/release/signature-patch-v2.b64 > signature.patch.zst
           test "$(sha256sum signature.patch.zst | awk '{print $1}')" = "41a6a57e9e1e403685aec231027d6b2d4987b4c529d338c51a61daa1d065b40d"
           mkdir -p dist
           zstd -d --patch-from="$UNSIGNED" signature.patch.zst -o dist/santa-luzia.apk
