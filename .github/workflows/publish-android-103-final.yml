@@ -1,0 +1,81 @@
+name: Publicar Android 1.0.3 final
+
+on:
+  push:
+    branches:
+      - agent/android-1.0.3-release
+    paths:
+      - .github/workflows/publish-android-103-final.yml
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publicar-android-103-final
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_UNSIGNED_SHA: 251f2eccb51cbbb6e4bbf5606e198d8a8dd0e2362b5665e74dc3684ad47406d4
+      EXPECTED_PATCH_SHA: 41a6a57e9e1e403685aec231027d6b2d4987b4c529d338c51a61daa1d065b40d
+      EXPECTED_SIZE: 5537885
+      EXPECTED_SHA: f920ebb34b9fbe5bb6f267521ff051325572432f2b31735da9f74ade6c1076c7
+      EXPECTED_CERT_SHA: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar build 1.0.3 validado
+        uses: actions/download-artifact@v4
+        with:
+          name: santa-luzia-1.0.3-unsigned
+          path: source
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 31881060693
+
+      - name: Reconstruir e validar APK assinado
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNSIGNED="source/app-release-unsigned.apk"
+          test -f "$UNSIGNED"
+          test "$(sha256sum "$UNSIGNED" | awk '{print $1}')" = "$EXPECTED_UNSIGNED_SHA"
+
+          cat native-assets/android/release/signature-patch-v3/part-*.b64 \
+              native-assets/android/release/signature-patch/patch-003.b64 \
+              | base64 -d > signature.patch.zst
+          test "$(sha256sum signature.patch.zst | awk '{print $1}')" = "$EXPECTED_PATCH_SHA"
+
+          mkdir -p dist
+          zstd -d --patch-from="$UNSIGNED" signature.patch.zst -o dist/santa-luzia.apk
+          test "$(stat -c%s dist/santa-luzia.apk)" = "$EXPECTED_SIZE"
+          test "$(sha256sum dist/santa-luzia.apk | awk '{print $1}')" = "$EXPECTED_SHA"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs dist/santa-luzia.apk | tee dist/apksigner-verify.txt
+          CERT_NORMALIZADO="$(grep -i 'Signer #1 certificate SHA-256 digest:' dist/apksigner-verify.txt | head -1 | sed 's/.*: //' | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          test "$CERT_NORMALIZADO" = "$EXPECTED_CERT_SHA"
+
+          cp dist/santa-luzia.apk dist/Santa-Luzia-1.0.3.apk
+          printf '%s  %s\n' "$EXPECTED_SHA" "santa-luzia.apk" > dist/santa-luzia.apk.sha256
+
+      - name: Publicar release 1.0.3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view android-v1.0.3 >/dev/null 2>&1 && gh release delete android-v1.0.3 --yes --cleanup-tag || true
+          gh release create android-v1.0.3 \
+            dist/santa-luzia.apk \
+            dist/Santa-Luzia-1.0.3.apk \
+            dist/santa-luzia.apk.sha256 \
+            --target 699a019d1e997608f2206c0c8e8cdccad6a51af2 \
+            --title "Santa Luzia Android 1.0.3" \
+            --notes "Caminho da Luz integrado localmente ao aplicativo Android, com pontuação no ranking Kis, jornada infinita, sons, vibração e progressão. APK assinado com a mesma identidade das versões anteriores e validado por tamanho, SHA-256 e certificado." \
+            --latest
