@@ -42,15 +42,26 @@ jobs:
       - name: Gerar APK release sem assinatura
         working-directory: android
         run: ./gradlew assembleRelease
-      - name: Localizar APK unsigned
+      - name: Preparar APK e ferramentas de assinatura
         run: |
+          set -euo pipefail
           APK=android/app/build/outputs/apk/release/app-release-unsigned.apk
           test -f "$APK"
-          sha256sum "$APK"
-      - name: Guardar APK unsigned
+          TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          test -x "$TOOLS_DIR/zipalign"
+          test -f "$TOOLS_DIR/lib/apksigner.jar"
+          mkdir -p release-input/signing-tools/lib
+          cp "$APK" release-input/app-release-unsigned.apk
+          cp "$TOOLS_DIR/zipalign" release-input/signing-tools/zipalign
+          cp "$TOOLS_DIR/apksigner" release-input/signing-tools/apksigner
+          cp "$TOOLS_DIR/lib/apksigner.jar" release-input/signing-tools/lib/apksigner.jar
+          chmod +x release-input/signing-tools/zipalign release-input/signing-tools/apksigner
+          sha256sum release-input/app-release-unsigned.apk
+          echo "Build tools: $TOOLS_DIR"
+      - name: Guardar APK unsigned e ferramentas
         uses: actions/upload-artifact@v4
         with:
           name: santa-luzia-1.0.3-unsigned
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          path: release-input/
           if-no-files-found: error
           retention-days: 7
