@@ -62,7 +62,13 @@ if (fs.existsSync(manifestPath)) {
       'android:exported="true"\n            android:resizeableActivity="true"\n            android:windowSoftInputMode="adjustResize">',
     )
   }
+  if (!manifest.includes('android:name=".CaminhoDaLuzActivity"')) {
+    manifest = manifest.replace(
+      "</application>",
+      '        <activity\n            android:name=".CaminhoDaLuzActivity"\n            android:exported="false"\n            android:screenOrientation="portrait"\n            android:theme="@style/AppTheme.NoActionBar" />\n    </application>',
+    )
+  }
   fs.writeFileSync(manifestPath, manifest)
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, ícones adaptativos e rede HTTPS.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, ícones adaptativos, rede HTTPS e Caminho da Luz local.`)
