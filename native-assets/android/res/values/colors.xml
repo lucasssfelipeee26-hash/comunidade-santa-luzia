@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#7B1326</color>
-    <color name="colorPrimaryDark">#5A0F1D</color>
-    <color name="colorAccent">#D4AF37</color>
+    <color name="colorPrimary">#713044</color>
+    <color name="colorPrimaryDark">#4F2431</color>
+    <color name="colorAccent">#BFA66A</color>
     <color name="santa_luzia_green">#0B3B29</color>
-    <color name="santa_luzia_ivory">#FFFAF0</color>
-    <color name="santa_luzia_selection">#E8D07A</color>
-    <color name="santa_luzia_selection_text">#4A0C18</color>
+    <color name="santa_luzia_ivory">#FFFAF6</color>
+    <color name="santa_luzia_selection">#E7DADD</color>
+    <color name="santa_luzia_selection_text">#332428</color>
 </resources>
