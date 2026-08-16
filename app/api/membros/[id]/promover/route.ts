@@ -14,12 +14,14 @@ export async function PATCH(_req: Request, { params }: { params: Promise<{ id: s
   }
 
   const { id } = await params
+  if (!id || id.length > 160) return NextResponse.json({ ok: false, erro: "Cadastro inválido." }, { status: 400 })
+  if (id === promotor.id) return NextResponse.json({ ok: false, erro: "Sua conta já possui acesso de moderador." }, { status: 409 })
+
   const alvo = buscarUsuario(id)
-  if (!alvo) {
-    return NextResponse.json({ ok: false, erro: "Cadastro não encontrado." }, { status: 404 })
-  }
-  if (alvo.tipo === "moderador") {
-    return NextResponse.json({ ok: false, erro: "Este cadastro já é moderador." }, { status: 409 })
+  if (!alvo) return NextResponse.json({ ok: false, erro: "Cadastro não encontrado." }, { status: 404 })
+  if (alvo.tipo === "moderador") return NextResponse.json({ ok: false, erro: "Este cadastro já é moderador." }, { status: 409 })
+  if (alvo.status !== "aprovado" || (alvo.funcao !== "Acólito" && alvo.funcao !== "Coroinha")) {
+    return NextResponse.json({ ok: false, erro: "Apenas um acólito ou coroinha aprovado pode ser promovido a moderador." }, { status: 409 })
   }
 
   const promovido = promoverUsuarioModerador(id, promotor.id)
@@ -29,7 +31,7 @@ export async function PATCH(_req: Request, { params }: { params: Promise<{ id: s
 
   return NextResponse.json({
     ok: true,
-    mensagem: `${promovido.nome} agora é moderador. O novo acesso será ativado no próximo login.`,
+    mensagem: `${promovido.nome} agora é moderador. O novo nível de acesso passa a valer automaticamente nas próximas requisições.`,
     moderador: {
       id: promovido.id,
       nome: promovido.nome,
