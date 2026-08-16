@@ -28,6 +28,7 @@ interface AppUpdaterPlugin {
 
 const NativeAppUpdater = registerPlugin<AppUpdaterPlugin>("AppUpdater")
 const REPOSITORIO = "lucasssfelipeee26-hash/comunidade-santa-luzia"
+const ULTIMA_BUILD_COM_FALLBACK_LEGADO = 3
 
 function ehFalhaIntegridadeLegada(falha: unknown) {
   if (!falha || typeof falha !== "object") return false
@@ -35,6 +36,17 @@ function ehFalhaIntegridadeLegada(falha: unknown) {
   const codigo = String(dados.code || "").toUpperCase()
   const mensagem = String(dados.message || "").toLowerCase()
   return codigo === "ATUALIZACAO_INVALIDA" || mensagem.includes("dados de integridade")
+}
+
+async function estaEmBuildLegada() {
+  try {
+    const { App } = await import("@capacitor/app")
+    const info = await App.getInfo()
+    const build = Number.parseInt(info.build, 10)
+    return Number.isFinite(build) && build <= ULTIMA_BUILD_COM_FALLBACK_LEGADO
+  } catch {
+    return false
+  }
 }
 
 function obterUrlDiretaRelease(nomeArquivo: string) {
@@ -45,7 +57,7 @@ function obterUrlDiretaRelease(nomeArquivo: string) {
   return `https://github.com/${REPOSITORIO}/releases/download/android-v${encodeURIComponent(versao)}/${encodeURIComponent(nomeArquivo)}`
 }
 
-async function abrirDownloadSeguro(nomeArquivo: string): Promise<DownloadAndInstallResult> {
+async function abrirDownloadSeguroLegado(nomeArquivo: string): Promise<DownloadAndInstallResult> {
   const { Browser } = await import("@capacitor/browser")
   await Browser.open({ url: obterUrlDiretaRelease(nomeArquivo), presentationStyle: "popover" })
   return { status: "installer_opened" }
@@ -60,8 +72,8 @@ export const AppUpdater: AppUpdaterPlugin = {
     try {
       return await NativeAppUpdater.downloadAndInstall(options)
     } catch (falha) {
-      if (!ehFalhaIntegridadeLegada(falha)) throw falha
-      return abrirDownloadSeguro(options.fileName)
+      if (!ehFalhaIntegridadeLegada(falha) || !(await estaEmBuildLegada())) throw falha
+      return abrirDownloadSeguroLegado(options.fileName)
     }
   },
 }
