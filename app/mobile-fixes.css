@@ -1,0 +1,79 @@
+/* Ajustes globais de interação para Android/WebView e superfícies administrativas. */
+.app-mobile-shell ::selection {
+  background: #eadfe1;
+  color: #332428;
+}
+
+.app-mobile-shell :where(input, textarea, [contenteditable="true"])::selection {
+  background: #e4d5d9;
+  color: #2f2225;
+}
+
+.app-mobile-shell :where(input, textarea, select) {
+  caret-color: #713044;
+  -webkit-text-fill-color: currentColor;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-mobile-shell :where(input, textarea, select):focus,
+.app-mobile-shell :where(input, textarea, select):focus-visible {
+  outline: none !important;
+  border-color: rgba(113, 48, 68, .42) !important;
+  box-shadow: 0 0 0 2px rgba(113, 48, 68, .10) !important;
+}
+
+.app-mobile-shell :where(button, a[href], [role="button"]):focus-visible {
+  outline: 2px solid rgba(113, 48, 68, .42) !important;
+  outline-offset: 2px;
+  box-shadow: none !important;
+}
+
+.app-mobile-shell :where(button, a[href], [role="button"]):active {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-native-platform="android"] .app-mobile-shell * {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.app-mobile-shell input:-webkit-autofill,
+.app-mobile-shell input:-webkit-autofill:hover,
+.app-mobile-shell input:-webkit-autofill:focus,
+.app-mobile-shell textarea:-webkit-autofill,
+.app-mobile-shell textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: #302326 !important;
+  caret-color: #713044 !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* Paleta administrativa mais sóbria para o painel do moderador. */
+.moderador-painel {
+  --primary: #713044;
+  --primary-foreground: #fffaf8;
+  --secondary: #f7f0ed;
+  --secondary-foreground: #4f333a;
+  --muted: #f7f4f2;
+  --muted-foreground: #74666a;
+  --accent: #c6aa65;
+  --accent-foreground: #493239;
+  --border: #e5dcd8;
+  --input: #ddd2ce;
+  --ring: #936170;
+  --sidebar-primary: #c6aa65;
+  --sidebar-primary-foreground: #493239;
+  background: #fcfaf8;
+}
+
+.moderador-painel :where(.bg-amber-50, .bg-amber-100\/70) {
+  background-color: #faf6ed !important;
+}
+
+.moderador-painel :where(.text-amber-950, .text-amber-900\/75, .text-amber-800) {
+  color: #66564f !important;
+}
+
+.moderador-painel :where(.border-amber-300\/60, .border-amber-300\/70) {
+  border-color: #ddd0bb !important;
+}
