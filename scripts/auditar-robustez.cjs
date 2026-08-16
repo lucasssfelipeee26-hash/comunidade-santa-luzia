@@ -54,6 +54,7 @@ const sync = ler("components/server-sync-runtime.tsx")
 const mainActivity = ler("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java")
 const updaterNativo = ler("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/AppUpdaterPlugin.java")
 const styles = ler("native-assets/android/res/values/styles.xml")
+const stylesSemComentarios = styles.replace(/<!--[\s\S]*?-->/g, "")
 const networkSecurity = ler("native-assets/android/res/xml/network_security_config.xml")
 
 console.log("[1/6] Versões e distribuição")
@@ -81,7 +82,8 @@ console.log("\n[4/6] Menus/submenus Android")
 exigir(mainActivity.includes("setHandleNativeActionModesEnabled(false)"), "ActionMode permanece sob controle nativo do Android")
 const atributosProibidos = ["actionModeTheme", "actionModeBackground", "actionMenuTextColor", "colorBackgroundFloating", "android:background"]
 for (const atributo of atributosProibidos) {
-  exigir(!styles.includes(atributo), `Tema nativo não força ${atributo}`)
+  const existeItem = stylesSemComentarios.includes(`name=\"${atributo}\"`) || stylesSemComentarios.includes(`name='${atributo}'`)
+  exigir(!existeItem, `Tema nativo não força ${atributo}`)
 }
 
 console.log("\n[5/6] Recuperação de interface")
