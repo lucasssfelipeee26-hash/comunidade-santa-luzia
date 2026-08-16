@@ -5,6 +5,9 @@
     <color name="colorAccent">#BFA66A</color>
     <color name="santa_luzia_green">#0B3B29</color>
     <color name="santa_luzia_ivory">#FFFAF6</color>
+    <color name="santa_luzia_surface">#FFFDFC</color>
+    <color name="santa_luzia_text">#2C2024</color>
+    <color name="santa_luzia_text_muted">#6F6065</color>
     <color name="santa_luzia_selection">#E7DADD</color>
     <color name="santa_luzia_selection_text">#332428</color>
 </resources>
