@@ -24,20 +24,18 @@ type PerfilEquipe = {
 const STORAGE_KEY = "santa-luzia:perfis-publicos:v1"
 
 function iniciais(nome: string) {
-  return nome
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join("")
-    .toUpperCase()
+  return nome.split(" ").filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase()
 }
 
 function dataBonita(valor?: string | null) {
   if (!valor || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return "data não informada"
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(
-    new Date(`${valor}T12:00:00`),
-  )
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(`${valor}T12:00:00`))
+}
+
+function destaqueDoRecado(texto?: string) {
+  if (!texto?.trim()) return ""
+  const emoji = texto.match(/\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*/u)?.[0]
+  return emoji || "•••"
 }
 
 export function EquipeNoPainel() {
@@ -49,7 +47,6 @@ export function EquipeNoPainel() {
 
   useEffect(() => {
     let ativo = true
-
     async function carregar() {
       try {
         const resposta = await fetch("/api/perfis", { cache: "no-store" })
@@ -59,9 +56,7 @@ export function EquipeNoPainel() {
         if (!ativo) return
         setPerfis(lista)
         setOffline(false)
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ atualizadoEm: Date.now(), perfis: lista }))
-        } catch {}
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ atualizadoEm: Date.now(), perfis: lista })) } catch {}
       } catch {
         try {
           const salvo = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null")
@@ -74,169 +69,93 @@ export function EquipeNoPainel() {
         if (ativo) setCarregando(false)
       }
     }
-
     void carregar()
+    const atualizar = () => void carregar()
+    window.addEventListener("santa-luzia:server-sync", atualizar)
     return () => {
       ativo = false
+      window.removeEventListener("santa-luzia:server-sync", atualizar)
     }
   }, [])
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR")
     if (!termo) return perfis
-    return perfis.filter((perfil) =>
-      `${perfil.nome} ${perfil.funcao} ${perfil.bio || ""}`.toLocaleLowerCase("pt-BR").includes(termo),
-    )
+    return perfis.filter((perfil) => `${perfil.nome} ${perfil.funcao} ${perfil.bio || ""}`.toLocaleLowerCase("pt-BR").includes(termo))
   }, [perfis, busca])
 
   return (
-    <section className="mb-7 w-full min-w-0 overflow-hidden rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-[0_18px_45px_rgba(79,24,35,.08)] sm:p-5">
-      <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Comunidade Santa Luzia</p>
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-            <h2 className="font-serif text-2xl font-semibold text-primary">Equipe</h2>
-            <span className="rounded-full bg-primary/8 px-2.5 py-1 text-[11px] font-bold text-primary">
-              {perfis.length} {perfis.length === 1 ? "perfil" : "perfis"}
-            </span>
+    <section className="mb-5 w-full min-w-0 overflow-hidden rounded-[24px] border border-white/70 bg-white/80 p-3 shadow-[0_12px_32px_rgba(79,24,35,.07)] sm:p-4">
+      <div className="mb-3 flex min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="font-serif text-xl font-semibold text-primary">Perfis da equipe</h2>
+            <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-bold text-primary">{perfis.length} membros</span>
           </div>
-          <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">
-            Toque em um acólito ou coroinha para ver recado, classificação, pontos e aproveitamento.
-          </p>
+          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">Toque em qualquer membro para ver recado, rank, pontos e aproveitamento.</p>
         </div>
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={busca}
-            onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar na equipe"
-            className="h-11 rounded-2xl bg-white pl-9"
-          />
+        <div className="relative w-32 shrink-0 sm:w-52">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar" className="h-9 rounded-xl bg-white pl-8 text-xs" />
         </div>
       </div>
 
-      {offline && (
-        <div className="mb-3 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
-          <WifiOff className="mt-0.5 size-4 shrink-0" />
-          Sem internet: mostrando os últimos perfis sincronizados neste aparelho.
-        </div>
-      )}
+      {offline && <div className="mb-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900"><WifiOff className="size-3.5 shrink-0" />Últimos perfis sincronizados neste aparelho.</div>}
 
       {carregando ? (
-        <div className="rounded-2xl bg-muted/60 p-6 text-center text-sm text-muted-foreground">Carregando equipe…</div>
+        <div className="rounded-xl bg-muted/60 p-4 text-center text-xs text-muted-foreground">Carregando equipe…</div>
       ) : filtrados.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Nenhum perfil encontrado.
-        </div>
+        <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">Nenhum perfil encontrado.</div>
       ) : (
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtrados.map((perfil) => (
-            <button
-              key={perfil.id}
-              type="button"
-              onClick={() => setSelecionado(perfil)}
-              className="group w-full min-w-0 overflow-hidden rounded-[24px] border border-border/70 bg-card p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md active:scale-[.99]"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar className="size-13 shrink-0 border-2 border-accent/45 shadow-sm">
-                  <AvatarImage src={perfil.foto || undefined} />
-                  <AvatarFallback className="bg-primary/10 font-bold text-primary">{iniciais(perfil.nome)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-serif text-lg font-semibold text-foreground">{perfil.nome}</h3>
-                  <p className="text-xs font-semibold text-primary">{perfil.funcao}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">Desde {dataBonita(perfil.desde)}</p>
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {filtrados.map((perfil) => {
+            const destaque = destaqueDoRecado(perfil.bio)
+            return (
+              <button key={perfil.id} type="button" onClick={() => setSelecionado(perfil)} className="group min-w-0 rounded-[20px] border border-border/70 bg-card p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md active:scale-[.98]">
+                <div className="relative mx-auto w-fit">
+                  <Avatar className="size-14 border-2 border-accent/45 shadow-sm sm:size-16">
+                    <AvatarImage src={perfil.foto || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">{iniciais(perfil.nome)}</AvatarFallback>
+                  </Avatar>
+                  {destaque && (
+                    <span className="absolute -right-2 -top-2 flex min-h-7 min-w-7 animate-pulse items-center justify-center rounded-full border border-white bg-white px-1.5 text-[12px] font-black text-primary shadow-[0_4px_14px_rgba(82,17,35,.18)]" title="Recado do perfil">
+                      {destaque}
+                    </span>
+                  )}
                 </div>
-                {perfil.ranking?.posicao ? (
-                  <span className="shrink-0 rounded-xl bg-primary/8 px-2 py-1 text-xs font-bold text-primary">
-                    {perfil.ranking.posicao}º
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-3 rounded-2xl bg-secondary/45 px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[.12em] text-primary">Recado</p>
-                <p className="mt-1 line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">
-                  {perfil.bio || "Este membro ainda não adicionou um recado."}
-                </p>
-              </div>
-              <div className="mt-3 flex min-w-0 items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs">
-                <span className="truncate text-muted-foreground">Ver perfil</span>
-                <span className="shrink-0 font-bold text-primary">{perfil.ranking?.pontos ?? 0} pts</span>
-              </div>
-            </button>
-          ))}
+                <h3 className="mt-2 truncate font-serif text-[15px] font-semibold text-foreground">{perfil.nome}</h3>
+                <p className="truncate text-[10px] font-semibold text-primary">{perfil.funcao}</p>
+                <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span className="rounded-full bg-primary/7 px-1.5 py-0.5 font-bold text-primary">{perfil.ranking?.posicao ? `${perfil.ranking.posicao}º` : "—"}</span>
+                  <span>{perfil.ranking?.pontos ?? 0} pts</span>
+                </div>
+                <p className="mt-2 line-clamp-1 text-[10px] leading-4 text-muted-foreground">{perfil.bio || "Sem recado ainda"}</p>
+              </button>
+            )
+          })}
         </div>
       )}
 
       {selecionado && (
-        <div
-          className="fixed inset-0 z-[120] grid place-items-end bg-black/45 p-0 sm:place-items-center sm:p-5"
-          onClick={() => setSelecionado(null)}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Perfil de ${selecionado.nome}`}
-            onClick={(event) => event.stopPropagation()}
-            className="max-h-[92dvh] w-full min-w-0 max-w-lg overflow-x-hidden overflow-y-auto rounded-t-[30px] border border-white/70 bg-[#fffdf8] p-4 shadow-2xl sm:rounded-[30px] sm:p-6"
-          >
-            <div className="flex justify-end">
-              <button
-                type="button"
-                aria-label="Fechar perfil"
-                onClick={() => setSelecionado(null)}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-
+        <div className="fixed inset-0 z-[120] grid place-items-end bg-black/38 p-0 sm:place-items-center sm:p-5" onClick={() => setSelecionado(null)}>
+          <section role="dialog" aria-modal="true" aria-label={`Perfil de ${selecionado.nome}`} onClick={(event) => event.stopPropagation()} className="max-h-[92dvh] w-full min-w-0 max-w-lg overflow-x-hidden overflow-y-auto rounded-t-[30px] border border-white/70 bg-[#fffdf8] p-4 shadow-2xl sm:rounded-[30px] sm:p-6">
+            <div className="flex justify-end"><button type="button" aria-label="Fechar perfil" onClick={() => setSelecionado(null)} className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><X className="size-4" /></button></div>
             <div className="flex min-w-0 flex-col items-center text-center">
-              <Avatar className="size-22 border-4 border-accent/45 shadow-lg sm:size-24">
-                <AvatarImage src={selecionado.foto || undefined} />
-                <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">{iniciais(selecionado.nome)}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="size-20 border-4 border-accent/40 shadow-lg sm:size-24"><AvatarImage src={selecionado.foto || undefined} /><AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">{iniciais(selecionado.nome)}</AvatarFallback></Avatar>
+                {destaqueDoRecado(selecionado.bio) && <span className="absolute -right-2 -top-1 flex min-h-8 min-w-8 animate-pulse items-center justify-center rounded-full border-2 border-white bg-white px-2 text-sm font-black text-primary shadow-lg">{destaqueDoRecado(selecionado.bio)}</span>}
+              </div>
               <p className="mt-3 text-[10px] font-bold uppercase tracking-[.18em] text-primary">Perfil da equipe</p>
-              <h2 className="mt-1 max-w-full break-words font-serif text-2xl font-semibold text-primary sm:text-3xl">
-                {selecionado.nome}
-              </h2>
-              <p className="mt-1 max-w-full break-words text-sm font-semibold text-foreground">
-                {selecionado.funcao} · desde {dataBonita(selecionado.desde)}
-              </p>
-              <div className="mt-4 w-full min-w-0 rounded-2xl bg-secondary/45 p-4 text-left">
-                <p className="text-[10px] font-bold uppercase tracking-[.14em] text-primary">Recado</p>
-                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
-                  {selecionado.bio || "Este membro ainda não adicionou um recado."}
-                </p>
-              </div>
+              <h2 className="mt-1 max-w-full break-words font-serif text-2xl font-semibold text-primary sm:text-3xl">{selecionado.nome}</h2>
+              <p className="mt-1 max-w-full break-words text-sm font-semibold text-foreground">{selecionado.funcao} · desde {dataBonita(selecionado.desde)}</p>
+              <div className="mt-4 w-full min-w-0 rounded-2xl bg-secondary/45 p-4 text-left"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-primary">Recado</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{selecionado.bio || "Este membro ainda não adicionou um recado."}</p></div>
             </div>
-
             <div className="mt-5 grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
-              <div className="min-w-0 rounded-2xl border border-border bg-white px-1.5 py-3 text-center sm:p-3">
-                <Trophy className="mx-auto size-5 text-primary" />
-                <strong className="mt-1 block truncate text-base text-primary sm:text-lg">
-                  {selecionado.ranking?.posicao ? `${selecionado.ranking.posicao}º` : "—"}
-                </strong>
-                <span className="block break-words text-[9px] leading-3 text-muted-foreground sm:text-[10px]">Classificação</span>
-              </div>
-              <div className="min-w-0 rounded-2xl border border-border bg-white px-1.5 py-3 text-center sm:p-3">
-                <Medal className="mx-auto size-5 text-primary" />
-                <strong className="mt-1 block truncate text-base text-primary sm:text-lg">{selecionado.ranking?.pontos ?? 0}</strong>
-                <span className="block text-[9px] leading-3 text-muted-foreground sm:text-[10px]">Pontos</span>
-              </div>
-              <div className="min-w-0 rounded-2xl border border-border bg-white px-1.5 py-3 text-center sm:p-3">
-                <ShieldCheck className="mx-auto size-5 text-primary" />
-                <strong className="mt-1 block truncate text-base text-primary sm:text-lg">
-                  {selecionado.ranking?.aproveitamento ?? 0}%
-                </strong>
-                <span className="block break-words text-[9px] leading-3 text-muted-foreground sm:text-[10px]">Aproveitamento</span>
-              </div>
+              <div className="min-w-0 rounded-2xl border border-border bg-white px-1.5 py-3 text-center sm:p-3"><Trophy className="mx-auto size-5 text-primary" /><strong className="mt-1 block truncate text-base text-primary sm:text-lg">{selecionado.ranking?.posicao ? `${selecionado.ranking.posicao}º` : "—"}</strong><span className="block break-words text-[9px] leading-3 text-muted-foreground sm:text-[10px]">Classificação</span></div>
+              <div className="min-w-0 rounded-2xl border border-border bg-white px-1.5 py-3 text-center sm:p-3"><Medal className="mx-auto size-5 text-primary" /><strong className="mt-1 block truncate text-base text-primary sm:text-lg">{selecionado.ranking?.pontos ?? 0}</strong><span className="block text-[9px] leading-3 text-muted-foreground sm:text-[10px]">Pontos</span></div>
+              <div className="min-w-0 rounded-2xl border border-border bg-white px-1.5 py-3 text-center sm:p-3"><ShieldCheck className="mx-auto size-5 text-primary" /><strong className="mt-1 block truncate text-base text-primary sm:text-lg">{selecionado.ranking?.aproveitamento ?? 0}%</strong><span className="block break-words text-[9px] leading-3 text-muted-foreground sm:text-[10px]">Aproveitamento</span></div>
             </div>
-
-            <div className="mt-4 flex min-w-0 items-start gap-2 rounded-2xl border border-primary/10 bg-primary/[.035] p-3 text-xs leading-5 text-muted-foreground">
-              <UserRound className="mt-0.5 size-4 shrink-0 text-primary" />
-              <span className="min-w-0 break-words">Faltas, advertências, justificativas e observações continuam privadas.</span>
-            </div>
+            <div className="mt-4 flex min-w-0 items-start gap-2 rounded-2xl border border-primary/10 bg-primary/[.035] p-3 text-xs leading-5 text-muted-foreground"><UserRound className="mt-0.5 size-4 shrink-0 text-primary" /><span className="min-w-0 break-words">Faltas, advertências, justificativas e observações continuam privadas.</span></div>
           </section>
         </div>
       )}
