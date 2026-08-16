@@ -36,7 +36,7 @@ function garantirAvisosDiarios(usuarioId: string) {
     chave: `missao-hoje:${hoje}`,
     tipo: "missao",
     titulo: "Missão do Altar disponível",
-    mensagem: "Avance pelas fases e conquiste até 30 pontos por dia na classificação.",
+    mensagem: "Avance pelas fases e conquiste até 35 pontos por dia na classificação.",
     href: "/area-restrita/ranking?aba=missao",
   })
   salvarNotificacao({
