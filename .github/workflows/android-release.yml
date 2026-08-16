@@ -1,4 +1,4 @@
-name: Android — publicar APK gratuito
+name: Android — validar e publicar APK
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       version_code:
         description: Código inteiro da build Android
         required: true
-        default: "7"
+        default: "12"
       version_name:
         description: Nome público da versão
         required: true
@@ -26,10 +26,11 @@ concurrency:
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
       CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || 'https://comunidade-santa-luzia-production.up.railway.app' }}
       AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+      EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +57,9 @@ jobs:
       - name: Instalar dependências
         run: npm install --no-audit --no-fund
 
+      - name: Auditar robustez crítica
+        run: npm run audit:robustez
+
       - name: Validar aplicação web
         run: npm run build
 
@@ -64,6 +68,11 @@ jobs:
           npx cap add android
           npx cap sync android
           node scripts/prepare-android.cjs
+          grep -Eq 'applicationId[[:space:]]+"br\.com\.comunidadesantaluzia\.app"' android/app/build.gradle
+          grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
+          grep -Eq "versionName[[:space:]]+\"${APP_VERSION_NAME}\"" android/app/build.gradle
+          test -f android/app/src/main/java/br/com/comunidadesantaluzia/app/AppUpdaterPlugin.java
+          grep -Fq 'networkStatusChange' components/android-update-runtime.tsx
 
       - name: Verificar chave permanente de assinatura
         env:
@@ -76,14 +85,24 @@ jobs:
             echo "HAS_ANDROID_SIGNING=true" >> "$GITHUB_ENV"
           else
             echo "HAS_ANDROID_SIGNING=false" >> "$GITHUB_ENV"
-            echo "Chave não configurada: o APK será validado e guardado como artefato, sem publicação."
+            echo "Chave permanente não configurada: o APK será compilado e validado, mas NÃO será publicado."
           fi
 
-      - name: Preparar chave de assinatura
+      - name: Preparar e validar chave de assinatura original
         if: env.HAS_ANDROID_SIGNING == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/santa-luzia-upload.jks"
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/santa-luzia-upload.jks"
+          keytool -list -v \
+            -keystore "$RUNNER_TEMP/santa-luzia-upload.jks" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" > "$RUNNER_TEMP/key-info.txt"
+          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/key-info.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
 
       - name: Configurar assinatura
         if: env.HAS_ANDROID_SIGNING == 'true'
@@ -104,6 +123,17 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease
 
+      - name: Validar certificado do APK assinado
+        if: env.HAS_ANDROID_SIGNING == 'true'
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+
       - name: Gerar APK para validação
         if: env.HAS_ANDROID_SIGNING != 'true'
         working-directory: android
@@ -113,7 +143,7 @@ jobs:
         if: env.HAS_ANDROID_SIGNING != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-${{ env.APP_VERSION_NAME }}-unsigned
+          name: santa-luzia-${{ env.APP_VERSION_NAME }}-code${{ env.APP_VERSION_CODE }}-unsigned
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 7
@@ -122,8 +152,9 @@ jobs:
         if: env.HAS_ANDROID_SIGNING == 'true'
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk dist/santa-luzia.apk
-          cp android/app/build/outputs/apk/release/app-release.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk"
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          cp "$APK" dist/santa-luzia.apk
+          cp "$APK" "dist/Santa-Luzia-${APP_VERSION_NAME}.apk"
           cd dist
           sha256sum santa-luzia.apk > santa-luzia.apk.sha256
 
@@ -133,12 +164,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="android-v${APP_VERSION_NAME}"
-          NOTES="Santa Luzia ${APP_VERSION_NAME}: Joias da Luz nativo com match-3 refeito, perfis da equipe com recados, classificação modernizada, notificações mais rápidas, painel compacto e correções de seleção/foco no Android. O nome público continua ${APP_VERSION_NAME}; o código interno da build aumenta para permitir atualização por cima da instalação existente."
+          NOTES="Santa Luzia ${APP_VERSION_NAME} — build interna ${APP_VERSION_CODE}. Início da fase de robustez técnica: detecção instantânea de atualização ao reconectar ou voltar ao app, sincronização nativa de rede, validação reforçada de APK (origem, SHA-256, tamanho, applicationId, versionCode e assinatura), recuperação global de falhas e auditoria automatizada."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --clobber
-            gh release edit "$TAG" --latest --title "Santa Luzia ${APP_VERSION_NAME}" --notes "$NOTES"
+            gh release edit "$TAG" --latest --title "Santa Luzia Android ${APP_VERSION_NAME}" --notes "$NOTES"
           else
-            gh release create "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --latest --title "Santa Luzia ${APP_VERSION_NAME}" --notes "$NOTES"
+            gh release create "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --latest --title "Santa Luzia Android ${APP_VERSION_NAME}" --notes "$NOTES"
           fi
 
       - name: Publicar metadados seguros do atualizador
@@ -160,19 +191,23 @@ jobs:
           atual.apkSize = bytes.length
           atual.apkSha256 = crypto.createHash('sha256').update(bytes).digest('hex')
           atual.highlights = [
-            'Joias da Luz agora roda nativamente no Android com trocas, combinações, cascatas e queda das peças corrigidas',
-            'Perfis da equipe ganharam recados com indicador pulsante, rank, pontos e aproveitamento',
-            'Notificações chegam mais rápido e são marcadas como vistas ao abrir o sino',
-            'Painel, campos de texto, seleção, copiar e colar receberam ajustes visuais e de desempenho'
+            'A atualização aparece automaticamente assim que o aparelho reconecta à internet, sem precisar fechar o aplicativo',
+            'O Santa Luzia também verifica novas builds enquanto permanece aberto e ao voltar do segundo plano',
+            'A instalação agora valida applicationId, versionCode e certificado da APK antes de abrir o instalador',
+            'Foi iniciada a auditoria técnica quadro por quadro com recuperação global contra telas vazias'
           ]
           fs.writeFileSync(path, JSON.stringify(atual, null, 2) + '\n')
           NODE
           git config user.name 'github-actions[bot]'
-          git config user.email '4189822+github-actions[bot]@users.noreply.github.com'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add config/android-release.json
           if git diff --cached --quiet; then
             echo 'Metadados já estavam atualizados.'
           else
-            git commit -m "Publica metadados Android ${APP_VERSION_NAME}"
+            git commit -m "Publica metadados Android ${APP_VERSION_NAME} code ${APP_VERSION_CODE}"
             git push origin HEAD:main
           fi
+
+      - name: Limpar chave do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/santa-luzia-upload.jks" "$RUNNER_TEMP/key-info.txt" "$RUNNER_TEMP/apksigner.txt" || true
