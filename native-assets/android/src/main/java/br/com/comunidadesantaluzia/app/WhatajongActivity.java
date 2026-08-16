@@ -3,9 +3,11 @@ package br.com.comunidadesantaluzia.app;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -23,11 +25,13 @@ public class WhatajongActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(Color.rgb(20, 55, 47));
-        getWindow().setNavigationBarColor(Color.rgb(16, 42, 36));
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().setStatusBarColor(Color.rgb(90, 11, 24));
+        getWindow().setNavigationBarColor(Color.rgb(59, 7, 16));
 
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.rgb(16, 42, 36));
+        webView.setBackgroundColor(Color.rgb(73, 11, 23));
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         webView.setVerticalScrollBarEnabled(false);
@@ -45,6 +49,7 @@ public class WhatajongActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setBlockNetworkLoads(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setSupportZoom(false);
