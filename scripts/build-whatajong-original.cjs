@@ -13,7 +13,7 @@ const COMMIT = "45fe3da7a7d1e87a66ae41b72ee74cc4e0a920d5"
 const PNPM = "10.8.0"
 
 function comando(cmd, args, cwd = raiz, env = {}) {
-  const executavel = process.platform === "win32" && cmd === "npx" ? "npx.cmd" : cmd
+  const executavel = process.platform === "win32" && ["npx", "corepack", "pnpm"].includes(cmd) ? `${cmd}.cmd` : cmd
   const resultado = spawnSync(executavel, args, {
     cwd,
     env: { ...process.env, ...env },
@@ -48,6 +48,13 @@ comando("git", ["init"], temporario)
 comando("git", ["remote", "add", "origin", REPOSITORIO], temporario)
 comando("git", ["fetch", "--depth", "1", "origin", COMMIT], temporario)
 comando("git", ["checkout", "--detach", "FETCH_HEAD"], temporario)
+
+// O upstream usa pnpm. Fixamos a versão no checkout temporário para o Corepack
+// não passar pelo npm/npx, que rejeita o override de Vite existente no projeto.
+const pacoteUpstreamPath = path.join(temporario, "package.json")
+const pacoteUpstream = JSON.parse(fs.readFileSync(pacoteUpstreamPath, "utf8"))
+pacoteUpstream.packageManager = `pnpm@${PNPM}`
+fs.writeFileSync(pacoteUpstreamPath, `${JSON.stringify(pacoteUpstream, null, 2)}\n`)
 
 const renderer = path.join(temporario, "src", "renderer")
 const i18n = path.join(renderer, "i18n")
@@ -135,10 +142,10 @@ substituir(
   "sincronizar progresso com o ranking Santa Luzia",
 )
 
-console.log("Instalando dependências do Whatajong original...")
-comando("npx", ["--yes", `pnpm@${PNPM}`, "install", "--frozen-lockfile"], temporario)
+console.log(`Instalando dependências do Whatajong original com pnpm ${PNPM} via Corepack...`)
+comando("corepack", ["pnpm", "install", "--frozen-lockfile"], temporario)
 console.log("Compilando Whatajong para execução local no APK...")
-comando("npx", ["--yes", `pnpm@${PNPM}`, "run", "build:itch"], temporario, { VITE_ITCH_IO: "true" })
+comando("corepack", ["pnpm", "run", "build:itch"], temporario, { VITE_ITCH_IO: "true" })
 
 const dist = path.join(temporario, "dist")
 if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("A compilação do Whatajong não gerou index.html.")
