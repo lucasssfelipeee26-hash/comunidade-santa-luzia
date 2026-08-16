@@ -1,14 +1,16 @@
 {
-  "versionCode": 3,
-  "versionName": "1.0.2",
-  "publishedAt": "2026-08-14",
+  "versionCode": 5,
+  "versionName": "1.0.4",
+  "publishedAt": "2026-08-15",
   "required": false,
-  "apkSize": 5517264,
-  "apkSha256": "2471c59ae6e9574e1e3057f3426caba13e97092265339b10aef560cca314688d",
+  "apkSize": 6047116,
+  "apkSha256": "dcd2a0cf96cb946b8e6926abd2aeadf07873a06a94f5c085acfd2212a06c2f0f",
   "highlights": [
-    "Atualizações baixadas e verificadas dentro do aplicativo",
-    "Barra de progresso moderna durante o download",
-    "Correção do redirecionamento para 0.0.0.0:8080",
-    "Instalação segura sem apagar seus dados e sua sessão"
+    "Perfis públicos da equipe com foto, bio, função e posição na Jornada",
+    "Registros administrativos protegidos e visíveis somente aos moderadores",
+    "Nova base offline para Liturgia, Escalas, Formação, Jornada, Biblioteca e Atrasos",
+    "Quiz litúrgico e filas de sincronização preparados para funcionar sem internet",
+    "Interface Android modernizada, seleção de texto corrigida e som padrão mais suave",
+    "Atualizador interno com progresso, verificação de integridade e instalação pelo Android"
   ]
 }
