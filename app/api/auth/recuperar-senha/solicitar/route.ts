@@ -6,6 +6,7 @@ import { emailRecuperacaoConfigurado, enviarCodigoRecuperacao } from "@/lib/emai
 import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 const CODIGO_VALIDADE_MS = 15 * 60 * 1000
+const RESPOSTA_GENERICA = "Se a conta existir e possuir e-mail de recuperação válido, enviaremos um código de 6 dígitos."
 
 function mascararEmail(email: string) {
   const [local, dominio] = email.split("@")
@@ -30,34 +31,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, erro: "Requisição inválida." }, { status: 400 })
   }
 
-  const identificador = String(body.login ?? body.email ?? "").trim()
+  const identificador = String(body.login ?? body.email ?? "").trim().slice(0, 254)
   if (!identificador) {
     return NextResponse.json({ ok: false, erro: "Informe seu usuário ou e-mail." }, { status: 400 })
   }
 
   if (!emailRecuperacaoConfigurado()) {
     return NextResponse.json(
-      {
-        ok: false,
-        erro: "A recuperação por e-mail ainda não foi configurada. O moderador deve executar o configurador de e-mail no computador do servidor.",
-      },
+      { ok: false, erro: "A recuperação por e-mail está temporariamente indisponível. Fale com o moderador." },
       { status: 503 },
     )
   }
 
   const usuario = buscarUsuarioPorLogin(identificador)
-  if (!usuario) {
-    return NextResponse.json(
-      { ok: false, erro: "Não encontramos uma conta com esse usuário ou e-mail." },
-      { status: 404 },
-    )
-  }
 
-  if (!usuario.email?.includes("@")) {
-    return NextResponse.json(
-      { ok: false, erro: "Esta conta não possui um e-mail de recuperação válido. Fale com o moderador." },
-      { status: 400 },
-    )
+  // Não revela se o usuário/e-mail existe. Isso impede que a recuperação seja
+  // usada para enumerar cadastros da comunidade.
+  if (!usuario || !usuario.email?.includes("@")) {
+    return NextResponse.json({ ok: true, mensagem: RESPOSTA_GENERICA })
   }
 
   const codigo = String(randomInt(0, 1_000_000)).padStart(6, "0")
@@ -73,7 +64,7 @@ export async function POST(req: Request) {
   if (!envio.enviado) {
     db.prepare("DELETE FROM codigos_recuperacao WHERE usuario_id = ?").run(usuario.id)
     return NextResponse.json(
-      { ok: false, erro: envio.erro || "Não foi possível enviar o código por e-mail." },
+      { ok: false, erro: "Não foi possível enviar o código agora. Tente novamente em alguns minutos." },
       { status: 502 },
     )
   }
