@@ -47,7 +47,7 @@ jobs:
           cat native-assets/android/release/signature-patch-104/patch-*.b64 | base64 --decode > "$PATCH"
           echo "45437 bytes de patch esperados; encontrado $(stat -c%s "$PATCH")"
           [ "$(stat -c%s "$PATCH")" -eq 45437 ]
-          printf '%s  %s\n' 'e55978e8f028b2ed5d5f2ad28f521a42c67313655d928ebb77a774c3d67af1' "$PATCH" | sha256sum -c -
+          printf '%s  %s\n' 'e55978e8f028b2ed5d5d5f2ad28f521a42c67313655d928ebb77a774c3d67af1' "$PATCH" | sha256sum -c -
           echo "Fonte e patch íntegros."
 
       - name: Reconstruir APK assinado
