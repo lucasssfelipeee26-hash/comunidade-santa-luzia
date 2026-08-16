@@ -1,7 +1,8 @@
 /*
  * Ajustes globais de leitura e edição.
- * Não personaliza o menu nativo de copiar/colar do Android: esse menu fica
- * totalmente a cargo do sistema do aparelho.
+ * A UI do aplicativo mantém suas cores. Menus/submenus nativos do Android
+ * não recebem paleta do site: seleção, copiar/colar, selects e diálogos ficam
+ * sob controle do sistema/WebView do aparelho.
  */
 .app-mobile-shell {
   --sl-field-text: var(--foreground, #2c2024);
@@ -70,7 +71,7 @@ html[data-native-platform="android"] .app-mobile-shell * {
   -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Autofill do Android/Chrome não pode trocar o texto para branco. */
+/* Autofill continua legível sem alterar o menu contextual do Android. */
 .app-mobile-shell input:-webkit-autofill,
 .app-mobile-shell input:-webkit-autofill:hover,
 .app-mobile-shell input:-webkit-autofill:focus,
@@ -82,19 +83,25 @@ html[data-native-platform="android"] .app-mobile-shell * {
   transition: background-color 9999s ease-out 0s;
 }
 
-/* Listas web continuam legíveis; o menu copiar/colar não é afetado. */
-.app-mobile-shell select option,
-.app-mobile-shell select optgroup {
-  background-color: #ffffff !important;
-  color: #2c2024 !important;
-  -webkit-text-fill-color: #2c2024 !important;
-  opacity: 1 !important;
+/*
+ * O globals.css antigo força color-scheme: light e cores em <option>.
+ * No APK Android anulamos isso para os controles nativos seguirem o aparelho.
+ * A aparência dos cards/campos web continua definida pelos componentes.
+ */
+html[data-native-platform="android"] {
+  color-scheme: normal !important;
 }
 
-.app-mobile-shell select option:checked {
-  background-color: #f4e5e9 !important;
-  color: #64172d !important;
-  -webkit-text-fill-color: #64172d !important;
+html[data-native-platform="android"] .app-mobile-shell :where(input, textarea, select, option, optgroup, [contenteditable="true"]) {
+  color-scheme: normal !important;
+}
+
+html[data-native-platform="android"] .app-mobile-shell select option,
+html[data-native-platform="android"] .app-mobile-shell select optgroup,
+html[data-native-platform="android"] .app-mobile-shell select option:checked {
+  background-color: revert !important;
+  color: revert !important;
+  -webkit-text-fill-color: initial !important;
 }
 
 .area-restrita-shell {
