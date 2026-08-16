@@ -1,14 +1,14 @@
 {
-  "versionCode": 8,
+  "versionCode": 9,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
   "apkSize": 6051212,
-  "apkSha256": "b2e7cf6c3c6a636ea91602dd6a82c3cf53dd770830197f7ceb7f114ede6316b7",
+  "apkSha256": "cdacaf771623a2fb8245c9c1c05ea6e4403d736cda9c1a3b5852874c001e1084",
   "highlights": [
-    "Correção nativa reforçada do menu copiar, colar e selecionar no Android",
-    "Superfície contextual vinho escuro com texto marfim de alto contraste",
-    "Compatibilidade reforçada com Samsung/WebView quando o sistema força texto branco",
-    "Versão pública permanece 1.0.5; apenas a build interna avança para 8"
+    "Última cor clara da paleta Manto Rubi alterada para rosé neutro",
+    "Campos de escrita da Área Restrita agora usam fundo rosé claro e texto escuro",
+    "Android passa a usar ActionMode primário para reduzir o bug do menu flutuante de copiar e colar",
+    "Versão pública permanece 1.0.5; build interna atualizada para 9"
   ]
 }
