@@ -1,45 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!--
-      Overlay exclusivo do menu contextual de seleção/cópia/cola.
-      Fundo vinho + texto marfim evita o caso observado em alguns Samsung em
-      que o sistema insiste em rótulos brancos sobre uma superfície clara.
-    -->
-    <style name="AppTheme.ActionMode" parent="ThemeOverlay.AppCompat.Dark.ActionBar">
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="colorControlNormal">@color/santa_luzia_actionmode_text</item>
-        <item name="colorControlActivated">@color/colorAccent</item>
-        <item name="colorControlHighlight">@color/santa_luzia_actionmode_bg_pressed</item>
-        <item name="android:colorAccent">@color/colorAccent</item>
-        <item name="android:textColorPrimary">@color/santa_luzia_actionmode_text</item>
-        <item name="android:textColorSecondary">@color/santa_luzia_actionmode_text_muted</item>
-        <item name="android:actionMenuTextColor">@color/santa_luzia_actionmode_text</item>
-        <item name="android:colorBackground">@color/santa_luzia_actionmode_bg</item>
-        <item name="android:colorBackgroundFloating">@color/santa_luzia_actionmode_bg</item>
-    </style>
-
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
-        <item name="colorControlNormal">@color/santa_luzia_text</item>
-        <item name="colorControlActivated">@color/colorPrimary</item>
-        <item name="colorControlHighlight">@android:color/transparent</item>
-        <item name="actionModeTheme">@style/AppTheme.ActionMode</item>
-        <item name="actionModeBackground">@color/santa_luzia_actionmode_bg</item>
-        <item name="actionMenuTextColor">@color/santa_luzia_actionmode_text</item>
         <item name="android:colorAccent">@color/colorPrimary</item>
-        <item name="android:colorControlNormal">@color/santa_luzia_text</item>
-        <item name="android:colorControlActivated">@color/colorPrimary</item>
-        <item name="android:colorControlHighlight">@android:color/transparent</item>
         <item name="android:textColorPrimary">@color/santa_luzia_text</item>
         <item name="android:textColorSecondary">@color/santa_luzia_text_muted</item>
         <item name="android:textColorHighlight">@color/santa_luzia_selection</item>
-        <item name="android:actionModeBackground">@color/santa_luzia_actionmode_bg</item>
-        <item name="android:actionMenuTextColor">@color/santa_luzia_actionmode_text</item>
-        <item name="android:colorBackgroundFloating">@color/santa_luzia_actionmode_bg</item>
-        <item name="android:forceDarkAllowed">false</item>
-        <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
         <item name="android:navigationBarColor">@color/santa_luzia_ivory</item>
@@ -52,24 +20,10 @@
         <item name="windowNoTitle">true</item>
         <item name="android:background">@color/santa_luzia_ivory</item>
         <item name="colorAccent">@color/colorAccent</item>
-        <item name="colorControlNormal">@color/santa_luzia_text</item>
-        <item name="colorControlActivated">@color/colorPrimary</item>
-        <item name="colorControlHighlight">@android:color/transparent</item>
-        <item name="actionModeTheme">@style/AppTheme.ActionMode</item>
-        <item name="actionModeBackground">@color/santa_luzia_actionmode_bg</item>
-        <item name="actionMenuTextColor">@color/santa_luzia_actionmode_text</item>
         <item name="android:colorAccent">@color/colorPrimary</item>
-        <item name="android:colorControlNormal">@color/santa_luzia_text</item>
-        <item name="android:colorControlActivated">@color/colorPrimary</item>
-        <item name="android:colorControlHighlight">@android:color/transparent</item>
         <item name="android:textColorPrimary">@color/santa_luzia_text</item>
         <item name="android:textColorSecondary">@color/santa_luzia_text_muted</item>
         <item name="android:textColorHighlight">@color/santa_luzia_selection</item>
-        <item name="android:actionModeBackground">@color/santa_luzia_actionmode_bg</item>
-        <item name="android:actionMenuTextColor">@color/santa_luzia_actionmode_text</item>
-        <item name="android:colorBackgroundFloating">@color/santa_luzia_actionmode_bg</item>
-        <item name="android:forceDarkAllowed">false</item>
-        <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
         <item name="android:navigationBarColor">@color/santa_luzia_ivory</item>
