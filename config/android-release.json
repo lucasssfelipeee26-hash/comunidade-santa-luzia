@@ -1,14 +1,14 @@
 {
-  "versionCode": 10,
+  "versionCode": 11,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
   "apkSize": 6047116,
-  "apkSha256": "8131829d92791e701fe18289c879ea7852126b57500370cba1f9846ec0f23176",
+  "apkSha256": "7d81163cd07042649233c306ed889a8e6d4f3f49b039efad8d385db722851f84",
   "highlights": [
-    "Menu selecionar, copiar e colar voltou a ser totalmente nativo do Android",
-    "Removidas as personalizações de ActionMode que causavam a faixa e o menu sem contraste",
-    "Campos voltaram às cores normais do aplicativo; apenas texto, cursor e seleção recebem proteção de contraste",
-    "A quarta cor foi removida das paletas exibidas no gerenciador de temas"
+    "Menus de selecionar, copiar e colar agora são controlados diretamente pelo framework Android",
+    "Submenus nativos deixaram de receber cores globais do aplicativo",
+    "Removido android:background do tema host para impedir vazamento de fundo claro em popups e diálogos",
+    "Tema Android host agora acompanha DayNight do aparelho; identidade visual do aplicativo foi preservada"
   ]
 }
