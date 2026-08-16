@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import {
   buscarFormacao,
@@ -7,10 +7,11 @@ import {
   salvarPresencasFormacao,
   type FormacaoPresencaStatus,
 } from "@/lib/db"
+import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
   if (!sessao) {
     return NextResponse.json({ erro: "Faça login para registrar sua presença." }, { status: 401 })
@@ -25,7 +26,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ erro: "Seu cadastro não está liberado para a lista de presença." }, { status: 403 })
   }
 
+  const limite = limitar(`formacao:minha-presenca:${usuario.id}:${ipDaRequisicao(request)}`, 30, 60 * 60 * 1000)
+  if (!limite.permitido) return NextResponse.json({ erro: "Muitas alterações em pouco tempo. Aguarde antes de tentar novamente." }, { status: 429 })
+
   const { id } = await params
+  if (!id || id.length > 160) return NextResponse.json({ erro: "Formação inválida." }, { status: 400 })
   const formacao = buscarFormacao(id)
   if (!formacao) {
     return NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
@@ -73,5 +78,5 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           atualizado_em: presenca.atualizado_em,
         }
       : null,
-  })
+  }, { headers: { "Cache-Control": "private, no-store, max-age=0" } })
 }
