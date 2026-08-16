@@ -1,14 +1,14 @@
 {
-  "versionCode": 7,
+  "versionCode": 8,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
-  "apkSize": 6047116,
-  "apkSha256": "8fa463e27c356684149c6b4f4622b5ccb7fcc395cdab979b0c93add93d2df144",
+  "apkSize": 6051212,
+  "apkSha256": "b2e7cf6c3c6a636ea91602dd6a82c3cf53dd770830197f7ceb7f114ede6316b7",
   "highlights": [
-    "Correção nativa de contraste nos campos de texto, seleção, copiar e colar",
-    "Menu de seleção do Android ajustado para ficar legível e coerente com as cores do aplicativo",
-    "Painel do moderador mantém a identidade visual padrão com correções de contraste",
-    "Joias da Luz nativo, perfis com recados, classificação moderna e notificações mais rápidas"
+    "Correção nativa reforçada do menu copiar, colar e selecionar no Android",
+    "Superfície contextual vinho escuro com texto marfim de alto contraste",
+    "Compatibilidade reforçada com Samsung/WebView quando o sistema força texto branco",
+    "Versão pública permanece 1.0.5; apenas a build interna avança para 8"
   ]
 }
