@@ -27,6 +27,7 @@ interface AppUpdaterPlugin {
 }
 
 const NativeAppUpdater = registerPlugin<AppUpdaterPlugin>("AppUpdater")
+const REPOSITORIO = "lucasssfelipeee26-hash/comunidade-santa-luzia"
 
 function ehFalhaIntegridadeLegada(falha: unknown) {
   if (!falha || typeof falha !== "object") return false
@@ -36,9 +37,17 @@ function ehFalhaIntegridadeLegada(falha: unknown) {
   return codigo === "ATUALIZACAO_INVALIDA" || mensagem.includes("dados de integridade")
 }
 
-async function abrirDownloadSeguro(url: string): Promise<DownloadAndInstallResult> {
+function obterUrlDiretaRelease(nomeArquivo: string) {
+  const correspondencia = /^Santa-Luzia-([0-9A-Za-z._-]+)\.apk$/i.exec(nomeArquivo)
+  if (!correspondencia) return `https://github.com/${REPOSITORIO}/releases/latest/download/santa-luzia.apk`
+
+  const versao = correspondencia[1]
+  return `https://github.com/${REPOSITORIO}/releases/download/android-v${encodeURIComponent(versao)}/${encodeURIComponent(nomeArquivo)}`
+}
+
+async function abrirDownloadSeguro(nomeArquivo: string): Promise<DownloadAndInstallResult> {
   const { Browser } = await import("@capacitor/browser")
-  await Browser.open({ url, presentationStyle: "popover" })
+  await Browser.open({ url: obterUrlDiretaRelease(nomeArquivo), presentationStyle: "popover" })
   return { status: "installer_opened" }
 }
 
@@ -52,7 +61,7 @@ export const AppUpdater: AppUpdaterPlugin = {
       return await NativeAppUpdater.downloadAndInstall(options)
     } catch (falha) {
       if (!ehFalhaIntegridadeLegada(falha)) throw falha
-      return abrirDownloadSeguro(options.url)
+      return abrirDownloadSeguro(options.fileName)
     }
   },
 }
