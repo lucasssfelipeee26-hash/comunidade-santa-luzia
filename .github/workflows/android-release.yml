@@ -42,6 +42,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
 
       - name: Validar URL do aplicativo
         run: test -n "$CAPACITOR_SERVER_URL" && echo "$CAPACITOR_SERVER_URL" | grep -q '^https://'
@@ -121,7 +122,16 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: |
+          for tentativa in 1 2 3; do
+            if ./gradlew assembleRelease --no-daemon; then exit 0; fi
+            if [ "$tentativa" -lt 3 ]; then
+              espera=$((tentativa * 30))
+              echo "Gradle falhou na tentativa ${tentativa}; aguardando ${espera}s antes de repetir."
+              sleep "$espera"
+            fi
+          done
+          exit 1
 
       - name: Validar certificado do APK assinado
         if: env.HAS_ANDROID_SIGNING == 'true'
@@ -137,7 +147,16 @@ jobs:
       - name: Gerar APK para validação
         if: env.HAS_ANDROID_SIGNING != 'true'
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: |
+          for tentativa in 1 2 3; do
+            if ./gradlew assembleRelease --no-daemon; then exit 0; fi
+            if [ "$tentativa" -lt 3 ]; then
+              espera=$((tentativa * 30))
+              echo "Gradle falhou na tentativa ${tentativa}; aguardando ${espera}s antes de repetir."
+              sleep "$espera"
+            fi
+          done
+          exit 1
 
       - name: Guardar APK de validação
         if: env.HAS_ANDROID_SIGNING != 'true'
@@ -164,7 +183,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="android-v${APP_VERSION_NAME}"
-          NOTES="Santa Luzia ${APP_VERSION_NAME} — build interna ${APP_VERSION_CODE}. Início da fase de robustez técnica: detecção instantânea de atualização ao reconectar ou voltar ao app, sincronização nativa de rede, validação reforçada de APK (origem, SHA-256, tamanho, applicationId, versionCode e assinatura), recuperação global de falhas e auditoria automatizada."
+          NOTES="Santa Luzia ${APP_VERSION_NAME} — build interna ${APP_VERSION_CODE}. Robustez técnica: atualização instantânea ao reconectar ou voltar ao app, sincronização resiliente, validação reforçada de APK, progressão segura do jogo, validação civil de dados e recuperação global de falhas."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --clobber
             gh release edit "$TAG" --latest --title "Santa Luzia Android ${APP_VERSION_NAME}" --notes "$NOTES"
@@ -193,8 +212,8 @@ jobs:
           atual.highlights = [
             'A atualização aparece automaticamente assim que o aparelho reconecta à internet, sem precisar fechar o aplicativo',
             'O Santa Luzia também verifica novas builds enquanto permanece aberto e ao voltar do segundo plano',
-            'A instalação agora valida applicationId, versionCode e certificado da APK antes de abrir o instalador',
-            'Foi iniciada a auditoria técnica quadro por quadro com recuperação global contra telas vazias'
+            'A instalação valida applicationId, versionCode e certificado da APK antes de abrir o instalador',
+            'A auditoria de robustez cobre autenticação, escalas, formações, atrasos, ranking, jogo, offline e recuperação de interface'
           ]
           fs.writeFileSync(path, JSON.stringify(atual, null, 2) + '\n')
           NODE
