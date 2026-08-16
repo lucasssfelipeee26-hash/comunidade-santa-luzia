@@ -10,6 +10,7 @@ permissions:
   contents: read
   actions: read
 
+# Segunda ponte efemera para concluir a publicacao 1.0.5.
 jobs:
   gerar-ponte:
     runs-on: ubuntu-latest
