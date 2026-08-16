@@ -10,11 +10,11 @@ on:
       version_code:
         description: Código inteiro da versão (aumentar a cada envio)
         required: true
-        default: "4"
+        default: "5"
       version_name:
         description: Nome público da versão
         required: true
-        default: "1.0.3"
+        default: "1.0.4"
 
 permissions:
   contents: write
@@ -133,11 +133,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="android-v${APP_VERSION_NAME}"
+          NOTES="Santa Luzia ${APP_VERSION_NAME}: núcleo offline nativo, perfis públicos com privacidade dos registros, Quiz e ações offline com sincronização, interface Android aprimorada e atualizador interno com verificação de segurança."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --clobber
-            gh release edit "$TAG" --latest --title "Santa Luzia ${APP_VERSION_NAME}"
+            gh release edit "$TAG" --latest --title "Santa Luzia ${APP_VERSION_NAME}" --notes "$NOTES"
           else
-            gh release create "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --latest --title "Santa Luzia ${APP_VERSION_NAME}" --notes "Aplicativo Android oficial da Comunidade Santa Luzia. Esta versão inclui a Jornada Litúrgica, a Missão do Altar e a Central de Atrasos separada."
+            gh release create "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --latest --title "Santa Luzia ${APP_VERSION_NAME}" --notes "$NOTES"
           fi
 
       - name: Publicar metadados seguros do atualizador
@@ -159,15 +160,15 @@ jobs:
           atual.apkSize = bytes.length
           atual.apkSha256 = crypto.createHash('sha256').update(bytes).digest('hex')
           atual.highlights = [
-            'Jornada Litúrgica reúne Quiz de Hoje, Missão do Altar, classificação e quizzes avulsos',
-            'Missão do Altar funciona localmente no celular com sons, vibração, fases e sincronização do resultado',
-            'Central de Atrasos separada do quiz, com confirmação ou rejeição exclusiva do moderador',
-            'Navegação unificada e preparada para uso no aplicativo Android'
+            'O aplicativo abre com um núcleo offline próprio no Android',
+            'Perfil, Formação, Escalas, Jornada, Biblioteca, Atrasos e Quiz continuam disponíveis sem internet após sincronização',
+            'Perfis da equipe mostram apenas informações públicas; registros administrativos ficam reservados aos moderadores',
+            'Botões, seleção de texto, sons e compatibilidade com celulares Android foram aprimorados'
           ]
           fs.writeFileSync(path, JSON.stringify(atual, null, 2) + '\n')
           NODE
           git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.email '4189822+github-actions[bot]@users.noreply.github.com'
           git add config/android-release.json
           if git diff --cached --quiet; then
             echo 'Metadados já estavam atualizados.'
