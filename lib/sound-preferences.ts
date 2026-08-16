@@ -16,10 +16,10 @@ export type SoundPreferences = {
 
 export const DEFAULT_SOUND_PREFERENCES: SoundPreferences = {
   uiSound: "soft",
-  uiVolume: 0.22,
+  uiVolume: 0.18,
   successSound: "success",
   errorSound: "error",
-  notificationSound: "santa",
+  notificationSound: "soft",
   notificationVibration: true,
   customUiDataUrl: null,
   customUiName: null,
@@ -51,10 +51,10 @@ export const ERROR_SOUND_OPTIONS: { value: ErrorSoundKey; label: string }[] = [
 ]
 
 export const NOTIFICATION_SOUND_OPTIONS: { value: NotificationSoundKey; label: string; description: string; file?: string; preview?: string }[] = [
+  { value: "soft", label: "Suave", description: "Aviso curto e discreto · recomendado", file: "santa_luzia_soft.wav", preview: "/sounds/notification-soft.wav" },
   { value: "santa", label: "Santa Luzia", description: "Acorde luminoso e acolhedor", file: "santa_luzia_notification.wav", preview: "/sounds/notification-santa.wav" },
   { value: "bells", label: "Sinos", description: "Três notas de sino, claras e elegantes", file: "santa_luzia_bells.wav", preview: "/sounds/notification-bells.wav" },
   { value: "chime", label: "Carrilhão", description: "Toque moderno, leve e cristalino", file: "santa_luzia_chime.wav", preview: "/sounds/notification-chime.wav" },
-  { value: "soft", label: "Suave", description: "Aviso curto e discreto", file: "santa_luzia_soft.wav", preview: "/sounds/notification-soft.wav" },
   { value: "none", label: "Sem som", description: "Somente aviso visual e vibração" },
 ]
 
@@ -85,7 +85,7 @@ export const APP_FEEDBACK_EVENT = "santa-luzia:feedback"
 function clampVolume(value: unknown) {
   const n = Number(value)
   if (!Number.isFinite(n)) return DEFAULT_SOUND_PREFERENCES.uiVolume
-  return Math.min(0.8, Math.max(0, n))
+  return Math.min(0.65, Math.max(0, n))
 }
 
 export function soundStorageKey(userId?: string | null) {
@@ -98,11 +98,7 @@ export function loadSoundPreferences(userId?: string | null): SoundPreferences {
     const raw = window.localStorage.getItem(soundStorageKey(userId))
     if (!raw) return DEFAULT_SOUND_PREFERENCES
     const parsed = JSON.parse(raw) as Partial<SoundPreferences>
-    return {
-      ...DEFAULT_SOUND_PREFERENCES,
-      ...parsed,
-      uiVolume: clampVolume(parsed.uiVolume),
-    }
+    return { ...DEFAULT_SOUND_PREFERENCES, ...parsed, uiVolume: clampVolume(parsed.uiVolume) }
   } catch {
     return DEFAULT_SOUND_PREFERENCES
   }
@@ -136,7 +132,7 @@ export function notificationSoundFile(key: NotificationSoundKey) {
 }
 
 export function notificationChannelId(key: NotificationSoundKey, vibration: boolean) {
-  return `santa_luzia_${key}_${vibration ? "v" : "nv"}_v2`
+  return `santa_luzia_${key}_${vibration ? "v" : "nv"}_v3`
 }
 
 export function notificationChannelName(key: NotificationSoundKey) {
