@@ -1,6 +1,9 @@
 package br.com.comunidadesantaluzia.app;
 
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -15,14 +18,14 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -98,7 +101,9 @@ public class AppUpdaterPlugin extends Plugin {
         File parcial = null;
 
         try {
-            File pasta = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "updates");
+            File baseExterna = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            if (baseExterna == null) throw new IOException("O Android não disponibilizou o armazenamento privado para a atualização.");
+            File pasta = new File(baseExterna, "updates");
             if (!pasta.exists() && !pasta.mkdirs()) throw new IOException("Não foi possível preparar o armazenamento da atualização.");
             limparAtualizacoesAntigas(pasta);
 
@@ -151,7 +156,7 @@ public class AppUpdaterPlugin extends Plugin {
 
             if (destino.exists() && !destino.delete()) throw new IOException("Não foi possível substituir a atualização anterior.");
             if (!parcial.renameTo(destino)) throw new IOException("Não foi possível finalizar o arquivo da atualização.");
-            validarApkAssinado(destino);
+            validarApkParaAtualizacao(destino);
 
             apkPendente = destino;
             getActivity().runOnUiThread(() -> solicitarPermissaoOuInstalar(call, destino));
@@ -176,7 +181,7 @@ public class AppUpdaterPlugin extends Plugin {
             conexao.setReadTimeout(45_000);
             conexao.setInstanceFollowRedirects(false);
             conexao.setRequestProperty("Accept", MIME_APK);
-            conexao.setRequestProperty("User-Agent", "SantaLuziaAndroid-Updater/1");
+            conexao.setRequestProperty("User-Agent", "SantaLuziaAndroid-Updater/2");
 
             int codigo = conexao.getResponseCode();
             if (codigo < 300 || codigo >= 400) return conexao;
@@ -220,6 +225,7 @@ public class AppUpdaterPlugin extends Plugin {
 
     private void abrirInstalador(PluginCall call, File apk) {
         try {
+            validarApkParaAtualizacao(apk);
             avisarProgresso("installing", apk.length(), apk.length(), 100);
             Uri conteudo = FileProvider.getUriForFile(
                 getContext(),
@@ -237,30 +243,59 @@ public class AppUpdaterPlugin extends Plugin {
             resultado.put("status", "installer_opened");
             call.resolve(resultado);
         } catch (Exception erro) {
-            call.reject("O Android não conseguiu abrir o instalador da atualização.", "FALHA_INSTALADOR", erro);
+            call.reject(mensagemSegura(erro), "FALHA_INSTALADOR", erro);
         } finally {
             downloadEmAndamento.set(false);
         }
     }
 
-    private void validarApkAssinado(File apk) throws Exception {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            if (
-                getContext().getPackageManager().getPackageArchiveInfo(
-                    apk.getAbsolutePath(),
-                    android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
-                ) == null
-            ) {
-                throw new IOException("O Android não reconheceu o pacote de atualização.");
-            }
-        } else if (
-            getContext().getPackageManager().getPackageArchiveInfo(
-                apk.getAbsolutePath(),
-                android.content.pm.PackageManager.GET_SIGNATURES
-            ) == null
-        ) {
-            throw new IOException("O Android não reconheceu o pacote de atualização.");
+    private void validarApkParaAtualizacao(File apk) throws Exception {
+        PackageManager pm = getContext().getPackageManager();
+        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+            ? PackageManager.GET_SIGNING_CERTIFICATES
+            : PackageManager.GET_SIGNATURES;
+
+        PackageInfo candidato = pm.getPackageArchiveInfo(apk.getAbsolutePath(), flags);
+        if (candidato == null) throw new IOException("O Android não reconheceu o pacote de atualização.");
+        if (!getContext().getPackageName().equals(candidato.packageName)) {
+            throw new IOException("O arquivo recebido pertence a outro aplicativo.");
         }
+
+        PackageInfo instalado = pm.getPackageInfo(getContext().getPackageName(), flags);
+        long versaoCandidata = obterVersionCode(candidato);
+        long versaoInstalada = obterVersionCode(instalado);
+        if (versaoCandidata <= versaoInstalada) {
+            throw new IOException("A atualização recebida não é mais nova que a versão instalada.");
+        }
+
+        Set<String> assinaturaInstalada = obterImpressaoAssinaturas(instalado);
+        Set<String> assinaturaCandidata = obterImpressaoAssinaturas(candidato);
+        if (assinaturaInstalada.isEmpty() || !assinaturaInstalada.equals(assinaturaCandidata)) {
+            throw new IOException("A assinatura da atualização não corresponde à assinatura oficial instalada.");
+        }
+    }
+
+    private long obterVersionCode(PackageInfo info) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
+        return info.versionCode;
+    }
+
+    private Set<String> obterImpressaoAssinaturas(PackageInfo info) throws Exception {
+        Signature[] assinaturas;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (info.signingInfo == null) return new HashSet<>();
+            assinaturas = info.signingInfo.getApkContentsSigners();
+        } else {
+            assinaturas = info.signatures;
+        }
+
+        Set<String> resultado = new HashSet<>();
+        if (assinaturas == null) return resultado;
+        for (Signature assinatura : assinaturas) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            resultado.add(paraHexadecimal(digest.digest(assinatura.toByteArray())));
+        }
+        return resultado;
     }
 
     private void avisarProgresso(String etapa, long baixados, long total, int percentual) {
