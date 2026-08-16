@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import {
   buscarFormacao,
@@ -7,6 +7,7 @@ import {
   salvarPresencasFormacao,
   type FormacaoPresencaStatus,
 } from "@/lib/db"
+import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -21,9 +22,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!sessao || sessao.tipo !== "moderador") return acessoNegado()
 
   const { id } = await params
-  if (!buscarFormacao(id)) {
-    return NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
-  }
+  if (!id || id.length > 160) return NextResponse.json({ erro: "Formação inválida." }, { status: 400 })
+  if (!buscarFormacao(id)) return NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
 
   const presencas = new Map(
     listarPresencasFormacao(id).map((presenca) => [presenca.usuario_id, presenca]),
@@ -51,13 +51,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   )
 }
 
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
   if (!sessao || sessao.tipo !== "moderador") return acessoNegado()
 
+  const limite = limitar(`formacao:presencas:${sessao.sub}:${ipDaRequisicao(request)}`, 40, 15 * 60 * 1000)
+  if (!limite.permitido) return NextResponse.json({ erro: "Muitas alterações em pouco tempo. Aguarde alguns minutos." }, { status: 429 })
+
   const { id } = await params
-  if (!buscarFormacao(id)) {
-    return NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
+  if (!id || id.length > 160) return NextResponse.json({ erro: "Formação inválida." }, { status: 400 })
+  const formacao = buscarFormacao(id)
+  if (!formacao) return NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
+  if (formacao.status === "cancelada") {
+    return NextResponse.json({ erro: "Não é possível alterar presença em uma formação cancelada." }, { status: 409 })
   }
 
   const body = await request.json().catch(() => null) as {
@@ -65,6 +71,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   } | null
   if (!body || !Array.isArray(body.presencas)) {
     return NextResponse.json({ erro: "Envie a lista de presença da formação." }, { status: 400 })
+  }
+  if (body.presencas.length > 300) {
+    return NextResponse.json({ erro: "A lista de presença excede o limite permitido." }, { status: 413 })
   }
 
   const equipe = new Map(listarEquipeAprovada().map((usuario) => [usuario.id, usuario]))
@@ -77,7 +86,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   for (const item of body.presencas) {
     const usuarioId = String(item.usuarioId ?? "").trim()
-    if (!usuarioId || idsRecebidos.has(usuarioId) || !equipe.has(usuarioId)) {
+    if (!usuarioId || usuarioId.length > 160 || idsRecebidos.has(usuarioId) || !equipe.has(usuarioId)) {
       return NextResponse.json({ erro: "A lista contém um usuário inválido ou duplicado." }, { status: 400 })
     }
     idsRecebidos.add(usuarioId)
@@ -98,7 +107,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const justificativa = String(item.justificativa ?? "").trim()
     if (situacao === "justificada" && justificativa.length < 3) {
       return NextResponse.json(
-        { erro: `Informe a justificativa da falta de ${equipe.get(usuarioId)?.nome}.` },
+        { erro: `Informe a justificativa da falta de ${usuario.nome}.` },
         { status: 400 },
       )
     }
