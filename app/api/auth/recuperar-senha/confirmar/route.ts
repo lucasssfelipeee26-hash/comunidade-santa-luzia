@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, erro: "Requisição inválida." }, { status: 400 })
   }
 
-  const identificador = String(body.login ?? body.email ?? "").trim()
+  const identificador = String(body.login ?? body.email ?? "").trim().slice(0, 254)
   const codigo = String(body.codigo ?? "").replace(/\D/g, "").slice(0, 6)
   const novaSenha = String(body.novaSenha ?? "")
 
@@ -37,8 +37,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, erro: "Preencha o código de 6 dígitos e a nova senha." }, { status: 400 })
   }
 
-  if (novaSenha.length < 8) {
-    return NextResponse.json({ ok: false, erro: "A nova senha deve ter pelo menos 8 caracteres." }, { status: 400 })
+  if (novaSenha.length < 8 || novaSenha.length > 128) {
+    return NextResponse.json({ ok: false, erro: "A nova senha deve ter entre 8 e 128 caracteres." }, { status: 400 })
   }
 
   const usuario = buscarUsuarioPorLogin(identificador)
@@ -49,7 +49,10 @@ export async function POST(req: Request) {
     .prepare("SELECT * FROM codigos_recuperacao WHERE usuario_id = ? AND usado = 0 ORDER BY criado_em DESC LIMIT 1")
     .get(usuario.id) as CodigoRow | undefined
 
-  if (!registro || registro.expira_em < Date.now()) return generico
+  if (!registro || registro.expira_em < Date.now()) {
+    if (registro?.id) db.prepare("UPDATE codigos_recuperacao SET usado = 1 WHERE id = ?").run(registro.id)
+    return generico
+  }
   if (!bcrypt.compareSync(codigo, registro.codigo_hash)) return generico
 
   const atualizou = db.prepare("UPDATE usuarios SET senha_hash = ? WHERE id = ?").run(hashSenha(novaSenha), usuario.id)
@@ -58,5 +61,5 @@ export async function POST(req: Request) {
   }
 
   db.prepare("UPDATE codigos_recuperacao SET usado = 1 WHERE id = ?").run(registro.id)
-  return NextResponse.json({ ok: true, mensagem: "Senha alterada com sucesso." })
+  return NextResponse.json({ ok: true, mensagem: "Senha alterada com sucesso. Sessões recentes dessa conta serão invalidadas." })
 }
