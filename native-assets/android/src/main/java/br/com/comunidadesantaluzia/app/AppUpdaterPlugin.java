@@ -48,7 +48,7 @@ public class AppUpdaterPlugin extends Plugin {
         final String endereco = call.getString("url", "").trim();
         final String nomeArquivo = limparNomeArquivo(call.getString("fileName", "Santa-Luzia-atualizacao.apk"));
         final String shaEsperado = call.getString("expectedSha256", "").trim().toLowerCase(Locale.ROOT);
-        final Long tamanhoEsperado = call.getLong("expectedSize", 0L);
+        final long tamanhoEsperado = lerTamanhoEsperado(call);
 
         try {
             validarEntrada(endereco, nomeArquivo, shaEsperado, tamanhoEsperado);
@@ -59,6 +59,19 @@ public class AppUpdaterPlugin extends Plugin {
         }
 
         executor.execute(() -> baixarValidarEInstalar(call, endereco, nomeArquivo, shaEsperado, tamanhoEsperado));
+    }
+
+    private long lerTamanhoEsperado(PluginCall call) {
+        Object valor = call.getData().opt("expectedSize");
+        if (valor instanceof Number) return ((Number) valor).longValue();
+        if (valor != null) {
+            try {
+                return Long.parseLong(String.valueOf(valor));
+            } catch (NumberFormatException ignorado) {
+                // A validação abaixo tratará o valor como inválido.
+            }
+        }
+        return 0L;
     }
 
     private void validarEntrada(String endereco, String nomeArquivo, String shaEsperado, long tamanhoEsperado) throws Exception {
