@@ -76,7 +76,7 @@ jobs:
           test -n "$APKSIGNER"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee /tmp/apksigner-104.txt
-          CERT="$(grep -i 'Signer #1 certificate SHA-256 digest:' /tmp/apksigner-104.txt | head -1 | sed 's/.*: //' | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          CERT="$(grep -i 'certificate SHA-256 digest:' /tmp/apksigner-104.txt | head -1 | sed 's/.*: //' | tr '[:upper:]' '[:lower:]' | tr -d ':')"
           echo "Certificado validado: $CERT"
           [ "$CERT" = '1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18' ]
           grep -Eq 'Verified using v2 scheme.*true' /tmp/apksigner-104.txt
