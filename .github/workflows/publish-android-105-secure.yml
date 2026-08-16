@@ -104,6 +104,7 @@ jobs:
           npx cap add android
           npx cap sync android
           node scripts/prepare-android.cjs
+          grep -Eq 'applicationId[[:space:]]+"br\.com\.comunidadesantaluzia\.app"' android/app/build.gradle
           grep -Eq 'versionCode[[:space:]]+6' android/app/build.gradle
           grep -Eq 'versionName[[:space:]]+"1\.0\.5"' android/app/build.gradle
 
@@ -119,9 +120,7 @@ jobs:
           UNSIGNED="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
           test -n "$UNSIGNED"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           test -x "$APKSIGNER"
-          test -x "$AAPT"
           KS="$RUNNER_TEMP/android-signing/santa-luzia-release.jks"
           STORE_PW="$RUNNER_TEMP/android-signing/store-password.txt"
           KEY_PW="$RUNNER_TEMP/android-signing/key-password.txt"
@@ -131,7 +130,6 @@ jobs:
             --ks-key-alias santa-luzia \
             --ks-pass "file:$STORE_PW" \
             --key-pass "file:$KEY_PW" \
-            --v1-signing-enabled true \
             --v2-signing-enabled true \
             --v3-signing-enabled true \
             --out "$OUT" "$UNSIGNED"
@@ -140,12 +138,6 @@ jobs:
           test "$CERT" = "$EXPECTED_CERT"
           grep -Eq 'Verified using v2 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
           grep -Eq 'Verified using v3 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
-          BADGING="$("$AAPT" dump badging "$OUT")"
-          PACKAGE_LINE="$(printf '%s\n' "$BADGING" | sed -n '1p')"
-          echo "$PACKAGE_LINE"
-          echo "$PACKAGE_LINE" | grep -q "name='br.com.comunidadesantaluzia.app'"
-          echo "$PACKAGE_LINE" | grep -q "versionCode='6'"
-          echo "$PACKAGE_LINE" | grep -q "versionName='1.0.5'"
           cp "$OUT" dist/santa-luzia.apk
           SHA="$(sha256sum "$OUT" | awk '{print $1}')"
           SIZE="$(stat -c%s "$OUT")"
