@@ -2,8 +2,8 @@ export const temasSantaLuzia = [
   {
     id: "manto-rubi",
     nome: "Manto Rubi + Dourado",
-    descricao: "Vermelho rubi inspirado no manto de Santa Luzia, com detalhes dourados e fundo creme.",
-    cores: ["#7b1326", "#5a0b18", "#d4af37", "#fff8ee"],
+    descricao: "Vermelho rubi inspirado no manto de Santa Luzia, com detalhes dourados e fundo rosé claro.",
+    cores: ["#7b1326", "#5a0b18", "#d4af37", "#f4e9ec"],
   },
   {
     id: "bordo-ouro",
