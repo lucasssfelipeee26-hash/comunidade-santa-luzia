@@ -3,6 +3,7 @@ import { lerSessao } from "@/lib/auth"
 import { listarEscalas, salvarEscala, buscarUsuario, listarMembrosAprovados, type EscalaPessoa } from "@/lib/db"
 import { funcaoEscalaValida } from "@/lib/escala-funcoes"
 import { notificarUsuarios } from "@/lib/notificacoes"
+import { dataCivilIsoValida, horario24hValido } from "@/lib/validation"
 
 export const dynamic = "force-dynamic"
 
@@ -32,16 +33,23 @@ export async function POST(req: Request) {
 
   const data = String(body?.data ?? "").trim()
   const horario = String(body?.horario ?? "").trim()
-  const celebrante = String(body?.celebrante ?? "").trim()
+  const celebrante = String(body?.celebrante ?? "").trim().replace(/\s+/g, " ")
+  const observacoes = String(body?.observacoes ?? "").trim()
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+  if (!dataCivilIsoValida(data, { anoMinimo: 2020, anoMaximo: 2100 })) {
     return NextResponse.json({ ok: false, erro: "Informe uma data válida para a escala." }, { status: 400 })
   }
-  if (!/^\d{2}:\d{2}$/.test(horario)) {
-    return NextResponse.json({ ok: false, erro: "Informe um horário válido." }, { status: 400 })
+  if (!horario24hValido(horario)) {
+    return NextResponse.json({ ok: false, erro: "Informe um horário válido entre 00:00 e 23:59." }, { status: 400 })
   }
-  if (!celebrante) {
-    return NextResponse.json({ ok: false, erro: "Informe o sacerdote celebrante." }, { status: 400 })
+  if (celebrante.length < 2 || celebrante.length > 120) {
+    return NextResponse.json({ ok: false, erro: "Informe o sacerdote celebrante com até 120 caracteres." }, { status: 400 })
+  }
+  if (observacoes.length > 1200) {
+    return NextResponse.json({ ok: false, erro: "As observações devem ter no máximo 1.200 caracteres." }, { status: 400 })
+  }
+  if (Array.isArray(body?.pessoas) && body.pessoas.length > 80) {
+    return NextResponse.json({ ok: false, erro: "A escala possui pessoas demais para uma única celebração." }, { status: 400 })
   }
 
   const pessoas: EscalaPessoa[] = []
@@ -87,7 +95,7 @@ export async function POST(req: Request) {
     horario,
     celebrante,
     pessoas,
-    observacoes: String(body?.observacoes ?? "").trim(),
+    observacoes,
   })
 
   const equipe = listarMembrosAprovados()
