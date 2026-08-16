@@ -46,8 +46,10 @@ export function garantirQuizLiturgiaOffline(dataIso: string) {
     perguntas.push({ id: "lit-4", enunciado: "Qual é a referência do Evangelho proclamado hoje?", opcoes: o.itens, correta: o.correta, pontos: 15, explicacao: `O Evangelho é ${evangelho.referencia}.` })
   }
 
-  const periodo = opcoes(liturgia.tempoLiturgicoAtual, ["Tempo do Advento", "Tempo Pascal"], 2)
-  perguntas.push({ id: "lit-5", enunciado: "Em qual período litúrgico está inserida a celebração de hoje?", opcoes: periodo.itens, correta: periodo.correta, pontos: 10, explicacao: liturgia.tempoLiturgicoAtual })
+  if (liturgia.tempoLiturgicoAtual?.trim()) {
+    const periodo = opcoes(liturgia.tempoLiturgicoAtual, ["Tempo do Advento", "Tempo Pascal"], 2)
+    perguntas.push({ id: "lit-5", enunciado: "Em qual período litúrgico está inserida a celebração de hoje?", opcoes: periodo.itens, correta: periodo.correta, pontos: 10, explicacao: liturgia.tempoLiturgicoAtual })
+  }
 
   if (perguntas.length < 3) return null
 
