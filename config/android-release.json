@@ -1,14 +1,14 @@
 {
-  "versionCode": 9,
+  "versionCode": 10,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
-  "apkSize": 6051212,
-  "apkSha256": "cdacaf771623a2fb8245c9c1c05ea6e4403d736cda9c1a3b5852874c001e1084",
+  "apkSize": 6047116,
+  "apkSha256": "8131829d92791e701fe18289c879ea7852126b57500370cba1f9846ec0f23176",
   "highlights": [
-    "Última cor clara da paleta Manto Rubi alterada para rosé neutro",
-    "Campos de escrita da Área Restrita agora usam fundo rosé claro e texto escuro",
-    "Android passa a usar ActionMode primário para reduzir o bug do menu flutuante de copiar e colar",
-    "Versão pública permanece 1.0.5; build interna atualizada para 9"
+    "Menu selecionar, copiar e colar voltou a ser totalmente nativo do Android",
+    "Removidas as personalizações de ActionMode que causavam a faixa e o menu sem contraste",
+    "Campos voltaram às cores normais do aplicativo; apenas texto, cursor e seleção recebem proteção de contraste",
+    "A quarta cor foi removida das paletas exibidas no gerenciador de temas"
   ]
 }
