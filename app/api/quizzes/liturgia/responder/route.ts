@@ -3,6 +3,7 @@ import { GET as obterLiturgiaResponse } from "@/app/api/liturgia-local/route"
 import { lerSessao } from "@/lib/auth"
 import { buscarRespostaQuiz, buscarUsuario, salvarRespostaQuiz } from "@/lib/db"
 import { gerarPerguntasLiturgia, quizDiarioId, validarTentativa } from "@/lib/quiz-liturgia"
+import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export async function POST(req: NextRequest) {
   const sessao = await lerSessao()
@@ -13,9 +14,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: "Quiz disponível apenas para perfis autorizados." }, { status: 403 })
   }
 
+  const limite = limitar(`quiz:liturgia:${usuario.id}:${ipDaRequisicao(req)}`, 20, 60 * 60 * 1000)
+  if (!limite.permitido) return NextResponse.json({ erro: "Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente." }, { status: 429 })
+
   const body = await req.json().catch(() => ({})) as { token?: string; respostas?: unknown[] }
   const token = String(body.token || "")
-  if (!token) return NextResponse.json({ erro: "Tentativa de quiz inválida." }, { status: 400 })
+  if (!token || token.length > 4_096) return NextResponse.json({ erro: "Tentativa de quiz inválida." }, { status: 400 })
 
   let tentativa
   try {
@@ -38,6 +42,7 @@ export async function POST(req: NextRequest) {
   const respostas = Array.isArray(body.respostas) ? body.respostas.map(Number) : []
   if (
     perguntas.length < 3 ||
+    perguntas.length > 10 ||
     respostas.length !== perguntas.length ||
     respostas.some((v, i) => !Number.isInteger(v) || v < 0 || v >= perguntas[i].opcoes.length)
   ) {
