@@ -8,6 +8,20 @@
     <color name="santa_luzia_surface">#FFFDFC</color>
     <color name="santa_luzia_text">#2C2024</color>
     <color name="santa_luzia_text_muted">#6F6065</color>
+
+    <!-- Seleção continua suave dentro dos campos. -->
     <color name="santa_luzia_selection">#E7DADD</color>
     <color name="santa_luzia_selection_text">#332428</color>
+
+    <!--
+      Superfície exclusiva do menu nativo de seleção/cópia/cola.
+      Alguns Android/Samsung forçam os rótulos desse menu para branco mesmo
+      quando o WebView informa texto escuro. Por isso a superfície flutuante
+      passa a ser vinho profundo: texto branco imposto pelo sistema continua
+      legível e o visual permanece dentro da identidade do aplicativo.
+    -->
+    <color name="santa_luzia_actionmode_bg">#4F2431</color>
+    <color name="santa_luzia_actionmode_bg_pressed">#713044</color>
+    <color name="santa_luzia_actionmode_text">#FFFAF6</color>
+    <color name="santa_luzia_actionmode_text_muted">#F1DDE3</color>
 </resources>
