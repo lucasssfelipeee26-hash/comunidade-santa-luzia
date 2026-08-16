@@ -46,7 +46,9 @@ public class WhatajongActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(false);
-        settings.setAllowFileAccessFromFileURLs(false);
+        // O renderer original usa JS, fontes, imagens e áudio em arquivos separados dentro do APK.
+        // Acesso local->local é necessário para esses assets; a rede continua totalmente bloqueada.
+        settings.setAllowFileAccessFromFileURLs(true);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setBlockNetworkLoads(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
@@ -76,7 +78,7 @@ public class WhatajongActivity extends Activity {
 
     private Intent resultado(int score, int completedRound, String difficulty) {
         Intent resposta = new Intent();
-        resposta.putExtra("score", Math.max(0, Math.min(5_000_000, score)));
+        resposta.putExtra("score", Math.max(0, Math.min(50_000_000, score)));
         resposta.putExtra("completedRound", Math.max(0, Math.min(24, completedRound)));
         String dif = difficulty == null ? "facil" : difficulty.trim();
         if (!dif.equals("medio") && !dif.equals("dificil")) dif = "facil";
@@ -87,7 +89,7 @@ public class WhatajongActivity extends Activity {
     private final class GameBridge {
         @JavascriptInterface
         public void checkpoint(int score, int completedRound, String difficulty) {
-            checkpointScore = Math.max(checkpointScore, Math.max(0, Math.min(5_000_000, score)));
+            checkpointScore = Math.max(checkpointScore, Math.max(0, Math.min(50_000_000, score)));
             checkpointRound = Math.max(checkpointRound, Math.max(0, Math.min(24, completedRound)));
             if (difficulty != null && (difficulty.equals("facil") || difficulty.equals("medio") || difficulty.equals("dificil"))) {
                 checkpointDifficulty = difficulty;
