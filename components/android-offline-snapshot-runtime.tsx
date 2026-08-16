@@ -1,28 +1,26 @@
 "use client"
 
 import { useEffect } from "react"
+import { Capacitor } from "@capacitor/core"
+import { OfflineStore } from "@/lib/native-offline-store"
 
 type QueueItem = {
   id: string
   tipo: "atraso" | "formacao-presenca"
-  criadoEm: number
+  criadoEm?: number
   formacaoId?: string
   payload: Record<string, unknown>
 }
 
 const BRIDGE_ORIGIN = "https://localhost"
 const BRIDGE_URL = `${BRIDGE_ORIGIN}/offline-bridge.html`
-const TIMEOUT = 6_000
+const TIMEOUT = 7_000
 
 async function jsonComTimeout(url: string) {
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), TIMEOUT)
   try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      credentials: "same-origin",
-      signal: controller.signal,
-    })
+    const response = await fetch(url, { cache: "no-store", credentials: "same-origin", signal: controller.signal })
     if (!response.ok) return null
     return await response.json().catch(() => null)
   } catch {
@@ -34,57 +32,107 @@ async function jsonComTimeout(url: string) {
 
 export function AndroidOfflineSnapshotRuntime() {
   useEffect(() => {
-    if (!navigator.userAgent.includes("SantaLuziaAndroid")) return
+    if (!navigator.userAgent.includes("SantaLuziaAndroid") && !Capacitor.isNativePlatform()) return
 
     let encerrado = false
     let iframe: HTMLIFrameElement | null = null
-    let pronto = false
+    let bridgePronto = false
     let salvando = false
     let drenando = false
+    const usaNativo = Capacitor.isPluginAvailable("OfflineStore")
 
-    function enviar(message: Record<string, unknown>) {
-      if (!pronto || !iframe?.contentWindow) return
+    function enviarBridge(message: Record<string, unknown>) {
+      if (!bridgePronto || !iframe?.contentWindow) return
       iframe.contentWindow.postMessage(message, BRIDGE_ORIGIN)
     }
 
+    async function salvarSnapshotPersistente(snapshot: unknown) {
+      const texto = JSON.stringify(snapshot)
+      if (usaNativo) {
+        await OfflineStore.saveSnapshot({ snapshot: texto })
+      } else {
+        enviarBridge({ type: "SL_OFFLINE_SAVE_SNAPSHOT", snapshot })
+      }
+    }
+
+    async function limparPersistente() {
+      if (usaNativo) await OfflineStore.clear().catch(() => undefined)
+      else enviarBridge({ type: "SL_OFFLINE_CLEAR" })
+    }
+
+    async function lerFila(): Promise<QueueItem[]> {
+      if (usaNativo) {
+        try {
+          const result = await OfflineStore.loadQueue()
+          const parsed = JSON.parse(result.queue || "[]")
+          return Array.isArray(parsed) ? parsed : []
+        } catch { return [] }
+      }
+      enviarBridge({ type: "SL_OFFLINE_GET_QUEUE" })
+      return []
+    }
+
+    async function salvarFila(itens: QueueItem[]) {
+      if (usaNativo) await OfflineStore.saveQueue({ queue: JSON.stringify(itens) }).catch(() => undefined)
+    }
+
     async function salvarSnapshot() {
-      if (encerrado || salvando || !pronto || !navigator.onLine) return
+      if (encerrado || salvando || !navigator.onLine) return
+      if (!usaNativo && !bridgePronto) return
       salvando = true
       try {
         const auth = await jsonComTimeout("/api/auth/me")
         const sessao = auth?.sessao
         if (!sessao?.usuario?.id || !sessao?.tipo) {
-          enviar({ type: "SL_OFFLINE_CLEAR" })
+          await limparPersistente()
           return
         }
 
-        const usuarioId = String(sessao.usuario.id)
-        const moderador = sessao.tipo === "moderador"
-        const [perfil, formacoes, ranking, escalas, notificacoes, membros, equipe] = await Promise.all([
-          moderador ? Promise.resolve(null) : jsonComTimeout(`/api/membros/${encodeURIComponent(usuarioId)}`),
+        const [perfilResposta, perfisResposta, formacoes, ranking, escalas] = await Promise.all([
+          jsonComTimeout("/api/perfil"),
+          jsonComTimeout("/api/perfis"),
           jsonComTimeout("/api/formacoes"),
           jsonComTimeout("/api/ranking"),
           jsonComTimeout("/api/escalas"),
-          jsonComTimeout("/api/notificacoes"),
-          moderador ? jsonComTimeout("/api/membros") : Promise.resolve(null),
-          moderador ? jsonComTimeout("/api/equipe") : Promise.resolve(null),
         ])
+        const usuario = sessao.usuario
+        const perfil = perfilResposta?.perfil
 
-        enviar({
-          type: "SL_OFFLINE_SAVE_SNAPSHOT",
-          snapshot: {
-            versao: 1,
-            atualizadoEm: Date.now(),
-            auth,
-            perfil,
-            formacoes,
-            ranking,
-            escalas,
-            notificacoes,
-            membros,
-            equipe,
+        const snapshot = {
+          versao: 2,
+          atualizadoEm: Date.now(),
+          auth: {
+            sessao: {
+              tipo: sessao.tipo,
+              usuario: {
+                id: usuario.id,
+                nome: usuario.nome,
+                funcao: usuario.funcao ?? null,
+                desde: usuario.desde ?? null,
+                foto: usuario.foto ?? null,
+              },
+            },
           },
-        })
+          perfil: perfil ? {
+            id: perfil.id,
+            nome: perfil.nome,
+            funcao: perfil.funcao,
+            desde: perfil.desde,
+            foto: perfil.foto ?? null,
+            bio: perfil.bio ?? "",
+          } : null,
+          perfis: Array.isArray(perfisResposta?.perfis) ? perfisResposta.perfis : [],
+          formacoes: formacoes || { formacoes: [] },
+          ranking: ranking ? {
+            eu: ranking.eu,
+            ranking: ranking.ranking || [],
+            membros: ranking.membros || [],
+            ocorrencias: ranking.ocorrencias || [],
+          } : { ranking: [], membros: [], ocorrencias: [] },
+          escalas: escalas || { escalas: [] },
+        }
+
+        await salvarSnapshotPersistente(snapshot)
       } finally {
         salvando = false
       }
@@ -100,7 +148,6 @@ export function AndroidOfflineSnapshotRuntime() {
         })
         return response.ok || response.status === 409
       }
-
       if (item.tipo === "formacao-presenca" && item.formacaoId) {
         const response = await fetch(`/api/formacoes/${encodeURIComponent(item.formacaoId)}/minha-presenca`, {
           method: "PUT",
@@ -110,24 +157,27 @@ export function AndroidOfflineSnapshotRuntime() {
         })
         return response.ok
       }
-
       return false
     }
 
     async function drenarFila(items: QueueItem[]) {
       if (encerrado || drenando || !navigator.onLine || !Array.isArray(items) || !items.length) return
       drenando = true
-      const removidos: string[] = []
+      const restantes: QueueItem[] = []
       try {
         for (const item of items) {
           try {
-            if (await enviarItem(item)) removidos.push(String(item.id))
+            if (!(await enviarItem(item))) restantes.push(item)
           } catch {
-            break
+            restantes.push(item)
           }
         }
-        if (removidos.length) {
-          enviar({ type: "SL_OFFLINE_QUEUE_REMOVE", ids: removidos })
+        if (usaNativo) await salvarFila(restantes)
+        else {
+          const removidos = items.filter((item) => !restantes.some((r) => r.id === item.id)).map((item) => String(item.id))
+          if (removidos.length) enviarBridge({ type: "SL_OFFLINE_QUEUE_REMOVE", ids: removidos })
+        }
+        if (restantes.length !== items.length) {
           window.dispatchEvent(new CustomEvent("santa-luzia:server-sync", { detail: { origem: "android-offline-queue", imediato: true } }))
           await salvarSnapshot()
         }
@@ -136,44 +186,28 @@ export function AndroidOfflineSnapshotRuntime() {
       }
     }
 
-    function pedirFila() {
+    async function pedirFila() {
       if (!navigator.onLine) return
-      enviar({ type: "SL_OFFLINE_GET_QUEUE" })
+      if (usaNativo) void drenarFila(await lerFila())
+      else enviarBridge({ type: "SL_OFFLINE_GET_QUEUE" })
     }
 
     function aoMensagem(event: MessageEvent) {
-      if (event.origin !== BRIDGE_ORIGIN) return
+      if (event.origin !== BRIDGE_ORIGIN || usaNativo) return
       const data = event.data || {}
       if (data.type === "SL_OFFLINE_BRIDGE_READY") {
-        pronto = true
+        bridgePronto = true
         void salvarSnapshot()
-        pedirFila()
-        return
-      }
-      if (data.type === "SL_OFFLINE_QUEUE") {
+        void pedirFila()
+      } else if (data.type === "SL_OFFLINE_QUEUE") {
         void drenarFila(Array.isArray(data.items) ? data.items : [])
       }
     }
 
-    function aoOnline() {
-      void salvarSnapshot()
-      pedirFila()
-    }
-
-    function aoSincronizar() {
-      void salvarSnapshot()
-      pedirFila()
-    }
-
-    function aoLimpar() {
-      enviar({ type: "SL_OFFLINE_CLEAR" })
-    }
-
-    function aoVisibilidade() {
-      if (document.visibilityState !== "visible") return
-      void salvarSnapshot()
-      pedirFila()
-    }
+    const aoOnline = () => { void salvarSnapshot(); void pedirFila() }
+    const aoSincronizar = () => { void salvarSnapshot(); void pedirFila() }
+    const aoLimpar = () => { void limparPersistente() }
+    const aoVisibilidade = () => { if (document.visibilityState === "visible") { void salvarSnapshot(); void pedirFila() } }
 
     window.addEventListener("message", aoMensagem)
     window.addEventListener("online", aoOnline)
@@ -182,17 +216,19 @@ export function AndroidOfflineSnapshotRuntime() {
     window.addEventListener("santa-luzia:offline-clear", aoLimpar)
     document.addEventListener("visibilitychange", aoVisibilidade)
 
-    iframe = document.createElement("iframe")
-    iframe.src = BRIDGE_URL
-    iframe.setAttribute("aria-hidden", "true")
-    iframe.tabIndex = -1
-    iframe.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;border:0"
-    document.body.appendChild(iframe)
-
-    const timer = window.setInterval(() => {
+    if (!usaNativo) {
+      iframe = document.createElement("iframe")
+      iframe.src = BRIDGE_URL
+      iframe.setAttribute("aria-hidden", "true")
+      iframe.tabIndex = -1
+      iframe.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;border:0"
+      document.body.appendChild(iframe)
+    } else {
       void salvarSnapshot()
-      pedirFila()
-    }, 60_000)
+      void pedirFila()
+    }
+
+    const timer = window.setInterval(() => { void salvarSnapshot(); void pedirFila() }, 90_000)
 
     return () => {
       encerrado = true
@@ -204,7 +240,6 @@ export function AndroidOfflineSnapshotRuntime() {
       window.removeEventListener("santa-luzia:offline-clear", aoLimpar)
       document.removeEventListener("visibilitychange", aoVisibilidade)
       iframe?.remove()
-      iframe = null
     }
   }, [])
 
