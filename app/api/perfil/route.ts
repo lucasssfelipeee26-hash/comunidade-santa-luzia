@@ -12,6 +12,21 @@ type PerfilPatch = {
 }
 
 const DATA_REGEX = /^\d{4}-\d{2}-\d{2}$/
+const FOTO_REGEX = /^data:image\/(?:jpeg|jpg|png|webp);base64,[a-z0-9+/=\r\n]+$/i
+
+function dataCivilValida(valor: string) {
+  if (!DATA_REGEX.test(valor)) return false
+  const [ano, mes, dia] = valor.split("-").map(Number)
+  const data = new Date(Date.UTC(ano, mes - 1, dia))
+  return (
+    ano >= 1900 &&
+    ano <= new Date().getUTCFullYear() &&
+    data.getUTCFullYear() === ano &&
+    data.getUTCMonth() === mes - 1 &&
+    data.getUTCDate() === dia &&
+    data.getTime() <= Date.now()
+  )
+}
 
 export async function GET() {
   const sessao = await lerSessao()
@@ -34,24 +49,27 @@ export async function PATCH(req: Request) {
   const body = (await req.json().catch(() => null)) as PerfilPatch | null
   if (!body) return NextResponse.json({ ok: false, erro: "Dados inválidos." }, { status: 400 })
 
-  const nome = body.nome === undefined ? undefined : String(body.nome ?? "").trim()
-  if (nome !== undefined && nome.length < 3) {
-    return NextResponse.json({ ok: false, erro: "Informe um nome válido." }, { status: 400 })
+  const nome = body.nome === undefined ? undefined : String(body.nome ?? "").trim().replace(/\s+/g, " ")
+  if (nome !== undefined && (nome.length < 2 || nome.length > 100)) {
+    return NextResponse.json({ ok: false, erro: "Informe um nome válido com até 100 caracteres." }, { status: 400 })
   }
 
   const dataNascimento = body.dataNascimento === undefined ? undefined : String(body.dataNascimento ?? "").trim()
-  if (dataNascimento && !DATA_REGEX.test(dataNascimento)) {
+  if (dataNascimento && !dataCivilValida(dataNascimento)) {
     return NextResponse.json({ ok: false, erro: "Data de nascimento inválida." }, { status: 400 })
   }
 
   const dataVotosBruta = body.dataVotos === undefined ? undefined : String(body.dataVotos ?? "").trim()
-  if (dataVotosBruta && !DATA_REGEX.test(dataVotosBruta)) {
+  if (dataVotosBruta && !dataCivilValida(dataVotosBruta)) {
     return NextResponse.json({ ok: false, erro: "Data de profissão dos votos inválida." }, { status: 400 })
+  }
+  if (dataNascimento && dataVotosBruta && dataVotosBruta < dataNascimento) {
+    return NextResponse.json({ ok: false, erro: "A data de votos não pode ser anterior à data de nascimento." }, { status: 400 })
   }
 
   const foto = body.foto === undefined ? undefined : body.foto === null ? null : String(body.foto)
-  if (foto && !foto.startsWith("data:image/")) {
-    return NextResponse.json({ ok: false, erro: "Formato de foto inválido." }, { status: 400 })
+  if (foto && !FOTO_REGEX.test(foto)) {
+    return NextResponse.json({ ok: false, erro: "Formato de foto inválido. Use JPEG, PNG ou WebP." }, { status: 400 })
   }
   if (foto && foto.length > 1_400_000) {
     return NextResponse.json({ ok: false, erro: "A foto deve ter no máximo 1 MB." }, { status: 400 })
@@ -60,6 +78,14 @@ export async function PATCH(req: Request) {
   const bio = body.bio === undefined ? undefined : String(body.bio ?? "").trim()
   if (bio !== undefined && bio.length > 280) {
     return NextResponse.json({ ok: false, erro: "O recado deve ter no máximo 280 caracteres." }, { status: 400 })
+  }
+
+  const atual = buscarUsuario(sessao.sub)
+  if (!atual) return NextResponse.json({ ok: false, erro: "Usuário não encontrado." }, { status: 404 })
+  const nascimentoFinal = dataNascimento === undefined ? atual.data_nascimento ?? "" : dataNascimento
+  const votosFinal = dataVotosBruta === undefined ? atual.data_votos ?? atual.desde ?? "" : dataVotosBruta
+  if (nascimentoFinal && votosFinal && votosFinal < nascimentoFinal) {
+    return NextResponse.json({ ok: false, erro: "A data de votos não pode ser anterior à data de nascimento." }, { status: 400 })
   }
 
   const atualizado = atualizarPerfil(sessao.sub, {
