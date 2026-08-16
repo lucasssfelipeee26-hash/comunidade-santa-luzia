@@ -77,7 +77,7 @@ export function GerenciadorTema({ temaInicial }: { temaInicial: TemaSite }) {
           <p className="mt-1 font-serif text-2xl font-semibold" style={{ color: temaPreview.cores[2] }}>Comunidade Santa Luzia</p>
           <p className="mt-1 text-sm text-white/85">Acólitos e Coroinhas São Padre Pio</p>
         </div>
-        <div className="p-5" style={{ backgroundColor: temaPreview.cores[3] }}>
+        <div className="bg-white p-5">
           <div className="rounded-xl border bg-white p-4" style={{ borderColor: temaPreview.cores[2] }}>
             <p className="font-serif text-xl font-semibold" style={{ color: temaPreview.cores[0] }}>{temaPreview.nome}</p>
             <p className="mt-1 text-sm text-neutral-600">{temaPreview.descricao}</p>
