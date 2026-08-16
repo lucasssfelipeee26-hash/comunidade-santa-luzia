@@ -28,11 +28,13 @@ const FASES = [
 type Peca = { id: string; tipo: number }
 type Celula = Peca | null
 type Pendente = { score: number; level: number; completedPhase: number; mode: string; salvoEm: number }
+type EnvioResultado = { ok: boolean; faseEsperada?: number }
 
 const CHAVE_ESTADO = "santa-luzia:joias-da-luz:web:estado:v4"
 const CHAVE_SOM = "santa-luzia:joias-da-luz:web:som"
 const CHAVE_VIBRAR = "santa-luzia:joias-da-luz:web:vibrar"
-const CHAVE_PENDENTE = "santa-luzia:joias-da-luz:web:pendente:v4"
+const CHAVE_PENDENTE = "santa-luzia:joias-da-luz:web:pendentes:v5"
+const CHAVE_PENDENTE_LEGADO = "santa-luzia:joias-da-luz:web:pendente:v4"
 const CHAVE_RECORDE = "santa-luzia:joias-da-luz:web:recorde"
 
 function id() { return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}` }
@@ -45,6 +47,44 @@ function descricaoFase(nivel: number) { return nivel <= 5 ? FASES[nivel - 1] : {
 function modoDaFase(nivel: number) { return nivel <= 5 ? `Joias da Luz · etapa ${nivel} de 5 · ${FASES[nivel - 1].nome}` : `Joias da Luz · coleção ${nivel}` }
 function vizinhas(a: number, b: number) { const ar = Math.floor(a / TAMANHO), ac = a % TAMANHO, br = Math.floor(b / TAMANHO), bc = b % TAMANHO; return Math.abs(ar - br) + Math.abs(ac - bc) === 1 }
 function trocar(tab: Celula[], a: number, b: number) { const n = [...tab]; [n[a], n[b]] = [n[b], n[a]]; return n }
+
+function pendenteValido(raw: unknown): Pendente | null {
+  if (!raw || typeof raw !== "object") return null
+  const p = raw as Partial<Pendente>
+  const score = Math.trunc(Number(p.score))
+  const level = Math.trunc(Number(p.level))
+  const completedPhase = Math.trunc(Number(p.completedPhase))
+  const mode = String(p.mode || "Joias da Luz").slice(0, 80)
+  const salvoEm = Number(p.salvoEm) || Date.now()
+  if (!Number.isFinite(score) || score < 0 || !Number.isFinite(level) || level < 1 || !Number.isFinite(completedPhase) || completedPhase < 0 || level !== completedPhase + 1) return null
+  return { score, level, completedPhase, mode, salvoEm }
+}
+
+function lerPendentes() {
+  const encontrados: Pendente[] = []
+  try {
+    const atual = JSON.parse(localStorage.getItem(CHAVE_PENDENTE) || "[]")
+    if (Array.isArray(atual)) for (const item of atual) { const p = pendenteValido(item); if (p) encontrados.push(p) }
+  } catch {}
+  try {
+    const legado = pendenteValido(JSON.parse(localStorage.getItem(CHAVE_PENDENTE_LEGADO) || "null"))
+    if (legado) encontrados.push(legado)
+  } catch {}
+  const porFase = new Map<number, Pendente>()
+  for (const p of encontrados) {
+    const anterior = porFase.get(p.completedPhase)
+    if (!anterior || p.score >= anterior.score || p.salvoEm > anterior.salvoEm) porFase.set(p.completedPhase, p)
+  }
+  return [...porFase.values()].sort((a, b) => a.completedPhase - b.completedPhase).slice(0, 20)
+}
+
+function gravarPendentes(fila: Pendente[]) {
+  try {
+    if (fila.length) localStorage.setItem(CHAVE_PENDENTE, JSON.stringify(fila.slice(0, 20)))
+    else localStorage.removeItem(CHAVE_PENDENTE)
+    localStorage.removeItem(CHAVE_PENDENTE_LEGADO)
+  } catch {}
+}
 
 function encontrarMatches(tab: Celula[]) {
   const achados = new Set<number>()
@@ -149,6 +189,7 @@ export function CaminhoDaLuzGame({ tipoUsuario, embedded = false }: { tipoUsuari
   const [trocando, setTrocando] = useState<Set<number>>(new Set())
   const [caindo, setCaindo] = useState(false)
   const gesto = useRef<{ i: number; x: number; y: number } | null>(null)
+  const sincronizandoPendente = useRef(false)
 
   const meta = metaDaFase(nivel)
   const fase = descricaoFase(nivel)
@@ -167,34 +208,71 @@ export function CaminhoDaLuzGame({ tipoUsuario, embedded = false }: { tipoUsuari
     setOffline(!navigator.onLine)
     const online = () => { setOffline(false); void sincronizarPendente() }
     const off = () => setOffline(true)
-    window.addEventListener("online", online); window.addEventListener("offline", off)
+    const visibilidade = () => { if (document.visibilityState === "visible" && navigator.onLine) void sincronizarPendente() }
+    window.addEventListener("online", online); window.addEventListener("offline", off); document.addEventListener("visibilitychange", visibilidade)
     void sincronizarPendente()
+    const timer = window.setInterval(() => { if (navigator.onLine && document.visibilityState === "visible") void sincronizarPendente() }, 15_000)
     void fetch("/api/jogo/caminho-da-luz/resultado", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((j) => { if (j?.ok) setPontosRankingHoje(Number(j.pontosTotalDia) || 0) }).catch(() => undefined)
-    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", off) }
+    return () => { window.clearInterval(timer); window.removeEventListener("online", online); window.removeEventListener("offline", off); document.removeEventListener("visibilitychange", visibilidade) }
   }, [])
 
   useEffect(() => { if (!fim) try { localStorage.setItem(CHAVE_ESTADO, JSON.stringify({ tabuleiro, pontosFase, pontosTotais, nivel, movimentos })) } catch {} }, [tabuleiro, pontosFase, pontosTotais, nivel, movimentos, fim])
 
   async function sincronizarPendente() {
-    let p: Pendente | null = null
-    try { p = JSON.parse(localStorage.getItem(CHAVE_PENDENTE) || "null") } catch {}
-    if (!p || !navigator.onLine) return
-    const ok = await enviarResultado(p.score, p.level, p.mode, p.completedPhase)
-    if (ok) try { localStorage.removeItem(CHAVE_PENDENTE) } catch {}
+    if (!navigator.onLine || sincronizandoPendente.current) return
+    sincronizandoPendente.current = true
+    try {
+      let fila = lerPendentes()
+      gravarPendentes(fila)
+      let protecao = 0
+      while (fila.length && navigator.onLine && protecao++ < 20) {
+        const p = fila[0]
+        const envio = await enviarResultado(p.score, p.level, p.mode, p.completedPhase)
+        if (envio.ok) {
+          fila.shift()
+          gravarPendentes(fila)
+          continue
+        }
+        if (envio.faseEsperada && envio.faseEsperada > 0 && envio.faseEsperada < p.completedPhase) {
+          const intermediaria: Pendente = { ...p, completedPhase: envio.faseEsperada, level: envio.faseEsperada + 1, mode: "Joias da Luz · sincronização offline", salvoEm: Date.now() }
+          fila.unshift(intermediaria)
+          gravarPendentes(fila)
+          continue
+        }
+        break
+      }
+    } finally {
+      sincronizandoPendente.current = false
+    }
   }
 
-  async function enviarResultado(finalScore: number, level: number, mode: string, completedPhase: number) {
+  async function enviarResultado(finalScore: number, level: number, mode: string, completedPhase: number): Promise<EnvioResultado> {
     try {
       const r = await fetch("/api/jogo/caminho-da-luz/resultado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ score: finalScore, level, mode, completedPhase }) })
-      const j = await r.json()
-      if (!r.ok) throw new Error(j.erro || "Não foi possível enviar a pontuação.")
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        const faseEsperada = Number(j.faseEsperada)
+        if (r.status === 409 && Number.isInteger(faseEsperada) && faseEsperada > 0) {
+          setPontosRankingHoje(Number(j.pontosTotalDia) || 0)
+          setRankingMsg("Sincronizando as fases offline na ordem correta…")
+          return { ok: false, faseEsperada }
+        }
+        throw new Error(j.erro || "Não foi possível enviar a pontuação.")
+      }
       setPontosRankingHoje(Number(j.pontosTotalDia) || 0)
       setRankingMsg(j.jaContabilizado ? `Ranking do jogo hoje: ${j.pontosTotalDia}/${j.limiteDiario || LIMITE_RANKING}.` : `+${j.pontosAdicionados ?? j.pontosRanking} no ranking · total do jogo hoje: ${j.pontosTotalDia}/${j.limiteDiario || LIMITE_RANKING}.`)
-      return true
-    } catch { setRankingMsg("Pontuação guardada neste aparelho. Sincroniza quando a internet voltar."); return false }
+      return { ok: true }
+    } catch { setRankingMsg("Pontuação guardada neste aparelho. Sincroniza quando a internet voltar."); return { ok: false } }
   }
 
-  function salvarPendente(score: number, level: number, completedPhase: number, mode: string) { try { localStorage.setItem(CHAVE_PENDENTE, JSON.stringify({ score, level, completedPhase, mode, salvoEm: Date.now() })) } catch {} }
+  function salvarPendente(score: number, level: number, completedPhase: number, mode: string) {
+    const novo = pendenteValido({ score, level, completedPhase, mode, salvoEm: Date.now() })
+    if (!novo) return
+    const fila = lerPendentes().filter((p) => p.completedPhase !== completedPhase)
+    fila.push(novo)
+    fila.sort((a, b) => a.completedPhase - b.completedPhase)
+    gravarPendentes(fila)
+  }
   function vibracao(ms = 20) { if (vibrar && navigator.vibrate) navigator.vibrate(ms) }
 
   async function resolverCascata(tab: Celula[], nivelAtual: number) {
@@ -216,7 +294,7 @@ export function CaminhoDaLuzGame({ tipoUsuario, embedded = false }: { tipoUsuari
     const novoRecorde = Math.max(recorde, scoreFinal); setRecorde(novoRecorde)
     try { localStorage.setItem(CHAVE_RECORDE, String(novoRecorde)); localStorage.removeItem(CHAVE_ESTADO) } catch {}
     const faseConcluida = Math.max(0, nivelFinal - 1); const mode = modoDaFase(nivelFinal)
-    if (navigator.onLine) { const ok = await enviarResultado(scoreFinal, nivelFinal, mode, faseConcluida); if (!ok) salvarPendente(scoreFinal, nivelFinal, faseConcluida, mode) } else salvarPendente(scoreFinal, nivelFinal, faseConcluida, mode)
+    if (navigator.onLine) { const envio = await enviarResultado(scoreFinal, nivelFinal, mode, faseConcluida); if (!envio.ok) salvarPendente(scoreFinal, nivelFinal, faseConcluida, mode) } else salvarPendente(scoreFinal, nivelFinal, faseConcluida, mode)
     setFim(true)
   }
 
@@ -238,7 +316,7 @@ export function CaminhoDaLuzGame({ tipoUsuario, embedded = false }: { tipoUsuari
       tocarSom("fase", som); vibracao(85)
       const concluido = nivel, proximo = nivel + 1, bonus = bonusAcumulado(concluido)
       const mode = modoDaFase(proximo)
-      if (navigator.onLine) { const ok = await enviarResultado(novoTotal, proximo, mode, concluido); if (!ok) salvarPendente(novoTotal, proximo, concluido, mode) } else { salvarPendente(novoTotal, proximo, concluido, mode); setPontosRankingHoje(bonus) }
+      if (navigator.onLine) { const envio = await enviarResultado(novoTotal, proximo, mode, concluido); if (!envio.ok) salvarPendente(novoTotal, proximo, concluido, mode) } else { salvarPendente(novoTotal, proximo, concluido, mode); setPontosRankingHoje(bonus) }
       setMensagem(concluido <= 5 ? `${FASES[concluido - 1].nome} concluída. +${FASES[concluido - 1].bonus} no ranking.` : `Coleção ${concluido} concluída. +2 no ranking.`)
       await new Promise((r) => setTimeout(r, 480)); setNivel(proximo); setPontosFase(0); setMovimentos(movimentosDaFase(proximo)); setCombo(0); finalTab = tabuleiroInicial(proximo); setCaindo(true); setTabuleiro(finalTab); await new Promise((r) => setTimeout(r, 180)); setCaindo(false); setOcupado(false); return
     }
