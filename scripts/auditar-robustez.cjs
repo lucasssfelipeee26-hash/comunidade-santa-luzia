@@ -126,7 +126,7 @@ exigir(existe("app/error.tsx"), "Boundary de erro da aplicação existe")
 exigir(existe("app/global-error.tsx"), "Boundary global evita tela branca irrecuperável")
 exigir(existe("app/area-restrita/error.tsx"), "Área Restrita possui recuperação própria")
 exigir(existe("app/loading.tsx"), "Aplicação possui estado global de carregamento")
-exigir(workflowAndroid.includes("cache: gradle"), "CI reutiliza cache do Gradle")
+exigir(workflowAndroid.includes("actions/cache@v4") && workflowAndroid.includes("~/.gradle/caches"), "CI reutiliza cache do Gradle sem depender do projeto Android pré-criado")
 exigir(workflowAndroid.includes("for tentativa in 1 2 3"), "CI repete compilação após falha transitória do Maven")
 exigir(workflowAndroid.includes("EXPECTED_CERT"), "CI exige o certificado Android histórico")
 
