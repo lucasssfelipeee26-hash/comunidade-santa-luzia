@@ -8,13 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       version_code:
-        description: Código inteiro da versão (aumentar a cada envio)
+        description: Código inteiro da build Android
         required: true
-        default: "5"
+        default: "7"
       version_name:
         description: Nome público da versão
         required: true
-        default: "1.0.4"
+        default: "1.0.5"
 
 permissions:
   contents: write
@@ -133,7 +133,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="android-v${APP_VERSION_NAME}"
-          NOTES="Santa Luzia ${APP_VERSION_NAME}: núcleo offline nativo, perfis públicos com privacidade dos registros, Quiz e ações offline com sincronização, interface Android aprimorada e atualizador interno com verificação de segurança."
+          NOTES="Santa Luzia ${APP_VERSION_NAME}: Joias da Luz nativo com match-3 refeito, perfis da equipe com recados, classificação modernizada, notificações mais rápidas, painel compacto e correções de seleção/foco no Android. O nome público continua ${APP_VERSION_NAME}; o código interno da build aumenta para permitir atualização por cima da instalação existente."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/santa-luzia.apk "dist/Santa-Luzia-${APP_VERSION_NAME}.apk" dist/santa-luzia.apk.sha256 --clobber
             gh release edit "$TAG" --latest --title "Santa Luzia ${APP_VERSION_NAME}" --notes "$NOTES"
@@ -144,7 +144,7 @@ jobs:
       - name: Publicar metadados seguros do atualizador
         if: env.HAS_ANDROID_SIGNING == 'true'
         env:
-          RELEASE_DATE: "2026-08-15"
+          RELEASE_DATE: "2026-08-16"
         run: |
           node <<'NODE'
           const fs = require('fs')
@@ -160,10 +160,10 @@ jobs:
           atual.apkSize = bytes.length
           atual.apkSha256 = crypto.createHash('sha256').update(bytes).digest('hex')
           atual.highlights = [
-            'O aplicativo abre com um núcleo offline próprio no Android',
-            'Perfil, Formação, Escalas, Jornada, Biblioteca, Atrasos e Quiz continuam disponíveis sem internet após sincronização',
-            'Perfis da equipe mostram apenas informações públicas; registros administrativos ficam reservados aos moderadores',
-            'Botões, seleção de texto, sons e compatibilidade com celulares Android foram aprimorados'
+            'Joias da Luz agora roda nativamente no Android com trocas, combinações, cascatas e queda das peças corrigidas',
+            'Perfis da equipe ganharam recados com indicador pulsante, rank, pontos e aproveitamento',
+            'Notificações chegam mais rápido e são marcadas como vistas ao abrir o sino',
+            'Painel, campos de texto, seleção, copiar e colar receberam ajustes visuais e de desempenho'
           ]
           fs.writeFileSync(path, JSON.stringify(atual, null, 2) + '\n')
           NODE
