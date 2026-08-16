@@ -1,14 +1,14 @@
 {
-  "versionCode": 12,
+  "versionCode": 13,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
-  "apkSize": 6051212,
-  "apkSha256": "8e004a0ffc7af55f8384f273de91496c95b3f5b30cedaf379233c356e45583a7",
+  "apkSize": 6018949,
+  "apkSha256": "5037897221d3afc4a91e163476f6e3030dab06e66599f994662ab3db3631a296",
   "highlights": [
-    "Atualização detectada imediatamente ao reconectar à internet ou voltar ao aplicativo",
-    "Auditoria de robustez ampliada para autenticação, membro, moderador, escalas, formação, atrasos, ranking, quizzes, offline e jogo",
-    "APK validada por pacote, versionCode, certificado de assinatura, tamanho e SHA-256 antes da instalação",
-    "Menus e submenus Android permanecem sob controle nativo do próprio aparelho"
+    "Whatajong adicionado em Joias > Jogos, totalmente em português do Brasil",
+    "Whatajong funciona localmente dentro do aplicativo e permanece disponível offline",
+    "Joias da Luz continua disponível e o progresso dos jogos conversa com o ranking do Santa Luzia",
+    "APK assinado com a chave original e validado pelo mesmo certificado das versões anteriores"
   ]
 }
