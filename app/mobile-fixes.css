@@ -1,29 +1,80 @@
 /* Ajustes globais de interação para Android/WebView e superfícies administrativas. */
+.app-mobile-shell {
+  --sl-field-text: #2c2024;
+  --sl-field-bg: #ffffff;
+  --sl-field-placeholder: #76676c;
+  --sl-selection-bg: #e8d9dd;
+  --sl-selection-text: #2c2024;
+  --sl-focus: #7a2940;
+}
+
 .app-mobile-shell ::selection {
-  background: #eadfe1;
-  color: #332428;
+  background: var(--sl-selection-bg);
+  color: var(--sl-selection-text);
 }
 
 .app-mobile-shell :where(input, textarea, [contenteditable="true"])::selection {
-  background: #e4d5d9;
-  color: #2f2225;
+  background: var(--sl-selection-bg) !important;
+  color: var(--sl-selection-text) !important;
+  -webkit-text-fill-color: var(--sl-selection-text) !important;
 }
 
-.app-mobile-shell :where(input, textarea, select) {
-  caret-color: #713044;
-  -webkit-text-fill-color: currentColor;
-  -webkit-tap-highlight-color: transparent;
+/*
+ * Campos editáveis: força uma superfície clara e texto escuro em qualquer tema.
+ * Isso evita o bug de WebViews/Samsung em que o sistema injeta texto branco em
+ * inputs claros ao selecionar, copiar, colar ou preencher automaticamente.
+ */
+.app-mobile-shell :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+  textarea,
+  select
+) {
+  color-scheme: light !important;
+  color: var(--sl-field-text) !important;
+  -webkit-text-fill-color: var(--sl-field-text) !important;
+  background-color: var(--sl-field-bg) !important;
+  caret-color: var(--sl-focus) !important;
+  -webkit-tap-highlight-color: transparent !important;
+  opacity: 1;
+}
+
+.app-mobile-shell [contenteditable="true"] {
+  color-scheme: light !important;
+  color: var(--sl-field-text) !important;
+  -webkit-text-fill-color: var(--sl-field-text) !important;
+  caret-color: var(--sl-focus) !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.app-mobile-shell :where(input, textarea)::placeholder {
+  color: var(--sl-field-placeholder) !important;
+  -webkit-text-fill-color: var(--sl-field-placeholder) !important;
+  opacity: 1 !important;
+}
+
+.app-mobile-shell :where(input, textarea, select):disabled {
+  color: #65585c !important;
+  -webkit-text-fill-color: #65585c !important;
+  background-color: #f4efed !important;
+  opacity: 1 !important;
+}
+
+.app-mobile-shell :where(input, textarea)[readonly] {
+  color: #4f4246 !important;
+  -webkit-text-fill-color: #4f4246 !important;
+  background-color: #faf7f5 !important;
 }
 
 .app-mobile-shell :where(input, textarea, select):focus,
-.app-mobile-shell :where(input, textarea, select):focus-visible {
+.app-mobile-shell :where(input, textarea, select):focus-visible,
+.app-mobile-shell [contenteditable="true"]:focus-visible {
   outline: none !important;
-  border-color: rgba(113, 48, 68, .42) !important;
-  box-shadow: 0 0 0 2px rgba(113, 48, 68, .10) !important;
+  border-color: rgba(122, 41, 64, .48) !important;
+  box-shadow: 0 0 0 2px rgba(122, 41, 64, .12) !important;
 }
 
 .app-mobile-shell :where(button, a[href], [role="button"]):focus-visible {
-  outline: 2px solid rgba(113, 48, 68, .42) !important;
+  outline: 2px solid rgba(122, 41, 64, .42) !important;
   outline-offset: 2px;
   box-shadow: none !important;
 }
@@ -32,20 +83,55 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html[data-native-platform="android"] {
+  color-scheme: light !important;
+}
+
 html[data-native-platform="android"] .app-mobile-shell * {
   -webkit-tap-highlight-color: transparent !important;
 }
 
+html[data-native-platform="android"] .app-mobile-shell :where(input, textarea, select, [contenteditable="true"]) {
+  color-scheme: light !important;
+}
+
+/* Autofill do Android/Chrome não pode trocar o texto para branco. */
 .app-mobile-shell input:-webkit-autofill,
 .app-mobile-shell input:-webkit-autofill:hover,
 .app-mobile-shell input:-webkit-autofill:focus,
 .app-mobile-shell textarea:-webkit-autofill,
+.app-mobile-shell textarea:-webkit-autofill:hover,
 .app-mobile-shell textarea:-webkit-autofill:focus {
-  -webkit-text-fill-color: #302326 !important;
-  caret-color: #713044 !important;
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: var(--sl-field-text) !important;
+  caret-color: var(--sl-focus) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--sl-field-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--sl-field-bg) inset !important;
   transition: background-color 9999s ease-out 0s;
+}
+
+/* Selects nativos mantêm alto contraste inclusive na lista de opções. */
+.app-mobile-shell select option,
+.app-mobile-shell select optgroup {
+  background-color: #ffffff !important;
+  color: #2c2024 !important;
+  -webkit-text-fill-color: #2c2024 !important;
+  opacity: 1 !important;
+}
+
+.app-mobile-shell select option:checked {
+  background-color: #f4e5e9 !important;
+  color: #64172d !important;
+  -webkit-text-fill-color: #64172d !important;
+}
+
+/* Área restrita: a leitura dos campos não depende do tema público. */
+.area-restrita-shell {
+  --sl-field-text: #2c2024;
+  --sl-field-bg: #ffffff;
+  --sl-field-placeholder: #74666a;
+  --sl-selection-bg: #e8d9dd;
+  --sl-selection-text: #2c2024;
+  --sl-focus: #861f35;
 }
 
 /* Paleta administrativa mais sóbria para o painel do moderador. */
@@ -63,7 +149,14 @@ html[data-native-platform="android"] .app-mobile-shell * {
   --ring: #936170;
   --sidebar-primary: #c6aa65;
   --sidebar-primary-foreground: #493239;
+  --sl-field-text: #2b2023;
+  --sl-field-bg: #ffffff;
+  --sl-field-placeholder: #716268;
+  --sl-selection-bg: #e7d7dc;
+  --sl-selection-text: #2b2023;
+  --sl-focus: #713044;
   background: #fcfaf8;
+  color: #302428;
 }
 
 .moderador-painel :where(.bg-amber-50, .bg-amber-100\/70) {
