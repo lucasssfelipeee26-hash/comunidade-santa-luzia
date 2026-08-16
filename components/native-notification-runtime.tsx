@@ -22,6 +22,7 @@ type RespostaNotificacoes = {
 const CHAVE_EXIBIDAS = "santa-luzia:notificacoes-nativas-exibidas:v2"
 const CHAVE_PERMISSAO = "santa-luzia:notificacoes-permissao-solicitada:v1"
 const TIMEOUT_NOTIFICACOES = 6_500
+const INTERVALO_NOTIFICACOES = 10_000
 
 function idNumerico(texto: string) {
   let hash = 2166136261
@@ -79,7 +80,9 @@ export function NativeNotificationRuntime() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ id: notificacaoId }),
-            }).catch(() => undefined)
+            })
+              .then(() => window.dispatchEvent(new CustomEvent("santa-luzia:notificacoes-atualizadas")))
+              .catch(() => undefined)
           }
           const rota = notification.extra?.rota
           if (typeof rota === "string" && rota.startsWith("/")) {
@@ -143,6 +146,7 @@ export function NativeNotificationRuntime() {
             })
             novas.forEach((n) => exibidas.add(n.id))
             salvarExibidas(exibidas)
+            window.dispatchEvent(new CustomEvent("santa-luzia:notificacoes-atualizadas"))
           } catch (error) {
             console.warn("[Santa Luzia] Falha ao sincronizar notificações nativas.", error)
           } finally {
@@ -157,7 +161,7 @@ export function NativeNotificationRuntime() {
         window.addEventListener("online", aoOnline)
         document.addEventListener("visibilitychange", aoVisibilidade)
         void sincronizar()
-        timer = window.setInterval(() => void sincronizar(), 60_000)
+        timer = window.setInterval(() => void sincronizar(), INTERVALO_NOTIFICACOES)
 
         const removerBase = removerListener
         removerListener = async () => {
