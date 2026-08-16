@@ -36,6 +36,14 @@ const INTERVALO_STATUS = 7_000
 const INTERVALO_COMPLETO = 60_000
 const TIMEOUT_REQUISICAO = 6_500
 
+function lerLocal(chave: string) {
+  try { return window.localStorage.getItem(chave) } catch { return null }
+}
+
+function salvarLocal(chave: string, valor: string) {
+  try { window.localStorage.setItem(chave, valor); return true } catch { return false }
+}
+
 function definirEstado(estado: "online" | "offline" | "sincronizando") {
   document.documentElement.dataset.syncState = estado
 }
@@ -102,9 +110,9 @@ export function ServerSyncRuntime() {
         const status = (await response.json()) as ServerStatus
         if (!status.ok || !status.revisaoDados) throw new Error("Status inválido")
 
-        const anterior = localStorage.getItem(REVISAO_KEY)
-        const temaAnterior = localStorage.getItem(TEMA_KEY)
-        const releaseAnterior = localStorage.getItem(RELEASE_KEY)
+        const anterior = lerLocal(REVISAO_KEY)
+        const temaAnterior = lerLocal(TEMA_KEY)
+        const releaseAnterior = lerLocal(RELEASE_KEY)
         const primeiraSincronizacao = !anterior
         const mudou = Boolean(anterior && anterior !== status.revisaoDados)
         const temaMudou = Boolean(status.revisaoTema && temaAnterior && temaAnterior !== status.revisaoTema)
@@ -115,10 +123,10 @@ export function ServerSyncRuntime() {
           mudou ||
           agora - ultimaCompleta >= INTERVALO_COMPLETO
 
-        localStorage.setItem(REVISAO_KEY, status.revisaoDados)
-        if (status.revisaoTema) localStorage.setItem(TEMA_KEY, status.revisaoTema)
-        if (status.appRelease) localStorage.setItem(RELEASE_KEY, status.appRelease)
-        localStorage.setItem(ULTIMA_SYNC_KEY, String(agora))
+        salvarLocal(REVISAO_KEY, status.revisaoDados)
+        if (status.revisaoTema) salvarLocal(TEMA_KEY, status.revisaoTema)
+        if (status.appRelease) salvarLocal(RELEASE_KEY, status.appRelease)
+        salvarLocal(ULTIMA_SYNC_KEY, String(agora))
         definirEstado("online")
         window.dispatchEvent(new CustomEvent("santa-luzia:app-status", { detail: status }))
 
@@ -194,7 +202,7 @@ export function ServerSyncRuntime() {
     }
     const aoVisibilidade = () => {
       if (document.visibilityState !== "visible") return
-      const ultima = Number(localStorage.getItem(ULTIMA_SYNC_KEY) || 0)
+      const ultima = Number(lerLocal(ULTIMA_SYNC_KEY) || 0)
       void sincronizar(Date.now() - ultima > 15_000)
     }
 
