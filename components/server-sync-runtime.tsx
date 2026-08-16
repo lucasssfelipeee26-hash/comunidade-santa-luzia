@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useSWRConfig } from "swr"
+import { Capacitor } from "@capacitor/core"
 import {
   salvarCacheEscalas,
   salvarCacheFormacoes,
@@ -71,6 +72,10 @@ export function ServerSyncRuntime() {
     let emAndamento = false
     let forcarPendente = false
     let ultimaCompleta = 0
+    let redeNativa: boolean | null = null
+    const listenersNativos: Array<{ remove: () => Promise<void> }> = []
+
+    const estaConectado = () => redeNativa ?? navigator.onLine
 
     async function sincronizar(forcarRevalidacao = false) {
       if (encerrado) return
@@ -79,7 +84,7 @@ export function ServerSyncRuntime() {
         return
       }
 
-      if (!navigator.onLine) {
+      if (!estaConectado()) {
         definirEstado("offline")
         return
       }
@@ -88,7 +93,7 @@ export function ServerSyncRuntime() {
       definirEstado("sincronizando")
 
       try {
-        const response = await fetchComTimeout("/api/app/status", {
+        const response = await fetchComTimeout(`/api/app/status?sync=${Date.now()}`, {
           cache: "no-store",
           credentials: "same-origin",
         })
@@ -171,7 +176,7 @@ export function ServerSyncRuntime() {
           }))
         }
       } catch {
-        definirEstado(navigator.onLine ? "offline" : "offline")
+        definirEstado("offline")
       } finally {
         emAndamento = false
         if (forcarPendente && !encerrado) {
@@ -181,8 +186,12 @@ export function ServerSyncRuntime() {
       }
     }
 
-    const aoVoltarInternet = () => void sincronizar(true)
-    const aoPerderInternet = () => definirEstado("offline")
+    const aoVoltarInternet = () => {
+      if (redeNativa !== false) void sincronizar(true)
+    }
+    const aoPerderInternet = () => {
+      if (redeNativa !== true) definirEstado("offline")
+    }
     const aoVisibilidade = () => {
       if (document.visibilityState !== "visible") return
       const ultima = Number(localStorage.getItem(ULTIMA_SYNC_KEY) || 0)
@@ -193,8 +202,44 @@ export function ServerSyncRuntime() {
     window.addEventListener("offline", aoPerderInternet)
     document.addEventListener("visibilitychange", aoVisibilidade)
 
+    if (Capacitor.isNativePlatform()) {
+      void (async () => {
+        try {
+          const { Network } = await import("@capacitor/network")
+          const inicial = await Network.getStatus()
+          if (encerrado) return
+          redeNativa = inicial.connected
+          definirEstado(inicial.connected ? "online" : "offline")
+          if (inicial.connected) void sincronizar(true)
+          const networkHandle = await Network.addListener("networkStatusChange", (status) => {
+            if (encerrado) return
+            redeNativa = status.connected
+            definirEstado(status.connected ? "online" : "offline")
+            if (status.connected) void sincronizar(true)
+          })
+          if (encerrado) await networkHandle.remove()
+          else listenersNativos.push(networkHandle)
+        } catch {
+          redeNativa = null
+        }
+
+        try {
+          const { App } = await import("@capacitor/app")
+          const appHandle = await App.addListener("appStateChange", ({ isActive }) => {
+            if (!encerrado && isActive) void sincronizar(true)
+          })
+          if (encerrado) await appHandle.remove()
+          else listenersNativos.push(appHandle)
+        } catch {
+          // visibilitychange permanece como fallback.
+        }
+      })()
+    }
+
     void sincronizar(true)
-    const timer = window.setInterval(() => void sincronizar(false), INTERVALO_STATUS)
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void sincronizar(false)
+    }, INTERVALO_STATUS)
 
     return () => {
       encerrado = true
@@ -202,6 +247,7 @@ export function ServerSyncRuntime() {
       window.removeEventListener("online", aoVoltarInternet)
       window.removeEventListener("offline", aoPerderInternet)
       document.removeEventListener("visibilitychange", aoVisibilidade)
+      listenersNativos.forEach((handle) => { void handle.remove() })
     }
   }, [mutate])
 
