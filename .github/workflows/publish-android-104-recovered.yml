@@ -49,14 +49,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          UNSIGNED="source/app-release-unsigned.apk"
+          find source -maxdepth 4 -type f -print
+          UNSIGNED="$(find source -type f -name '*.apk' | head -n 1)"
+          test -n "$UNSIGNED"
           SIGNED="/tmp/Santa-Luzia-1.0.4.apk"
           PATCH="/tmp/signature-104.patch.zst"
 
-          test -f "$UNSIGNED"
           ACTUAL_UNSIGNED_SIZE="$(stat -c%s "$UNSIGNED")"
           ACTUAL_UNSIGNED_SHA="$(sha256sum "$UNSIGNED" | awk '{print $1}')"
-          echo "unsigned size=$ACTUAL_UNSIGNED_SIZE sha256=$ACTUAL_UNSIGNED_SHA"
+          echo "unsigned=$UNSIGNED size=$ACTUAL_UNSIGNED_SIZE sha256=$ACTUAL_UNSIGNED_SHA"
           test "$ACTUAL_UNSIGNED_SIZE" = "$EXPECTED_UNSIGNED_SIZE"
           test "$ACTUAL_UNSIGNED_SHA" = "$EXPECTED_UNSIGNED_SHA"
 
