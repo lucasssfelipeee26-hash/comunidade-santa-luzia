@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { Bell, BrainCircuit, CalendarDays, CheckCheck, Gamepad2, Sparkles, Trophy, X } from "lucide-react"
+import { Bell, BrainCircuit, CalendarDays, Gamepad2, Sparkles, Trophy, X } from "lucide-react"
 
 type Notificacao = {
   id: string
@@ -40,9 +40,10 @@ export function NotificationCenter() {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const { data, mutate } = useSWR<Dados>("/api/notificacoes", fetcher, {
-    refreshInterval: 60_000,
+    refreshInterval: 8_000,
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
+    dedupingInterval: 2_000,
   })
   const notificacoes = data?.notificacoes || []
   const naoLidas = Number(data?.naoLidas || 0)
@@ -50,45 +51,53 @@ export function NotificationCenter() {
   useEffect(() => {
     const atualizar = () => void mutate()
     window.addEventListener("santa-luzia:server-sync", atualizar)
-    return () => window.removeEventListener("santa-luzia:server-sync", atualizar)
+    window.addEventListener("santa-luzia:notificacoes-atualizadas", atualizar)
+    return () => {
+      window.removeEventListener("santa-luzia:server-sync", atualizar)
+      window.removeEventListener("santa-luzia:notificacoes-atualizadas", atualizar)
+    }
   }, [mutate])
 
-  async function marcar(id: string) {
-    await fetch("/api/notificacoes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    }).catch(() => undefined)
-    await mutate()
-  }
+  function marcarTodasComoVistas() {
+    if (!data || naoLidas <= 0) return
+    const agora = Date.now()
+    void mutate({
+      ...data,
+      naoLidas: 0,
+      notificacoes: notificacoes.map((n) => ({ ...n, lida_em: n.lida_em || agora })),
+    }, false)
 
-  async function abrirNotificacao(n: Notificacao) {
-    if (!n.lida_em) await marcar(n.id)
-    setAberto(false)
-    router.push(n.href)
-    router.refresh()
-  }
-
-  async function marcarTodas() {
-    await fetch("/api/notificacoes", {
+    void fetch("/api/notificacoes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "todas" }),
-    }).catch(() => undefined)
-    await mutate()
+    })
+      .then(() => mutate())
+      .catch(() => mutate())
+  }
+
+  function abrirCentro() {
+    setAberto(true)
+    marcarTodasComoVistas()
+  }
+
+  function abrirNotificacao(n: Notificacao) {
+    setAberto(false)
+    router.push(n.href)
+    router.refresh()
   }
 
   return (
     <div className="relative shrink-0" data-no-pull-refresh>
       <button
         type="button"
-        onClick={() => setAberto(true)}
-        aria-label={naoLidas ? `Notificações, ${naoLidas} não lidas` : "Notificações"}
+        onClick={abrirCentro}
+        aria-label={naoLidas ? `Notificações, ${naoLidas} novas` : "Notificações"}
         className="relative inline-flex size-9 items-center justify-center rounded-xl border border-primary/20 bg-white text-primary shadow-sm transition active:scale-95 sm:size-10"
       >
         <Bell className="size-[17px]" />
         {naoLidas > 0 && (
-          <span className="absolute -right-1 -top-1 flex min-w-4 h-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-black leading-none text-white ring-2 ring-white">
             {naoLidas > 9 ? "9+" : naoLidas}
           </span>
         )}
@@ -101,19 +110,18 @@ export function NotificationCenter() {
             <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div>
                 <h2 className="font-serif text-xl font-semibold text-primary">Notificações</h2>
-                <p className="text-xs text-muted-foreground">{naoLidas ? `${naoLidas} não lida(s)` : "Tudo em dia"}</p>
+                <p className="text-xs text-muted-foreground">Ao abrir o sino, as notificações são consideradas vistas.</p>
               </div>
-              <div className="flex gap-1">
-                {naoLidas > 0 && <button type="button" onClick={() => void marcarTodas()} title="Marcar todas como lidas" className="inline-flex size-9 items-center justify-center rounded-xl text-primary hover:bg-primary/5"><CheckCheck className="size-4" /></button>}
-                <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="inline-flex size-9 items-center justify-center rounded-xl text-primary hover:bg-primary/5"><X className="size-4" /></button>
-              </div>
+              <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="inline-flex size-9 items-center justify-center rounded-xl text-primary hover:bg-primary/5">
+                <X className="size-4" />
+              </button>
             </header>
 
             <div className="overflow-y-auto p-2">
               {notificacoes.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma notificação por enquanto.</div>}
               {notificacoes.map((n) => (
-                <button key={n.id} type="button" onClick={() => void abrirNotificacao(n)} className={`mb-1 flex w-full items-start gap-3 rounded-2xl p-3 text-left transition active:scale-[.99] ${n.lida_em ? "bg-white" : "bg-primary/[.055]"}`}>
-                  <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl ${n.lida_em ? "bg-secondary text-primary" : "bg-primary text-white"}`}><Icone tipo={n.tipo} /></span>
+                <button key={n.id} type="button" onClick={() => abrirNotificacao(n)} className="mb-1 flex w-full items-start gap-3 rounded-2xl bg-white p-3 text-left transition active:scale-[.99] hover:bg-primary/[.035]">
+                  <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary"><Icone tipo={n.tipo} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-start justify-between gap-2">
                       <strong className="text-sm text-foreground">{n.titulo}</strong>
@@ -121,7 +129,6 @@ export function NotificationCenter() {
                     </span>
                     <span className="mt-1 block text-xs leading-5 text-muted-foreground">{n.mensagem}</span>
                   </span>
-                  {!n.lida_em && <span className="mt-3 size-2 shrink-0 rounded-full bg-primary" />}
                 </button>
               ))}
             </div>
