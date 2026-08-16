@@ -1,5 +1,5 @@
-const CACHE = "santa-luzia-offline-v21"
-const PRIVATE_CACHE = "santa-luzia-private-v2"
+const CACHE = "santa-luzia-offline-v22"
+const PRIVATE_CACHE = "santa-luzia-private-v3"
 const ACERVO_BASE = "/offline/iliturgia/"
 const LITURGIA_COMPLETA_BASE = "/offline/liturgia-completa/"
 const PRIVATE_PAGES = new Set([
@@ -7,10 +7,12 @@ const PRIVATE_PAGES = new Set([
   "/area-restrita",
   "/area-restrita/membro",
   "/area-restrita/moderador",
+  "/area-restrita/perfis",
   "/area-restrita/ranking",
   "/area-restrita/atrasos",
   "/formacao",
 ])
+const PUBLIC_OFFLINE_PAGES = ["/liturgia", "/visitante", "/escala", "/biblioteca"]
 const ACERVO = [
   `${ACERVO_BASE}manifest.json`,
   `${ACERVO_BASE}indice-liturgico-2026.json`,
@@ -26,11 +28,10 @@ const ACERVO = [
 ]
 const LITURGIA_COMPLETA = Array.from({ length: 12 }, (_, i) => `${LITURGIA_COMPLETA_BASE}2026-${String(i + 1).padStart(2, "0")}.json`)
 const CORE = [
-  "/liturgia",
-  "/visitante",
-  "/escala",
+  ...PUBLIC_OFFLINE_PAGES,
   "/api/liturgia-local",
   "/api/escalas",
+  "/api/biblioteca",
   "/sounds/notification-santa.wav",
   "/sounds/notification-bells.wav",
   "/sounds/notification-chime.wav",
@@ -41,11 +42,14 @@ const CORE = [
 
 function ehApiPrivadaOffline(pathname) {
   return pathname === "/api/auth/me" ||
+    pathname === "/api/perfil" ||
+    pathname === "/api/perfis" ||
     pathname === "/api/formacoes" ||
     pathname === "/api/ranking" ||
     pathname === "/api/notificacoes" ||
     pathname === "/api/membros" ||
     pathname === "/api/equipe" ||
+    /^\/api\/perfis\/[^/]+$/.test(pathname) ||
     /^\/api\/membros\/[^/]+$/.test(pathname)
 }
 
@@ -65,19 +69,13 @@ async function cachearRecursosPagina(response) {
     const recursos = new Set()
     for (const match of html.matchAll(/(?:src|href)=["']([^"']+)["']/g)) {
       const valor = match[1]
-      if (valor.startsWith("/_next/static/") || valor.startsWith("/icons/") || /\.(?:css|js|woff2?)($|\?)/.test(valor)) {
-        recursos.add(valor)
-      }
+      if (valor.startsWith("/_next/static/") || valor.startsWith("/icons/") || /\.(?:css|js|woff2?)($|\?)/.test(valor)) recursos.add(valor)
     }
     if (!recursos.size) return
     const cache = await caches.open(CACHE)
     for (const recurso of recursos) {
       try {
-        const request = new Request(new URL(recurso, self.location.origin).toString(), {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        })
+        const request = new Request(new URL(recurso, self.location.origin).toString(), { method: "GET", credentials: "include", cache: "no-store" })
         const asset = await fetch(request)
         if (asset.ok) await cache.put(recurso, asset.clone())
       } catch {}
@@ -89,12 +87,7 @@ async function aquecerCachePrivado() {
   try {
     const cache = await caches.open(PRIVATE_CACHE)
     const origem = self.location.origin
-    const authRequest = new Request(`${origem}/api/auth/me`, {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    })
+    const authRequest = new Request(`${origem}/api/auth/me`, { method: "GET", credentials: "include", cache: "no-store", headers: { Accept: "application/json" } })
     const authResponse = await fetch(authRequest)
     if (!authResponse.ok) return
     const authClone = authResponse.clone()
@@ -105,19 +98,13 @@ async function aquecerCachePrivado() {
     const usuarioId = String(auth.sessao.usuario.id)
     const moderador = auth.sessao.tipo === "moderador"
     const paginaPrincipal = moderador ? "/area-restrita/moderador" : "/area-restrita/membro"
-    const paginas = [paginaPrincipal, "/formacao", "/area-restrita/ranking", "/area-restrita/atrasos"]
-    const apis = moderador
-      ? ["/api/membros", "/api/equipe", "/api/formacoes", "/api/ranking", "/api/notificacoes"]
-      : [`/api/membros/${encodeURIComponent(usuarioId)}`, "/api/formacoes", "/api/ranking", "/api/notificacoes"]
+    const paginas = [paginaPrincipal, "/area-restrita/perfis", "/formacao", "/area-restrita/ranking", "/area-restrita/atrasos"]
+    const comuns = ["/api/perfil", "/api/perfis", "/api/formacoes", "/api/ranking", "/api/notificacoes"]
+    const apis = moderador ? ["/api/membros", "/api/equipe", ...comuns] : [`/api/membros/${encodeURIComponent(usuarioId)}`, ...comuns]
 
     for (const pathname of paginas) {
       try {
-        const request = new Request(`${origem}${pathname}`, {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-          headers: { Accept: "text/html,application/xhtml+xml" },
-        })
+        const request = new Request(`${origem}${pathname}`, { method: "GET", credentials: "include", cache: "no-store", headers: { Accept: "text/html,application/xhtml+xml" } })
         const response = await fetch(request)
         if (!response.ok || new URL(response.url).pathname !== pathname) continue
         const recursos = response.clone()
@@ -132,12 +119,7 @@ async function aquecerCachePrivado() {
 
     for (const pathname of apis) {
       try {
-        const request = new Request(`${origem}${pathname}`, {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        })
+        const request = new Request(`${origem}${pathname}`, { method: "GET", credentials: "include", cache: "no-store", headers: { Accept: "application/json" } })
         const response = await fetch(request)
         if (response.ok) await cache.put(pathname, response.clone())
       } catch {}
@@ -174,9 +156,7 @@ self.addEventListener("message", (event) => {
     event.waitUntil(caches.delete(PRIVATE_CACHE))
     return
   }
-  if (event.data?.tipo === "AQUECER_CACHE_PRIVADO") {
-    event.waitUntil(aquecerCachePrivado())
-  }
+  if (event.data?.tipo === "AQUECER_CACHE_PRIVADO") event.waitUntil(aquecerCachePrivado())
 })
 
 self.addEventListener("fetch", (event) => {
@@ -194,9 +174,7 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(request)
         if (response.ok) await cache.put(request, response.clone())
         return response
-      } catch {
-        return Response.error()
-      }
+      } catch { return Response.error() }
     })())
     return
   }
@@ -227,15 +205,15 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  if (url.pathname === "/api/escalas") {
+  if (url.pathname === "/api/escalas" || url.pathname === "/api/biblioteca") {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE)
       try {
         const response = await fetch(request)
-        if (response.ok) await cache.put("/api/escalas", response.clone())
+        if (response.ok) await cache.put(url.pathname, response.clone())
         return response
       } catch {
-        return (await cache.match("/api/escalas")) || new Response(JSON.stringify({ ok: false, erro: "A escala ainda não foi salva neste aparelho.", offline: true }), { status: 503, headers: { "Content-Type": "application/json" } })
+        return (await cache.match(url.pathname)) || new Response(JSON.stringify({ ok: false, erro: "Conteúdo ainda não sincronizado neste aparelho.", offline: true }), { status: 503, headers: { "Content-Type": "application/json" } })
       }
     })())
     return
@@ -256,10 +234,8 @@ self.addEventListener("fetch", (event) => {
       const paginaPrivadaOffline = PRIVATE_PAGES.has(url.pathname)
       try {
         const response = await fetch(request)
-        if (response.ok && ["/liturgia", "/visitante", "/escala"].includes(url.pathname)) await cache.put(url.pathname, response.clone())
-        if (response.ok && paginaPrivadaOffline && new URL(response.url).pathname === url.pathname) {
-          await privateCache.put(url.pathname, response.clone())
-        }
+        if (response.ok && PUBLIC_OFFLINE_PAGES.includes(url.pathname)) await cache.put(url.pathname, response.clone())
+        if (response.ok && paginaPrivadaOffline && new URL(response.url).pathname === url.pathname) await privateCache.put(url.pathname, response.clone())
         return response
       } catch {
         if (paginaPrivadaOffline) {
@@ -281,9 +257,7 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(request)
         if (response.ok) await cache.put(request, response.clone())
         return response
-      } catch {
-        return Response.error()
-      }
+      } catch { return Response.error() }
     })())
   }
 })
