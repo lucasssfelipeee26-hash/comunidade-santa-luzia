@@ -1,14 +1,14 @@
 {
-  "versionCode": 6,
+  "versionCode": 7,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
   "apkSize": 6047116,
-  "apkSha256": "341f57e189cd512080f0a6cae305e3d71dbca33d58001b6880f97785652920e8",
+  "apkSha256": "8fa463e27c356684149c6b4f4622b5ccb7fcc395cdab979b0c93add93d2df144",
   "highlights": [
-    "Atualizador Android corrigido para baixar o APK dentro do proprio Santa Luzia",
-    "Download validado por tamanho e SHA-256 antes da instalacao",
-    "Chrome removido do fluxo de atualizacao nas novas builds",
-    "Mantidas as melhorias offline, perfis, Liturgia, Formacao, Jornada, Biblioteca, Atrasos e Quiz da grande atualizacao"
+    "Correção nativa de contraste nos campos de texto, seleção, copiar e colar",
+    "Menu de seleção do Android ajustado para ficar legível e coerente com as cores do aplicativo",
+    "Painel do moderador mantém a identidade visual padrão com correções de contraste",
+    "Joias da Luz nativo, perfis com recados, classificação moderna e notificações mais rápidas"
   ]
 }
