@@ -3,6 +3,7 @@ import { lerSessao } from "@/lib/auth"
 import { buscarQuiz, buscarRespostaQuiz, buscarUsuario, salvarRespostaQuiz } from "@/lib/db"
 import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
 import { notificarMudancasRanking, snapshotRanking } from "@/lib/notificacoes-ranking"
+import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
@@ -10,7 +11,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const usuario = buscarUsuario(sessao.sub)
   if (!usuario || (usuario.tipo === "membro" && usuario.status !== "aprovado")) return NextResponse.json({ erro: "Quiz disponível apenas para perfis autorizados." }, { status: 403 })
 
+  const limite = limitar(`quiz:responder:${usuario.id}:${ipDaRequisicao(req)}`, 30, 60 * 60 * 1000)
+  if (!limite.permitido) return NextResponse.json({ erro: "Muitas tentativas de quiz em pouco tempo. Aguarde antes de tentar novamente." }, { status: 429 })
+
   const { id } = await context.params
+  if (!id || id.length > 180) return NextResponse.json({ erro: "Quiz inválido." }, { status: 400 })
   const quiz = buscarQuiz(id)
   if (!quiz || !quiz.ativo) return NextResponse.json({ erro: "Quiz não encontrado." }, { status: 404 })
 
@@ -26,7 +31,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   const body = await req.json().catch(() => ({})) as { respostas?: unknown[] }
   const respostas = Array.isArray(body.respostas) ? body.respostas.map((v) => Number(v)) : []
-  if (respostas.length !== quiz.perguntas.length) return NextResponse.json({ erro: "Responda todas as perguntas." }, { status: 400 })
+  if (
+    quiz.perguntas.length < 1 || quiz.perguntas.length > 50 ||
+    respostas.length !== quiz.perguntas.length ||
+    respostas.some((v, i) => !Number.isInteger(v) || v < 0 || v >= quiz.perguntas[i].opcoes.length)
+  ) {
+    return NextResponse.json({ erro: "Responda todas as perguntas com opções válidas." }, { status: 400 })
+  }
 
   let acertos = 0, pontos = 0, totalPontos = 0
   const detalhes = quiz.perguntas.map((p, i) => {
