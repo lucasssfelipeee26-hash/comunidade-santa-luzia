@@ -6,7 +6,7 @@ import { CloudOff, Gamepad2, Gem, Sparkles, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
 import { CaminhoDaLuzGame } from "@/components/caminho-da-luz-game"
-import { WhatajongGame } from "@/components/whatajong-game"
+import { WhatajongEntry } from "@/components/whatajong-entry"
 import { Button } from "@/components/ui/button"
 
 type ResultadoNativo = { cancelled: boolean; score?: number; level?: number; mode?: string }
@@ -36,6 +36,7 @@ export function CaminhoDaLuzEntry({ tipoUsuario, embedded = false }: { tipoUsuar
     window.addEventListener("offline", atualizarRede)
     void sincronizarPendente()
     return () => { window.removeEventListener("online", online); window.removeEventListener("offline", atualizarRede) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function enviarResultado(resultado: Pendente) {
@@ -81,9 +82,7 @@ export function CaminhoDaLuzEntry({ tipoUsuario, embedded = false }: { tipoUsuar
     </section>
   ) : null
 
-  if (embedded && jogo === "whatajong") {
-    return <div className="space-y-3">{seletorJogos}<WhatajongGame tipoUsuario={tipoUsuario} /></div>
-  }
+  if (embedded && jogo === "whatajong") return <div className="space-y-3">{seletorJogos}<WhatajongEntry tipoUsuario={tipoUsuario} /></div>
 
   if (plataforma === "carregando") return <div className="space-y-3">{seletorJogos}<div className="rounded-2xl border border-border bg-white/75 p-6 text-center text-sm text-muted-foreground">Preparando Joias da Luz…</div></div>
 
