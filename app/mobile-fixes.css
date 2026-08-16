@@ -1,8 +1,12 @@
-/* Ajustes globais de interação para Android/WebView e superfícies administrativas. */
+/*
+ * Ajustes globais de leitura e edição.
+ * Não personaliza o menu nativo de copiar/colar do Android: esse menu fica
+ * totalmente a cargo do sistema do aparelho.
+ */
 .app-mobile-shell {
   --sl-field-text: var(--foreground, #2c2024);
   --sl-field-placeholder: var(--muted-foreground, #76676c);
-  --sl-selection-bg: #dec9cf;
+  --sl-selection-bg: #e8d9dd;
   --sl-selection-text: #2c2024;
   --sl-focus: #7b1326;
 }
@@ -24,22 +28,11 @@
   select,
   [contenteditable="true"]
 ) {
-  color-scheme: light !important;
   color: var(--sl-field-text) !important;
   -webkit-text-fill-color: var(--sl-field-text) !important;
   caret-color: var(--sl-focus) !important;
   -webkit-tap-highlight-color: transparent !important;
   opacity: 1;
-}
-
-.area-restrita-shell :where(
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
-  textarea,
-  select,
-  [contenteditable="true"]
-) {
-  background-color: #f8f0f2 !important;
-  border-color: #d8c3c9 !important;
 }
 
 .app-mobile-shell :where(input, textarea)::placeholder {
@@ -62,8 +55,8 @@
 .app-mobile-shell :where(input, textarea, select):focus-visible,
 .app-mobile-shell [contenteditable="true"]:focus-visible {
   outline: none !important;
-  border-color: rgba(123, 19, 38, .50) !important;
-  box-shadow: 0 0 0 2px rgba(123, 19, 38, .12) !important;
+  border-color: rgba(123, 19, 38, .42) !important;
+  box-shadow: 0 0 0 2px rgba(123, 19, 38, .10) !important;
 }
 
 .app-mobile-shell :where(button, a[href], [role="button"]):focus-visible {
@@ -72,22 +65,12 @@
   box-shadow: none !important;
 }
 
-.app-mobile-shell :where(button, a[href], [role="button"]):active {
-  -webkit-tap-highlight-color: transparent;
-}
-
-html[data-native-platform="android"] {
-  color-scheme: light !important;
-}
-
+.app-mobile-shell :where(button, a[href], [role="button"]):active,
 html[data-native-platform="android"] .app-mobile-shell * {
   -webkit-tap-highlight-color: transparent !important;
 }
 
-html[data-native-platform="android"] .app-mobile-shell :where(input, textarea, select, [contenteditable="true"]) {
-  color-scheme: light !important;
-}
-
+/* Autofill do Android/Chrome não pode trocar o texto para branco. */
 .app-mobile-shell input:-webkit-autofill,
 .app-mobile-shell input:-webkit-autofill:hover,
 .app-mobile-shell input:-webkit-autofill:focus,
@@ -99,24 +82,25 @@ html[data-native-platform="android"] .app-mobile-shell :where(input, textarea, s
   transition: background-color 9999s ease-out 0s;
 }
 
+/* Listas web continuam legíveis; o menu copiar/colar não é afetado. */
 .app-mobile-shell select option,
 .app-mobile-shell select optgroup {
-  background-color: #f8f0f2 !important;
+  background-color: #ffffff !important;
   color: #2c2024 !important;
   -webkit-text-fill-color: #2c2024 !important;
   opacity: 1 !important;
 }
 
 .app-mobile-shell select option:checked {
-  background-color: #dec9cf !important;
-  color: #54101f !important;
-  -webkit-text-fill-color: #54101f !important;
+  background-color: #f4e5e9 !important;
+  color: #64172d !important;
+  -webkit-text-fill-color: #64172d !important;
 }
 
 .area-restrita-shell {
   --sl-field-text: #302326;
   --sl-field-placeholder: #716469;
-  --sl-selection-bg: #dec9cf;
+  --sl-selection-bg: #e8d9dd;
   --sl-selection-text: #302326;
   --sl-focus: #861f35;
 }
@@ -124,7 +108,7 @@ html[data-native-platform="android"] .app-mobile-shell :where(input, textarea, s
 .moderador-painel {
   --sl-field-text: var(--foreground, #302326);
   --sl-field-placeholder: var(--muted-foreground, #716469);
-  --sl-selection-bg: #dec9cf;
+  --sl-selection-bg: #e8d9dd;
   --sl-selection-text: #302326;
   --sl-focus: var(--primary, #7b1326);
 }
