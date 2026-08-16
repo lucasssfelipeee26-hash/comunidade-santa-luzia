@@ -21,11 +21,13 @@ jobs:
     env:
       CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
       AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+      APP_VERSION_CODE: '6'
+      APP_VERSION_NAME: '1.0.5'
       EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
-      BRIDGE_RUN_ID: 31940791426
-      BRIDGE_PRIVATE_ARTIFACT_ID: 9261947794
-      BRIDGE_PUBLIC_ARTIFACT_ID: 9261947676
-      ENCRYPTED_CMS_SHA256: 98c859ea018d807918c4add7f256ecb359668ba9518afc4da9ade757e3153264
+      BRIDGE_RUN_ID: 31941464870
+      BRIDGE_PRIVATE_ARTIFACT_ID: 9262132388
+      BRIDGE_PUBLIC_ARTIFACT_ID: 9262132262
+      ENCRYPTED_CMS_SHA256: f20d152cde6c1535fa0a08293ba75dd6b5fb02c12f1e9abdafd03ca56d212f75
     steps:
       - name: Baixar codigo
         uses: actions/checkout@v4
@@ -81,8 +83,11 @@ jobs:
             -storetype PKCS12 \
             -storepass:file "$RUNNER_TEMP/android-signing/signing-password.txt" \
             -alias santa-luzia > "$RUNNER_TEMP/key-info.txt"
-          CERT="$(grep -i 'SHA256:' "$RUNNER_TEMP/key-info.txt" | head -1 | sed 's/.*SHA256: //' | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/key-info.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':')"
           test "$CERT" = "$EXPECTED_CERT"
+          cp "$RUNNER_TEMP/android-signing/signing-password.txt" "$RUNNER_TEMP/android-signing/store-password.txt"
+          cp "$RUNNER_TEMP/android-signing/signing-password.txt" "$RUNNER_TEMP/android-signing/key-password.txt"
+          chmod 600 "$RUNNER_TEMP/android-signing/store-password.txt" "$RUNNER_TEMP/android-signing/key-password.txt"
           echo 'Chave original validada sem expor credenciais.'
 
       - name: Instalar dependencias
@@ -91,7 +96,7 @@ jobs:
       - name: Validar aplicacao web
         run: npm run build
 
-      - name: Criar e sincronizar Android
+      - name: Criar e sincronizar Android 1.0.5
         shell: bash
         run: |
           set -euo pipefail
@@ -99,6 +104,8 @@ jobs:
           npx cap add android
           npx cap sync android
           node scripts/prepare-android.cjs
+          grep -Eq 'versionCode[[:space:]]+6' android/app/build.gradle
+          grep -Eq 'versionName[[:space:]]+"1\.0\.5"' android/app/build.gradle
 
       - name: Gerar APK unsigned 1.0.5
         working-directory: android
@@ -116,26 +123,30 @@ jobs:
           test -x "$APKSIGNER"
           test -x "$AAPT"
           KS="$RUNNER_TEMP/android-signing/santa-luzia-release.jks"
-          PW="$RUNNER_TEMP/android-signing/signing-password.txt"
+          STORE_PW="$RUNNER_TEMP/android-signing/store-password.txt"
+          KEY_PW="$RUNNER_TEMP/android-signing/key-password.txt"
           OUT="dist/Santa-Luzia-1.0.5.apk"
           "$APKSIGNER" sign \
             --ks "$KS" \
             --ks-key-alias santa-luzia \
-            --ks-pass "file:$PW" \
-            --key-pass "file:$PW" \
+            --ks-pass "file:$STORE_PW" \
+            --key-pass "file:$KEY_PW" \
             --v1-signing-enabled true \
             --v2-signing-enabled true \
             --v3-signing-enabled true \
             --out "$OUT" "$UNSIGNED"
           "$APKSIGNER" verify --verbose --print-certs "$OUT" | tee "$RUNNER_TEMP/apksigner.txt"
-          CERT="$(grep -i 'certificate SHA-256 digest:' "$RUNNER_TEMP/apksigner.txt" | head -1 | sed 's/.*: //' | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $2; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':')"
           test "$CERT" = "$EXPECTED_CERT"
+          grep -Eq 'Verified using v1 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
           grep -Eq 'Verified using v2 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
           grep -Eq 'Verified using v3 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
-          BADGING="$("$AAPT" dump badging "$OUT" | head -1)"
-          echo "$BADGING" | grep -q "name='br.com.comunidadesantaluzia.app'"
-          echo "$BADGING" | grep -q "versionCode='6'"
-          echo "$BADGING" | grep -q "versionName='1.0.5'"
+          BADGING="$("$AAPT" dump badging "$OUT")"
+          PACKAGE_LINE="$(printf '%s\n' "$BADGING" | sed -n '1p')"
+          echo "$PACKAGE_LINE"
+          echo "$PACKAGE_LINE" | grep -q "name='br.com.comunidadesantaluzia.app'"
+          echo "$PACKAGE_LINE" | grep -q "versionCode='6'"
+          echo "$PACKAGE_LINE" | grep -q "versionName='1.0.5'"
           cp "$OUT" dist/santa-luzia.apk
           SHA="$(sha256sum "$OUT" | awk '{print $1}')"
           SIZE="$(stat -c%s "$OUT")"
@@ -157,7 +168,7 @@ jobs:
             dist/Santa-Luzia-1.0.5.apk.sha256 \
             --target main \
             --title 'Santa Luzia Android 1.0.5' \
-            --notes 'Correcao do atualizador Android: o APK passa a ser baixado pelo proprio Santa Luzia, com validacao de tamanho e SHA-256 antes de abrir o instalador do Android. Chrome nao participa do fluxo nas novas builds. Assinado com a identidade original do aplicativo.' \
+            --notes 'Correcao definitiva do atualizador Android: o APK passa a ser baixado pelo proprio Santa Luzia, com validacao de tamanho e SHA-256 antes de abrir o instalador do Android. Chrome nao participa do fluxo nas novas builds. Assinado com a identidade original do aplicativo.' \
             --latest
 
       - name: Atualizar metadados do servidor
@@ -197,12 +208,17 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Apagar ponte criptografica temporaria
+      - name: Limpar arquivos sensiveis do runner
         if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/android-signing" "$RUNNER_TEMP/signing-recovery.cms" "$RUNNER_TEMP/signing-recovery.zip" "$RUNNER_TEMP/bridge-private" "$RUNNER_TEMP/bridge-public" || true
+
+      - name: Apagar artefatos da ponte temporaria
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          rm -rf "$RUNNER_TEMP/android-signing" "$RUNNER_TEMP/signing-recovery.cms" "$RUNNER_TEMP/signing-recovery.zip" "$RUNNER_TEMP/bridge-private" "$RUNNER_TEMP/bridge-public" || true
           gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$BRIDGE_PRIVATE_ARTIFACT_ID" || true
           gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$BRIDGE_PUBLIC_ARTIFACT_ID" || true
