@@ -54,12 +54,18 @@ jobs:
           PATCH="/tmp/signature-104.patch.zst"
 
           test -f "$UNSIGNED"
-          test "$(stat -c%s "$UNSIGNED")" = "$EXPECTED_UNSIGNED_SIZE"
-          test "$(sha256sum "$UNSIGNED" | awk '{print $1}')" = "$EXPECTED_UNSIGNED_SHA"
+          ACTUAL_UNSIGNED_SIZE="$(stat -c%s "$UNSIGNED")"
+          ACTUAL_UNSIGNED_SHA="$(sha256sum "$UNSIGNED" | awk '{print $1}')"
+          echo "unsigned size=$ACTUAL_UNSIGNED_SIZE sha256=$ACTUAL_UNSIGNED_SHA"
+          test "$ACTUAL_UNSIGNED_SIZE" = "$EXPECTED_UNSIGNED_SIZE"
+          test "$ACTUAL_UNSIGNED_SHA" = "$EXPECTED_UNSIGNED_SHA"
 
           cat native-assets/android/release/signature-patch-104/patch-*.b64 | base64 -d > "$PATCH"
-          test "$(stat -c%s "$PATCH")" = "$EXPECTED_PATCH_SIZE"
-          test "$(sha256sum "$PATCH" | awk '{print $1}')" = "$EXPECTED_PATCH_SHA"
+          ACTUAL_PATCH_SIZE="$(stat -c%s "$PATCH")"
+          ACTUAL_PATCH_SHA="$(sha256sum "$PATCH" | awk '{print $1}')"
+          echo "patch size=$ACTUAL_PATCH_SIZE sha256=$ACTUAL_PATCH_SHA"
+          test "$ACTUAL_PATCH_SIZE" = "$EXPECTED_PATCH_SIZE"
+          test "$ACTUAL_PATCH_SHA" = "$EXPECTED_PATCH_SHA"
 
           if ! command -v zstd >/dev/null 2>&1; then
             sudo apt-get update
