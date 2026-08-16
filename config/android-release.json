@@ -1,14 +1,15 @@
 {
-  "versionCode": 13,
-  "versionName": "1.0.5",
+  "versionCode": 14,
+  "versionName": "1.0.6",
   "publishedAt": "2026-08-16",
   "required": false,
-  "apkSize": 6018949,
-  "apkSha256": "5037897221d3afc4a91e163476f6e3030dab06e66599f994662ab3db3631a296",
+  "apkSize": 23521738,
+  "apkSha256": "e073f6c9b93159f8e872469ec1ea5cc8c4efba3b321fd614b4e3a01f1727539a",
   "highlights": [
-    "Whatajong adicionado em Joias > Jogos, totalmente em português do Brasil",
-    "Whatajong funciona localmente dentro do aplicativo e permanece disponível offline",
-    "Joias da Luz continua disponível e o progresso dos jogos conversa com o ranking do Santa Luzia",
-    "APK assinado com a chave original e validado pelo mesmo certificado das versões anteriores"
+    "Whatajong completo baseado no jogo original apresentado, totalmente em português do Brasil",
+    "Tema Santa Luzia em rubi, vinho, dourado e marfim, mantendo peças, animações, partículas, loja, recompensas e poderes",
+    "Músicas e efeitos sonoros permanecem dentro do APK para funcionamento offline",
+    "Pontuação do Whatajong integrada ao ranking do Santa Luzia e sincronizada quando houver conexão",
+    "APK 1.0.6 code 14 assinado com a mesma chave original da versão 1.0.5"
   ]
 }
