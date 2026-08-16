@@ -1,12 +1,12 @@
 {
-  "id": "profissionalizacao-2026-08-15-a",
-  "title": "O Santa Luzia ficou mais completo",
-  "message": "Melhoramos pontos importantes do aplicativo para deixá-lo mais estável, privado e preparado para funcionar sem internet.",
+  "id": "profissionalizacao-2026-08-15-b",
+  "title": "Novidades importantes no Santa Luzia",
+  "message": "Ajustamos o aplicativo para ficar mais moderno, privado e preparado para funcionar melhor mesmo quando a internet falhar.",
   "highlights": [
-    "Novos perfis da equipe com foto, bio e posição na Jornada",
-    "Faltas, advertências, justificativas e observações agora ficam reservadas aos moderadores",
-    "Botões e campos foram ajustados para funcionar melhor em celulares Android",
-    "O modo offline e a sincronização foram reforçados para a próxima versão nativa"
+    "Agora você pode visitar os perfis da equipe e ver foto, bio e posição na Jornada",
+    "Faltas, advertências, justificativas e observações ficam protegidas e reservadas aos moderadores",
+    "Botões, campos, copiar e colar e o som padrão foram ajustados para celulares Android",
+    "Perfil, Formação, Escalas, Jornada, Biblioteca e Atrasos receberam uma base offline mais segura"
   ],
   "publishedAt": "2026-08-15"
 }
