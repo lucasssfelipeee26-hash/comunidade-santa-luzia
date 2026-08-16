@@ -1,5 +1,6 @@
 const fs = require("node:fs")
 const path = require("node:path")
+const { spawnSync } = require("node:child_process")
 
 const raiz = path.resolve(__dirname, "..")
 const android = path.join(raiz, "android")
@@ -39,8 +40,19 @@ if (!fs.existsSync(origemLiturgiaOffline)) throw new Error("Pacote anual da Litu
 fs.mkdirSync(destinoLiturgiaOffline, { recursive: true })
 fs.cpSync(origemLiturgiaOffline, destinoLiturgiaOffline, { recursive: true, force: true })
 
+const geradorWhatajong = spawnSync(process.execPath, [path.join(raiz, "scripts", "build-whatajong-original.cjs")], {
+  cwd: raiz,
+  env: process.env,
+  stdio: "inherit",
+})
+if (geradorWhatajong.status !== 0) throw new Error("Falha ao gerar o Whatajong original adaptado para o APK.")
+
 const whatajongLocal = path.join(android, "app", "src", "main", "assets", "public", "whatajong", "index.html")
+const whatajongLicenca = path.join(android, "app", "src", "main", "assets", "public", "whatajong", "WHATAJONG-LICENSE.txt")
+const whatajongInfo = path.join(android, "app", "src", "main", "assets", "public", "whatajong", "build-info.json")
 if (!fs.existsSync(whatajongLocal)) throw new Error("Whatajong local ausente do pacote Android.")
+if (!fs.existsSync(whatajongLicenca)) throw new Error("Licença MIT do Whatajong não foi incluída no pacote Android.")
+if (!fs.existsSync(whatajongInfo)) throw new Error("Metadados do Whatajong adaptado não foram incluídos no pacote Android.")
 
 const splashPersonalizada = path.join(origemRecursos, "drawable", "splash.png")
 for (const pasta of fs.readdirSync(destinoRecursos, { withFileTypes: true })) {
@@ -91,4 +103,4 @@ if (fs.existsSync(manifestPath)) {
   fs.writeFileSync(manifestPath, manifest)
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, Liturgia anual, Joias da Luz e Whatajong locais.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, Liturgia anual, Joias da Luz e Whatajong original adaptado local.`)

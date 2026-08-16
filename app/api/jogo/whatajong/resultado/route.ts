@@ -19,16 +19,6 @@ function dataCuiaba() {
   }).format(new Date())
 }
 
-function metaMinimaDaRodada(rodada: number) {
-  return 180 + rodada * 12
-}
-
-function scoreMinimoAteRodada(rodadaConcluida: number) {
-  let total = 0
-  for (let rodada = 1; rodada <= Math.max(0, rodadaConcluida); rodada++) total += metaMinimaDaRodada(rodada)
-  return total
-}
-
 function pontosAcumuladosPorRodada(rodadaConcluida: number) {
   const rodada = Math.max(0, Math.min(RODADA_MAXIMA_COM_PONTOS, Math.trunc(rodadaConcluida)))
   return Math.min(LIMITE_DIARIO, rodada * 2)
@@ -90,21 +80,10 @@ export async function POST(req: NextRequest) {
   const difficulty: Dificuldade = dificuldadeBruta === "medio" || dificuldadeBruta === "dificil" ? dificuldadeBruta : "facil"
 
   if (
-    !Number.isFinite(score) || score < 0 || score > 5_000_000 ||
+    !Number.isFinite(score) || score < 0 || score > 50_000_000 ||
     !Number.isFinite(completedRound) || completedRound < 1 || completedRound > TOTAL_RODADAS
   ) {
     return NextResponse.json({ erro: "Resultado inválido." }, { status: 400 })
-  }
-
-  const scoreMinimo = scoreMinimoAteRodada(completedRound)
-  if (score < scoreMinimo) {
-    return NextResponse.json({
-      erro: "A pontuação informada não é compatível com as rodadas concluídas.",
-      scoreMinimo,
-      rodadaServidor: rodadaMaximaRegistrada(usuario.id),
-      pontosTotalDia: pontosWhatajongHoje(usuario.id),
-      limiteDiario: LIMITE_DIARIO,
-    }, { status: 409 })
   }
 
   const data = dataCuiaba()
@@ -135,7 +114,7 @@ export async function POST(req: NextRequest) {
     salvarRankingAjuste({
       usuario_id: usuario.id,
       pontos: pontosAdicionados,
-      motivo: `${prefixo} · ${difficulty} · rodada concluída ${completedRound} · score ${score} · total diário ${pontosCalculados}`,
+      motivo: `${prefixo} · ${difficulty} · rodada concluída ${completedRound} · score original ${score} · total diário ${pontosCalculados}`,
       ano,
       criado_por: usuario.id,
     })

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Capacitor, registerPlugin } from "@capacitor/core"
-import { CloudOff, Gem, Sparkles, Trophy } from "lucide-react"
+import { CloudOff, Gem, Smartphone, Sparkles, Trophy, Volume2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { WhatajongGame } from "@/components/whatajong-game"
 
 type Dificuldade = "facil" | "medio" | "dificil"
 type ResultadoNativo = { cancelled: boolean; score?: number; completedRound?: number; difficulty?: Dificuldade }
@@ -12,17 +11,17 @@ type PluginWhatajong = { open: () => Promise<ResultadoNativo> }
 type Pendente = { score: number; completedRound: number; difficulty: Dificuldade; salvoEm: number }
 
 const WhatajongNativo = registerPlugin<PluginWhatajong>("Whatajong")
-const CHAVE_PENDENTE = "santa-luzia:whatajong:nativo:resultado-pendente:v1"
+const CHAVE_PENDENTE = "santa-luzia:whatajong:nativo:resultado-pendente:v2"
 
 export function WhatajongEntry({ tipoUsuario }: { tipoUsuario: "moderador" | "membro" }) {
-  const [modo, setModo] = useState<"carregando" | "nativo" | "web">("carregando")
+  const [modo, setModo] = useState<"carregando" | "nativo" | "atualizacao-necessaria">("carregando")
   const [abrindo, setAbrindo] = useState(false)
   const [offline, setOffline] = useState(false)
   const [mensagem, setMensagem] = useState("")
 
   useEffect(() => {
     const android = Capacitor.getPlatform() === "android"
-    setModo(android && Capacitor.isPluginAvailable("Whatajong") ? "nativo" : "web")
+    setModo(android && Capacitor.isPluginAvailable("Whatajong") ? "nativo" : "atualizacao-necessaria")
     const atualizarRede = () => setOffline(!navigator.onLine)
     const online = () => { atualizarRede(); void sincronizarPendente() }
     atualizarRede()
@@ -79,24 +78,37 @@ export function WhatajongEntry({ tipoUsuario }: { tipoUsuario: "moderador" | "me
       if (navigator.onLine) await enviarResultado(pendente)
       else setMensagem("Resultado salvo no aparelho. Ele será sincronizado quando a internet voltar.")
     } catch {
-      setModo("web")
+      setModo("atualizacao-necessaria")
     } finally {
       setAbrindo(false)
     }
   }
 
-  if (modo === "carregando") return <div className="rounded-2xl border border-border bg-white/75 p-6 text-center text-xs text-muted-foreground">Preparando Whatajong…</div>
-  if (modo === "web") return <WhatajongGame tipoUsuario={tipoUsuario} />
+  if (modo === "carregando") return <div className="rounded-2xl border border-border bg-white/75 p-6 text-center text-xs text-muted-foreground">Preparando Whatajong completo…</div>
+
+  if (modo === "atualizacao-necessaria") {
+    return <section className="rounded-[28px] border border-primary/15 bg-card p-5 text-center shadow-sm">
+      <span className="mx-auto flex size-14 items-center justify-center rounded-[20px] bg-primary text-primary-foreground"><Smartphone className="size-7" /></span>
+      <p className="mt-3 text-[9px] font-black uppercase tracking-[.18em] text-primary">Requer atualização Android</p>
+      <h2 className="mt-1 font-serif text-2xl font-semibold text-foreground">Whatajong completo</h2>
+      <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-muted-foreground">A versão simplificada foi removida. O Whatajong completo, com sons, peças ilustradas, animações, loja, recompensas e execução offline, fica dentro do novo APK.</p>
+    </section>
+  }
 
   return <div className="space-y-3">
-    <section className="overflow-hidden rounded-[28px] border border-[#d8c68c]/35 bg-[radial-gradient(circle_at_top,#244e46_0%,#15372f_42%,#102922_100%)] p-5 text-center text-white shadow-[0_18px_45px_rgba(17,54,47,.24)]">
-      <span className="mx-auto flex size-16 items-center justify-center rounded-[22px] border border-white/20 bg-white/10 shadow-lg"><Gem className="size-8 text-[#f5d77f]" /></span>
-      <p className="mt-3 text-[9px] font-black uppercase tracking-[.2em] text-[#f5d77f]">Jogo instalado no aparelho</p>
+    <section className="overflow-hidden rounded-[28px] border border-[#d4af37]/40 bg-[radial-gradient(circle_at_top,#7b1326_0%,#5a0b18_48%,#3b0710_100%)] p-5 text-center text-[#fff8ee] shadow-[0_18px_45px_rgba(59,7,16,.28)]">
+      <span className="mx-auto flex size-16 items-center justify-center rounded-[22px] border border-[#f2cf62]/35 bg-white/10 shadow-lg"><Gem className="size-8 text-[#f2cf62]" /></span>
+      <p className="mt-3 text-[9px] font-black uppercase tracking-[.2em] text-[#f2cf62]">Whatajong original adaptado · jogo local</p>
       <h2 className="mt-1 font-serif text-3xl font-semibold">Whatajong</h2>
-      <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-white/75">Mahjong Solitaire em português com 24 rodadas, combos, moedas, poderes e efeitos. O jogo abre localmente e funciona mesmo sem internet.</p>
-      <Button size="lg" className="mt-4 min-h-12 w-full rounded-2xl bg-[#f1d27c] text-[#17372f] hover:bg-[#f1d27c]/90" onClick={() => void abrirJogo()} disabled={abrindo}><Sparkles className="size-4" />{abrindo ? "Abrindo Whatajong…" : "Jogar Whatajong"}</Button>
+      <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-white/80">O mesmo jogo apresentado como base: 24 rodadas, peças ilustradas, efeitos, músicas, sons, moedas, loja, recompensas e poderes. Agora em português e no tema rubi, vinho, dourado e marfim da Santa Luzia.</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] text-white/75">
+        <span className="flex items-center justify-center gap-1 rounded-xl bg-white/10 p-2"><Volume2 className="size-3.5 text-[#f2cf62]" />Som e música locais</span>
+        <span className="flex items-center justify-center gap-1 rounded-xl bg-white/10 p-2"><CloudOff className="size-3.5 text-[#f2cf62]" />Funciona sem internet</span>
+      </div>
+      <Button size="lg" className="mt-4 min-h-12 w-full rounded-2xl bg-[#f2cf62] font-bold text-[#4b0c16] hover:bg-[#f2cf62]/90" onClick={() => void abrirJogo()} disabled={abrindo}><Sparkles className="size-4" />{abrindo ? "Abrindo Whatajong…" : "Jogar Whatajong"}</Button>
+      <p className="mt-2 text-[8px] text-white/45">{tipoUsuario === "moderador" ? "Modo moderador" : "Jornada Litúrgica"} · licença MIT preservada</p>
     </section>
-    {offline && <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-950"><CloudOff className="size-4 shrink-0" />Whatajong funciona offline. A pontuação será enviada ao ranking quando a internet voltar.</div>}
+    {offline && <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-950"><CloudOff className="size-4 shrink-0" />O jogo continua funcionando offline. Só a pontuação do ranking aguarda a internet voltar.</div>}
     {mensagem && <div className="flex items-center gap-2 rounded-xl border border-primary/15 bg-white/85 p-2.5 text-xs text-primary"><Trophy className="size-4 shrink-0" />{mensagem}</div>}
   </div>
 }

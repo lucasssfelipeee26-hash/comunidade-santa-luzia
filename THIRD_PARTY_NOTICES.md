@@ -2,7 +2,9 @@
 
 ## Whatajong
 
-O Santa Luzia contém uma implementação adaptada do conceito e de elementos de software do projeto **Whatajong**, de Pao Ramon. O projeto original está disponível em `masylum/whatajong` e é distribuído sob a licença MIT.
+O Santa Luzia inclui uma adaptação do projeto **Whatajong**, de Pao Ramon (`masylum/whatajong`), fixada no commit `45fe3da7a7d1e87a66ae41b72ee74cc4e0a920d5`. A versão distribuída no aplicativo preserva a jogabilidade, os recursos visuais e sonoros e a estrutura do projeto original, com adaptações para português do Brasil, identidade visual Santa Luzia, execução local/offline no APK e integração de progresso com o ranking do aplicativo.
+
+O projeto original é distribuído sob a licença MIT, reproduzida abaixo e também incluída dentro do pacote local do jogo.
 
 (The MIT License)
 
