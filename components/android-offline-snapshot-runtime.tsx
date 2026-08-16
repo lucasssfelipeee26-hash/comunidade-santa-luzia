@@ -6,7 +6,7 @@ import { OfflineStore } from "@/lib/native-offline-store"
 
 type QueueItem = {
   id: string
-  tipo: "atraso" | "formacao-presenca"
+  tipo: "atraso" | "formacao-presenca" | "quiz-liturgia"
   criadoEm?: number
   formacaoId?: string
   payload: Record<string, unknown>
@@ -48,11 +48,8 @@ export function AndroidOfflineSnapshotRuntime() {
 
     async function salvarSnapshotPersistente(snapshot: unknown) {
       const texto = JSON.stringify(snapshot)
-      if (usaNativo) {
-        await OfflineStore.saveSnapshot({ snapshot: texto })
-      } else {
-        enviarBridge({ type: "SL_OFFLINE_SAVE_SNAPSHOT", snapshot })
-      }
+      if (usaNativo) await OfflineStore.saveSnapshot({ snapshot: texto })
+      else enviarBridge({ type: "SL_OFFLINE_SAVE_SNAPSHOT", snapshot })
     }
 
     async function limparPersistente() {
@@ -88,18 +85,19 @@ export function AndroidOfflineSnapshotRuntime() {
           return
         }
 
-        const [perfilResposta, perfisResposta, formacoes, ranking, escalas] = await Promise.all([
+        const [perfilResposta, perfisResposta, formacoes, ranking, escalas, biblioteca] = await Promise.all([
           jsonComTimeout("/api/perfil"),
           jsonComTimeout("/api/perfis"),
           jsonComTimeout("/api/formacoes"),
           jsonComTimeout("/api/ranking"),
           jsonComTimeout("/api/escalas"),
+          jsonComTimeout("/api/biblioteca"),
         ])
         const usuario = sessao.usuario
         const perfil = perfilResposta?.perfil
 
         const snapshot = {
-          versao: 2,
+          versao: 3,
           atualizadoEm: Date.now(),
           auth: {
             sessao: {
@@ -130,6 +128,7 @@ export function AndroidOfflineSnapshotRuntime() {
             ocorrencias: ranking.ocorrencias || [],
           } : { ranking: [], membros: [], ocorrencias: [] },
           escalas: escalas || { escalas: [] },
+          biblioteca: biblioteca || { livros: [] },
         }
 
         await salvarSnapshotPersistente(snapshot)
@@ -156,6 +155,15 @@ export function AndroidOfflineSnapshotRuntime() {
           body: JSON.stringify(item.payload),
         })
         return response.ok
+      }
+      if (item.tipo === "quiz-liturgia") {
+        const response = await fetch("/api/quizzes/liturgia/offline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(item.payload),
+        })
+        return response.ok || response.status === 409
       }
       return false
     }
