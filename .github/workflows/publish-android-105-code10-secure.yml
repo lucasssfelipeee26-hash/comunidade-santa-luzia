@@ -1,0 +1,211 @@
+name: Publicar Android 1.0.5 build interna 10 com chave original
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-android-105-code10-secure.yml
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: publicar-android-105-code10-seguro
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+      APP_VERSION_CODE: '10'
+      APP_VERSION_NAME: '1.0.5'
+      EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
+      BRIDGE_RUN_ID: '31950548988'
+      BRIDGE_PRIVATE_ARTIFACT_ID: '9264511316'
+      BRIDGE_PUBLIC_ARTIFACT_ID: '9264511205'
+      ENCRYPTED_CMS_SHA256: f05e36cf12ca07f4b5210ad61a49f035b2546188e410103a522ca46c179bef31
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Baixar chave privada temporaria da ponte
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-v6-private-key
+          path: ${{ runner.temp }}/bridge-v6-private
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.BRIDGE_RUN_ID }}
+
+      - name: Baixar certificado publico da ponte
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-v6-public-cert
+          path: ${{ runner.temp }}/bridge-v6-public
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.BRIDGE_RUN_ID }}
+
+      - name: Recuperar e validar chave Android original somente no runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          base64 --decode .github/ci-signing-bridge-v6.cms.b64 > "$RUNNER_TEMP/signing-recovery-v6.cms"
+          printf '%s  %s\n' "$ENCRYPTED_CMS_SHA256" "$RUNNER_TEMP/signing-recovery-v6.cms" | sha256sum -c -
+          openssl cms -decrypt -binary -inform DER \
+            -in "$RUNNER_TEMP/signing-recovery-v6.cms" \
+            -recip "$RUNNER_TEMP/bridge-v6-public/public-cert.pem" \
+            -inkey "$RUNNER_TEMP/bridge-v6-private/private.pem" \
+            -out "$RUNNER_TEMP/signing-recovery-v6.zip"
+          mkdir -p "$RUNNER_TEMP/android-signing"
+          unzip -q "$RUNNER_TEMP/signing-recovery-v6.zip" -d "$RUNNER_TEMP/android-signing"
+          test -f "$RUNNER_TEMP/android-signing/santa-luzia-release.jks"
+          test -f "$RUNNER_TEMP/android-signing/signing-password.txt"
+          test "$(cat "$RUNNER_TEMP/android-signing/santa-luzia-signing-alias.txt")" = 'santa-luzia'
+          chmod 600 "$RUNNER_TEMP/android-signing/santa-luzia-release.jks" "$RUNNER_TEMP/android-signing/signing-password.txt"
+          keytool -list -v \
+            -keystore "$RUNNER_TEMP/android-signing/santa-luzia-release.jks" \
+            -storetype PKCS12 \
+            -storepass:file "$RUNNER_TEMP/android-signing/signing-password.txt" \
+            -alias santa-luzia > "$RUNNER_TEMP/key-info.txt"
+          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/key-info.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+          cp "$RUNNER_TEMP/android-signing/signing-password.txt" "$RUNNER_TEMP/android-signing/store-password.txt"
+          cp "$RUNNER_TEMP/android-signing/signing-password.txt" "$RUNNER_TEMP/android-signing/key-password.txt"
+          chmod 600 "$RUNNER_TEMP/android-signing/store-password.txt" "$RUNNER_TEMP/android-signing/key-password.txt"
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Validar aplicacao web
+        run: npm run build
+
+      - name: Criar e sincronizar Android 1.0.5 build 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          node scripts/prepare-android.cjs
+          grep -Eq 'applicationId[[:space:]]+"br\.com\.comunidadesantaluzia\.app"' android/app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+10' android/app/build.gradle
+          grep -Eq 'versionName[[:space:]]+"1\.0\.5"' android/app/build.gradle
+
+      - name: Gerar APK release sem assinatura
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Assinar e validar APK com a chave original
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          UNSIGNED="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$UNSIGNED"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          KS="$RUNNER_TEMP/android-signing/santa-luzia-release.jks"
+          STORE_PW="$RUNNER_TEMP/android-signing/store-password.txt"
+          KEY_PW="$RUNNER_TEMP/android-signing/key-password.txt"
+          OUT="dist/Santa-Luzia-1.0.5.apk"
+          "$APKSIGNER" sign \
+            --ks "$KS" \
+            --ks-key-alias santa-luzia \
+            --ks-pass "file:$STORE_PW" \
+            --key-pass "file:$KEY_PW" \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$OUT" "$UNSIGNED"
+          "$APKSIGNER" verify --verbose --print-certs "$OUT" | tee "$RUNNER_TEMP/apksigner-code10.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner-code10.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+          grep -Eq 'Verified using v2 scheme.*true' "$RUNNER_TEMP/apksigner-code10.txt"
+          grep -Eq 'Verified using v3 scheme.*true' "$RUNNER_TEMP/apksigner-code10.txt"
+          cp "$OUT" dist/santa-luzia.apk
+          SHA="$(sha256sum "$OUT" | awk '{print $1}')"
+          SIZE="$(stat -c%s "$OUT")"
+          printf '%s  %s\n' "$SHA" 'Santa-Luzia-1.0.5.apk' > dist/Santa-Luzia-1.0.5.apk.sha256
+          echo "APK_SHA256=$SHA" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+
+      - name: Publicar APK oficial mantendo a versao 1.0.5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='android-v1.0.5'
+          NOTES='Santa Luzia 1.0.5 — build interna 10. Correcao apos auditoria do bug de copiar/colar: removidas as personalizacoes de ActionMode e do menu flutuante, removida a conversao forcada de TYPE_FLOATING para TYPE_PRIMARY e devolvido ao Android o controle nativo do menu de selecionar, copiar e colar. Os campos mantem as cores normais do aplicativo e recebem apenas contraste de texto. A quarta cor foi retirada das paletas exibidas no gerenciador. A versao publica permanece 1.0.5.'
+          gh release upload "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-1.0.5.apk dist/Santa-Luzia-1.0.5.apk.sha256 --clobber
+          gh release edit "$TAG" --latest --title 'Santa Luzia Android 1.0.5' --notes "$NOTES"
+
+      - name: Atualizar metadados do atualizador e limpar ponte temporaria
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'config/android-release.json'
+          const atual = JSON.parse(fs.readFileSync(path, 'utf8'))
+          atual.versionCode = 10
+          atual.versionName = '1.0.5'
+          atual.publishedAt = '2026-08-16'
+          atual.required = false
+          atual.apkSize = Number(process.env.APK_SIZE)
+          atual.apkSha256 = process.env.APK_SHA256
+          atual.highlights = [
+            'Menu selecionar, copiar e colar voltou a ser totalmente nativo do Android',
+            'Removidas as personalizações de ActionMode que causavam a faixa e o menu sem contraste',
+            'Campos voltaram às cores normais do aplicativo; apenas texto, cursor e seleção recebem proteção de contraste',
+            'A quarta cor foi removida das paletas exibidas no gerenciador de temas'
+          ]
+          fs.writeFileSync(path, JSON.stringify(atual, null, 2) + '\n')
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add config/android-release.json
+          git rm -f .github/ci-signing-bridge-v6.cms.b64 .github/workflows/ephemeral-signing-bridge-v6.yml .github/workflows/publish-android-105-code10-secure.yml
+          git commit -m 'Publica Android 1.0.5 build 10 com menu nativo restaurado'
+          git push origin HEAD:main
+
+      - name: Guardar APK final assinado para auditoria
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-1.0.5-code10-signed-original-key
+          path: dist/Santa-Luzia-1.0.5.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Limpar material sensivel do runner
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/android-signing" "$RUNNER_TEMP/signing-recovery-v6.cms" "$RUNNER_TEMP/signing-recovery-v6.zip" "$RUNNER_TEMP/bridge-v6-private" "$RUNNER_TEMP/bridge-v6-public" "$RUNNER_TEMP/key-info.txt" || true
+
+      - name: Apagar artefatos da ponte temporaria
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$BRIDGE_PRIVATE_ARTIFACT_ID" || true
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$BRIDGE_PUBLIC_ARTIFACT_ID" || true
