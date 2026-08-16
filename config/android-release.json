@@ -1,14 +1,14 @@
 {
-  "versionCode": 11,
+  "versionCode": 12,
   "versionName": "1.0.5",
   "publishedAt": "2026-08-16",
   "required": false,
-  "apkSize": 6047116,
-  "apkSha256": "7d81163cd07042649233c306ed889a8e6d4f3f49b039efad8d385db722851f84",
+  "apkSize": 6051212,
+  "apkSha256": "8e004a0ffc7af55f8384f273de91496c95b3f5b30cedaf379233c356e45583a7",
   "highlights": [
-    "Menus de selecionar, copiar e colar agora são controlados diretamente pelo framework Android",
-    "Submenus nativos deixaram de receber cores globais do aplicativo",
-    "Removido android:background do tema host para impedir vazamento de fundo claro em popups e diálogos",
-    "Tema Android host agora acompanha DayNight do aparelho; identidade visual do aplicativo foi preservada"
+    "Atualização detectada imediatamente ao reconectar à internet ou voltar ao aplicativo",
+    "Auditoria de robustez ampliada para autenticação, membro, moderador, escalas, formação, atrasos, ranking, quizzes, offline e jogo",
+    "APK validada por pacote, versionCode, certificado de assinatura, tamanho e SHA-256 antes da instalação",
+    "Menus e submenus Android permanecem sob controle nativo do próprio aparelho"
   ]
 }

@@ -57,7 +57,7 @@ const workflowAndroid = ler(".github/workflows/android-release.yml")
 console.log("[1/10] Versões e distribuição")
 exigir(pkg.version === build.versionName, "package.json e Android usam o mesmo nome público", `${pkg.version} / ${build.versionName}`)
 exigir(build.versionName === release.versionName, "Build e release mantêm o mesmo versionName", build.versionName)
-exigir(build.versionCode > release.versionCode, "Build preparada é mais nova que a publicada", `${build.versionCode} > ${release.versionCode}`)
+exigir(build.versionCode >= release.versionCode, "Build Android não está atrás da release publicada", `${build.versionCode} >= ${release.versionCode}`)
 exigir(appRelease.includes(`APP_DISPLAY_VERSION = \"${build.versionName}\"`), "Versão exibida pelo servidor está alinhada", build.versionName)
 
 console.log("\n[2/10] Atualização instantânea e reconexão")

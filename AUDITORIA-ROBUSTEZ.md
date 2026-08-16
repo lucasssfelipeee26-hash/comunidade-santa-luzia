@@ -10,14 +10,14 @@ Cada quadro crítico só recebe **APROVADO EM CÓDIGO** quando passa por carrega
 
 | Área | Estado | O que foi verificado/corrigido |
 |---|---|---|
-| Atualizador Android | APROVADO PARA BUILD 12 | Reconexão nativa, retorno ao app, evento de status e verificação periódica sem fechar/reabrir |
+| Atualizador Android | APROVADO / PUBLICADO CODE 12 | Reconexão nativa, retorno ao app, evento de status e verificação periódica sem fechar/reabrir |
 | Detecção de internet | APROVADO PARA BUILD 12 | `@capacitor/network` é a fonte nativa, com fallback do navegador |
 | Sincronização | APROVADO PARA BUILD 12 | Reconecta imediatamente; falha de `localStorage` não passa mais a fingir que a internet caiu |
 | Segurança da APK | APROVADO PARA BUILD 12 | SHA/tamanho + applicationId + versionCode + certificado de assinatura |
 | Menus Android | PROTEGIDO | ActionMode continua controlado pelo Android; tema do app não pinta submenus nativos |
 | Erro global | APROVADO | `global-error.tsx`, erro geral e erro próprio da Área Restrita |
 | Carregamento global | APROVADO | estado de carregamento em vez de tela vazia |
-| Versionamento | APROVADO | versão pública permanece 1.0.5; publicada está no code 11 e a candidata é code 12 |
+| Versionamento | APROVADO | versão pública permanece 1.0.5; publicada está no code 12 |
 | Sessão viva | APROVADO | JWT prova identidade, mas tipo/status são confirmados no banco em cada requisição; bloqueio, recusa e promoção valem sem novo login |
 | Sessão após troca de senha | APROVADO PARA NOVAS SESSÕES | novos tokens carregam impressão da credencial e deixam de valer após redefinição; tokens legados continuam compatíveis até o próximo login |
 | Cache de sessão | APROVADO | `/api/auth/me` responde com `private, no-store` |
@@ -82,4 +82,4 @@ Cada quadro crítico só recebe **APROVADO EM CÓDIGO** quando passa por carrega
 
 ## Gate para liberar o próximo jogo
 
-O código pode avançar para a próxima etapa quando `npm run audit:robustez`, `npm run build`, sincronização Capacitor e a compilação Android code 12 passarem sem falha de projeto. A publicação da APK code 12 só ocorre com a chave original e o certificado histórico esperado. A nota física 10/10 só é fechada depois do ensaio em aparelhos reais; esses testes não devem ser simulados nem marcados como concluídos pelo CI.
+O código pode avançar para a próxima etapa quando `npm run audit:robustez`, `npm run build`, sincronização Capacitor e a compilação Android code 12 passarem sem falha de projeto. A APK code 12 foi publicada com a chave original e o certificado histórico esperado. A nota física 10/10 só é fechada depois do ensaio em aparelhos reais; esses testes não devem ser simulados nem marcados como concluídos pelo CI.
