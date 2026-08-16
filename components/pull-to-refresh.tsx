@@ -22,11 +22,20 @@ export function PullToRefresh() {
   const inicioY = useRef<number | null>(null)
   const distanciaAtual = useRef(0)
   const podePuxar = useRef(false)
+  const atualizandoRef = useRef(false)
   const frame = useRef<number | null>(null)
 
   useEffect(() => {
-    function renderizarDistancia(valor: number) {
+    function renderizarDistancia(valor: number, imediato = false) {
       distanciaAtual.current = valor
+      if (imediato) {
+        if (frame.current != null) {
+          window.cancelAnimationFrame(frame.current)
+          frame.current = null
+        }
+        setDistancia(valor)
+        return
+      }
       if (frame.current != null) return
       frame.current = window.requestAnimationFrame(() => {
         frame.current = null
@@ -35,7 +44,7 @@ export function PullToRefresh() {
     }
 
     function touchStart(event: TouchEvent) {
-      if (atualizando || event.touches.length !== 1 || alvoBloqueado(event.target)) return
+      if (atualizandoRef.current || event.touches.length !== 1 || alvoBloqueado(event.target)) return
       if (window.scrollY > 1) return
 
       inicioY.current = event.touches[0].clientY
@@ -54,7 +63,6 @@ export function PullToRefresh() {
 
       const suavizada = Math.min(MAX_DISTANCIA, Math.round(delta * 0.48))
       renderizarDistancia(suavizada)
-
       if (delta > 8) event.preventDefault()
     }
 
@@ -64,28 +72,31 @@ export function PullToRefresh() {
       inicioY.current = null
 
       if (!deveAtualizar) {
-        renderizarDistancia(0)
+        renderizarDistancia(0, true)
         return
       }
 
+      atualizandoRef.current = true
       setAtualizando(true)
-      renderizarDistancia(LIMIAR_ATUALIZAR)
+      renderizarDistancia(LIMIAR_ATUALIZAR, true)
 
       try {
         router.refresh()
         await mutate((key) => typeof key === "string" && key.startsWith("/api/"), undefined, { revalidate: true })
-        await new Promise((resolve) => window.setTimeout(resolve, 280))
         emitAppFeedback("success")
       } finally {
-        renderizarDistancia(0)
+        atualizandoRef.current = false
+        distanciaAtual.current = 0
         setAtualizando(false)
+        renderizarDistancia(0, true)
+        window.requestAnimationFrame(() => setDistancia(0))
       }
     }
 
     function cancelar() {
       podePuxar.current = false
       inicioY.current = null
-      renderizarDistancia(0)
+      renderizarDistancia(0, true)
     }
 
     document.addEventListener("touchstart", touchStart, { passive: true })
@@ -100,10 +111,10 @@ export function PullToRefresh() {
       document.removeEventListener("touchcancel", cancelar)
       if (frame.current != null) window.cancelAnimationFrame(frame.current)
     }
-  }, [atualizando, router])
+  }, [router])
 
   const progresso = Math.min(1, distancia / LIMIAR_ATUALIZAR)
-  const visivel = distancia > 2 || atualizando
+  const visivel = atualizando || distancia > 2
 
   return (
     <div
@@ -113,11 +124,12 @@ export function PullToRefresh() {
       style={{
         paddingTop: "max(env(safe-area-inset-top), 8px)",
         opacity: visivel ? 1 : 0,
-        transform: `translate3d(0, ${visivel ? Math.min(distancia * 0.55, 42) : -16}px, 0)`,
-        transition: atualizando || distancia === 0 ? "transform 160ms ease, opacity 160ms ease" : "none",
+        visibility: visivel ? "visible" : "hidden",
+        transform: `translate3d(0, ${visivel ? Math.min(distancia * 0.55, 42) : -18}px, 0)`,
+        transition: atualizando || distancia === 0 ? "transform 150ms ease, opacity 150ms ease, visibility 150ms" : "none",
       }}
     >
-      <div className="flex h-10 items-center gap-2 rounded-full border border-[#d4af37]/60 bg-white px-3 text-[11px] font-semibold text-[#7b1326] shadow-lg">
+      <div className="flex h-9 items-center gap-2 rounded-full border border-[#d4af37]/60 bg-white px-3 text-[11px] font-semibold text-[#7b1326] shadow-lg">
         {atualizando ? (
           <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
         ) : (
