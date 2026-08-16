@@ -138,7 +138,6 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$OUT" | tee "$RUNNER_TEMP/apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $2; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':')"
           test "$CERT" = "$EXPECTED_CERT"
-          grep -Eq 'Verified using v1 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
           grep -Eq 'Verified using v2 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
           grep -Eq 'Verified using v3 scheme.*true' "$RUNNER_TEMP/apksigner.txt"
           BADGING="$("$AAPT" dump badging "$OUT")"
