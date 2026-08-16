@@ -4,6 +4,7 @@ import { SignJWT, jwtVerify } from "jose"
 import { cookies } from "next/headers"
 import bcrypt from "bcryptjs"
 import { APP_AUTH_RELEASE } from "@/lib/app-release"
+import { buscarUsuario } from "@/lib/db"
 
 const COOKIE_NAME = "santa_luzia_sessao"
 
@@ -36,17 +37,22 @@ export async function criarSessao(payload: Omit<SessaoPayload, "versao">) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    // Mantém o acesso entre aberturas do aplicativo. A sessão também é
-    // vinculada à APP_AUTH_RELEASE e deixa de ser aceita quando uma nova
-    // versão do app altera essa constante.
     maxAge: 60 * 60 * 24 * 400,
   })
 }
 
+/**
+ * Valida a assinatura do cookie e, em seguida, consulta a conta atual.
+ *
+ * O JWT prova somente a identidade (`sub`). Autorizações nunca ficam
+ * congeladas no token: promoção, recusa, bloqueio ou mudança de função passa
+ * a valer na requisição seguinte, mesmo que o app tenha ficado aberto.
+ */
 export async function lerSessao(): Promise<SessaoPayload | null> {
   const store = await cookies()
   const token = store.get(COOKIE_NAME)?.value
   if (!token) return null
+
   try {
     const { payload } = await jwtVerify(token, getSecret())
     if (
@@ -56,7 +62,19 @@ export async function lerSessao(): Promise<SessaoPayload | null> {
     ) {
       return null
     }
-    return { sub: payload.sub, tipo: payload.tipo, versao: APP_AUTH_RELEASE }
+
+    const usuario = buscarUsuario(payload.sub)
+    if (!usuario) return null
+
+    // Membro recusado ou ainda pendente deixa de ter acesso imediatamente,
+    // inclusive quando a alteração acontece enquanto o aplicativo está aberto.
+    if (usuario.tipo === "membro" && usuario.status !== "aprovado") return null
+
+    return {
+      sub: usuario.id,
+      tipo: usuario.tipo,
+      versao: APP_AUTH_RELEASE,
+    }
   } catch {
     return null
   }
