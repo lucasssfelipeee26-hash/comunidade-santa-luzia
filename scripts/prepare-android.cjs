@@ -39,6 +39,9 @@ if (!fs.existsSync(origemLiturgiaOffline)) throw new Error("Pacote anual da Litu
 fs.mkdirSync(destinoLiturgiaOffline, { recursive: true })
 fs.cpSync(origemLiturgiaOffline, destinoLiturgiaOffline, { recursive: true, force: true })
 
+const whatajongLocal = path.join(android, "app", "src", "main", "assets", "public", "whatajong", "index.html")
+if (!fs.existsSync(whatajongLocal)) throw new Error("Whatajong local ausente do pacote Android.")
+
 const splashPersonalizada = path.join(origemRecursos, "drawable", "splash.png")
 for (const pasta of fs.readdirSync(destinoRecursos, { withFileTypes: true })) {
   if (pasta.isDirectory() && pasta.name.startsWith("drawable-") && fs.existsSync(path.join(destinoRecursos, pasta.name, "splash.png"))) {
@@ -79,7 +82,13 @@ if (fs.existsSync(manifestPath)) {
       '        <activity\n            android:name=".CaminhoDaLuzActivity"\n            android:exported="false"\n            android:screenOrientation="portrait"\n            android:theme="@style/AppTheme.NoActionBar" />\n    </application>',
     )
   }
+  if (!manifest.includes('android:name=".WhatajongActivity"')) {
+    manifest = manifest.replace(
+      "</application>",
+      '        <activity\n            android:name=".WhatajongActivity"\n            android:exported="false"\n            android:screenOrientation="portrait"\n            android:theme="@style/AppTheme.NoActionBar" />\n    </application>',
+    )
+  }
   fs.writeFileSync(manifestPath, manifest)
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, Liturgia anual e Caminho da Luz local.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, Liturgia anual, Joias da Luz e Whatajong locais.`)

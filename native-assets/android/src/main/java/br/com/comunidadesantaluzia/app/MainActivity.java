@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
 
         registerPlugin(AppUpdaterPlugin.class);
         registerPlugin(CaminhoDaLuzPlugin.class);
+        registerPlugin(WhatajongPlugin.class);
         registerPlugin(OfflineStorePlugin.class);
         super.onCreate(savedInstanceState);
     }
