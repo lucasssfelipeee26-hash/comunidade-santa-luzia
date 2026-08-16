@@ -3,6 +3,8 @@ import { lerSessao } from "@/lib/auth"
 import { buscarUsuario, listarRankingAjustes, salvarRankingAjuste } from "@/lib/db"
 import { notificarMudancasRanking, snapshotRanking } from "@/lib/notificacoes-ranking"
 
+const LIMITE_DIARIO = 35
+
 function dataCuiaba() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Cuiaba",
@@ -15,9 +17,9 @@ function dataCuiaba() {
 function pontosAcumuladosPorFase(faseConcluida: number) {
   const fase = Math.max(0, Math.trunc(faseConcluida))
   if (fase <= 0) return 0
-  const base = [0, 2, 5, 9, 14, 20]
+  const base = [0, 3, 7, 12, 18, 25]
   if (fase <= 5) return base[fase]
-  return Math.min(30, 20 + (fase - 5) * 2)
+  return Math.min(LIMITE_DIARIO, 25 + (fase - 5) * 2)
 }
 
 async function usuarioAtual() {
@@ -41,11 +43,7 @@ function pontosDaMissaoHoje(usuarioId: string) {
 export async function GET() {
   const usuario = await usuarioAtual()
   if (!usuario) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
-  return NextResponse.json({
-    ok: true,
-    pontosTotalDia: pontosDaMissaoHoje(usuario.id),
-    limiteDiario: 30,
-  })
+  return NextResponse.json({ ok: true, pontosTotalDia: pontosDaMissaoHoje(usuario.id), limiteDiario: LIMITE_DIARIO })
 }
 
 export async function POST(req: NextRequest) {
@@ -57,7 +55,7 @@ export async function POST(req: NextRequest) {
   const level = Math.trunc(Number(body.level || 1))
   const faseInformada = body.completedPhase == null ? null : Math.trunc(Number(body.completedPhase))
   const faseConcluida = faseInformada == null ? Math.max(0, level - 1) : faseInformada
-  const mode = String(body.mode || "Missão do Altar").slice(0, 80)
+  const mode = String(body.mode || "Joias da Luz").slice(0, 80)
 
   if (
     !Number.isFinite(score) || score < 0 || score > 1_000_000 ||
@@ -86,7 +84,7 @@ export async function POST(req: NextRequest) {
       pontosAdicionados: 0,
       pontosTotalDia: pontosAtuais,
       faseConcluida,
-      limiteDiario: 30,
+      limiteDiario: LIMITE_DIARIO,
     })
   }
 
@@ -109,7 +107,7 @@ export async function POST(req: NextRequest) {
     pontosAdicionados,
     pontosTotalDia: pontosCalculados,
     faseConcluida,
-    limiteDiario: 30,
+    limiteDiario: LIMITE_DIARIO,
     ajusteId: ajuste.id,
   })
 }
