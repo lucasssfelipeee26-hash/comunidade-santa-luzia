@@ -1,37 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:colorAccent">@color/colorPrimary</item>
-        <item name="android:textColorPrimary">@color/santa_luzia_text</item>
-        <item name="android:textColorSecondary">@color/santa_luzia_text_muted</item>
-        <item name="android:textColorHighlight">@color/santa_luzia_selection</item>
+    <!--
+      O conteúdo do aplicativo continua com a identidade Santa Luzia no WebView,
+      mas menus, diálogos e controles nativos não recebem mais cores de texto,
+      fundo ou ActionMode impostas pelo app. O DayNight deixa o Android escolher
+      o contraste apropriado para o aparelho e para o modo do sistema.
+    -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
-        <item name="android:navigationBarColor">@color/santa_luzia_ivory</item>
-        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowDisablePreview">false</item>
     </style>
 
-    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:background">@color/santa_luzia_ivory</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:colorAccent">@color/colorPrimary</item>
-        <item name="android:textColorPrimary">@color/santa_luzia_text</item>
-        <item name="android:textColorSecondary">@color/santa_luzia_text_muted</item>
-        <item name="android:textColorHighlight">@color/santa_luzia_selection</item>
+        <!-- windowBackground afeta apenas a janela do app; não vaza para
+             submenus/toolbar como acontecia com android:background. -->
+        <item name="android:windowBackground">@color/santa_luzia_surface</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
-        <item name="android:navigationBarColor">@color/santa_luzia_ivory</item>
-        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="android:windowBackground">@drawable/splash</item>
         <item name="windowSplashScreenBackground">@color/colorPrimaryDark</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
