@@ -1,16 +1,14 @@
 {
-  "versionCode": 5,
-  "versionName": "1.0.4",
-  "publishedAt": "2026-08-15",
+  "versionCode": 6,
+  "versionName": "1.0.5",
+  "publishedAt": "2026-08-16",
   "required": false,
   "apkSize": 6047116,
-  "apkSha256": "dcd2a0cf96cb946b8e6926abd2aeadf07873a06a94f5c085acfd2212a06c2f0f",
+  "apkSha256": "341f57e189cd512080f0a6cae305e3d71dbca33d58001b6880f97785652920e8",
   "highlights": [
-    "Perfis públicos da equipe com foto, bio, função e posição na Jornada",
-    "Registros administrativos protegidos e visíveis somente aos moderadores",
-    "Nova base offline para Liturgia, Escalas, Formação, Jornada, Biblioteca e Atrasos",
-    "Quiz litúrgico e filas de sincronização preparados para funcionar sem internet",
-    "Interface Android modernizada, seleção de texto corrigida e som padrão mais suave",
-    "Atualizador interno com progresso, verificação de integridade e instalação pelo Android"
+    "Atualizador Android corrigido para baixar o APK dentro do proprio Santa Luzia",
+    "Download validado por tamanho e SHA-256 antes da instalacao",
+    "Chrome removido do fluxo de atualizacao nas novas builds",
+    "Mantidas as melhorias offline, perfis, Liturgia, Formacao, Jornada, Biblioteca, Atrasos e Quiz da grande atualizacao"
   ]
 }
