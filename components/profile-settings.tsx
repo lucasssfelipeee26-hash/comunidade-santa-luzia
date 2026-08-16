@@ -12,7 +12,18 @@ import { NotificationSoundPreferences } from "@/components/notification-sound-pr
 import { AndroidNotificationSettings } from "@/components/android-notification-settings"
 
 const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
-const EMOJIS_RECADOS = ["🙏", "✨", "❤️", "✝️", "🕊️", "⛪", "📿", "😊"]
+const EMOJIS_RECADOS = [
+  { valor: "✝️", rotulo: "Cruz" },
+  { valor: "⛪", rotulo: "Igreja" },
+  { valor: "🙏", rotulo: "Oração" },
+  { valor: "🕊️", rotulo: "Espírito Santo" },
+  { valor: "🕯️", rotulo: "Vela" },
+  { valor: "📖", rotulo: "Palavra de Deus" },
+  { valor: "🌹", rotulo: "Nossa Senhora" },
+  { valor: "❤️‍🔥", rotulo: "Sagrado Coração" },
+  { valor: "👼", rotulo: "Anjo" },
+  { valor: "📿✝️", rotulo: "Terço católico" },
+] as const
 
 function iniciais(nome: string) {
   return nome
@@ -194,21 +205,22 @@ export function ProfileSettings() {
               onChange={(event) => setBio(event.target.value.slice(0, 280))}
               rows={3}
               maxLength={280}
-              placeholder="Ex.: Servir com alegria é minha missão 🙏✨"
+              placeholder="Ex.: Servir com alegria é minha missão 🙏✝️"
               className="w-full min-w-0 resize-none rounded-2xl border border-input bg-white px-3 py-3 text-sm leading-6 outline-none transition focus:border-primary/45 focus:ring-3 focus:ring-primary/10"
             />
 
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground">Adicionar emoji:</span>
-              {EMOJIS_RECADOS.map((emoji) => (
+              <span className="text-[11px] font-semibold text-muted-foreground">Emojis católicos:</span>
+              {EMOJIS_RECADOS.map((item) => (
                 <button
-                  key={emoji}
+                  key={item.rotulo}
                   type="button"
-                  aria-label={`Adicionar ${emoji} ao recado`}
-                  onClick={() => adicionarEmoji(emoji)}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-white text-lg shadow-sm transition active:scale-95"
+                  aria-label={`Adicionar ${item.rotulo} ao recado`}
+                  title={item.rotulo}
+                  onClick={() => adicionarEmoji(item.valor)}
+                  className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-white px-2 text-lg shadow-sm transition active:scale-95"
                 >
-                  {emoji}
+                  {item.valor}
                 </button>
               ))}
             </div>
