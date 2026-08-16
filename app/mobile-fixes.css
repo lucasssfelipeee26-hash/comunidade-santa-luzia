@@ -121,38 +121,12 @@ html[data-native-platform="android"] .app-mobile-shell :where(input, textarea, s
   --sl-focus: #861f35;
 }
 
-/* Moderador: mesma identidade visual, sem amarelo/branco de baixo contraste. */
+/* Moderador usa exatamente a paleta normal do aplicativo; só a interação de
+   texto recebe contraste defensivo para copiar, colar, selecionar e autofill. */
 .moderador-painel {
-  --primary: #713044;
-  --primary-foreground: #fffaf8;
-  --secondary: #f7f0ed;
-  --secondary-foreground: #4f333a;
-  --muted: #f7f4f2;
-  --muted-foreground: #74666a;
-  --accent: #c6aa65;
-  --accent-foreground: #493239;
-  --border: #e5dcd8;
-  --input: #ddd2ce;
-  --ring: #936170;
-  --sidebar-primary: #c6aa65;
-  --sidebar-primary-foreground: #493239;
-  --sl-field-text: #302326;
-  --sl-field-placeholder: #74666a;
-  --sl-selection-bg: #e7d7dc;
+  --sl-field-text: var(--foreground, #302326);
+  --sl-field-placeholder: var(--muted-foreground, #716469);
+  --sl-selection-bg: #e8d9dd;
   --sl-selection-text: #302326;
-  --sl-focus: #713044;
-  background: #fcfaf8;
-  color: #302428;
-}
-
-.moderador-painel :where(.bg-amber-50, .bg-amber-100\/70) {
-  background-color: #faf6ed !important;
-}
-
-.moderador-painel :where(.text-amber-950, .text-amber-900\/75, .text-amber-800) {
-  color: #66564f !important;
-}
-
-.moderador-painel :where(.border-amber-300\/60, .border-amber-300\/70) {
-  border-color: #ddd0bb !important;
+  --sl-focus: var(--primary, #7b1326);
 }
