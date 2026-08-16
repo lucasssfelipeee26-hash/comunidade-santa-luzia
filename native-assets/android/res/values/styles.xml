@@ -4,7 +4,9 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorControlHighlight">@android:color/transparent</item>
         <item name="android:colorAccent">@color/colorPrimary</item>
+        <item name="android:colorControlHighlight">@android:color/transparent</item>
         <item name="android:textColorHighlight">@color/santa_luzia_selection</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
@@ -19,7 +21,9 @@
         <item name="windowNoTitle">true</item>
         <item name="android:background">@color/santa_luzia_ivory</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorControlHighlight">@android:color/transparent</item>
         <item name="android:colorAccent">@color/colorPrimary</item>
+        <item name="android:colorControlHighlight">@android:color/transparent</item>
         <item name="android:textColorHighlight">@color/santa_luzia_selection</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
