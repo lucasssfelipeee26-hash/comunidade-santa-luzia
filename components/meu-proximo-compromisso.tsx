@@ -3,19 +3,30 @@
 import { useEffect, useMemo, useState } from "react"
 import { Clock3 } from "lucide-react"
 
+const STORAGE_KEY = "santa-luzia:offline:v1:proximo-compromisso"
+
 function dateLocal(data:string, horario:string){const [y,m,d]=data.split("-").map(Number);const [h,min]=horario.split(":").map(Number);return new Date(y,m-1,d,h,min,0,0)}
 function fmt(ms:number){if(ms<=0)return "Horário limite atingido";const total=Math.floor(ms/1000);const d=Math.floor(total/86400),h=Math.floor((total%86400)/3600),m=Math.floor((total%3600)/60),s=total%60;return `${d?`${d}d `:""}${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`}
 
+function carregarSalvo(){
+ try{const salvo=JSON.parse(localStorage.getItem(STORAGE_KEY)||"null");return salvo?.dados||null}catch{return null}
+}
+
 export function MeuProximoCompromisso(){
- const [dados,setDados]=useState<any>(null);const [agora,setAgora]=useState(()=>Date.now())
+ const [dados,setDados]=useState<any>(()=>typeof window!=="undefined"?carregarSalvo():null);const [agora,setAgora]=useState(()=>Date.now())
  useEffect(() => {
   let ativo = true
   async function carregar() {
    try {
     const r = await fetch("/api/notificacoes", { cache: "no-store" })
     const j = await r.json()
-    if (ativo && r.ok) setDados(j)
-   } catch {}
+    if (!r.ok) throw new Error("Notificações indisponíveis")
+    if (ativo) setDados(j)
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ atualizadoEm: Date.now(), dados: j })) } catch {}
+   } catch {
+    const salvo = carregarSalvo()
+    if (ativo && salvo) setDados(salvo)
+   }
   }
   void carregar()
   const aoSincronizar = () => void carregar()
