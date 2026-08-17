@@ -1,0 +1,279 @@
+name: Publicar Santa Luzia 1.0.6 code 16 com chave original
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-android-106-code16-secure.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || 'https://comunidade-santa-luzia-production.up.railway.app' }}
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+      APP_VERSION_CODE: "16"
+      APP_VERSION_NAME: "1.0.6"
+      EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
+      EXPECTED_CMS_SHA256: 32fbc391579342a0a3aeb07d6f5a0154e86fd3ea30f7456c5bac8dc435bb1106
+      BRIDGE_RUN_ID: "32079761125"
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Registrar run id
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TMP="$RUNNER_TEMP/publish-code16-run-id.txt"
+          printf '%s\n' "$GITHUB_RUN_ID" > "$TMP"
+          CONTENT="$(base64 -w 0 "$TMP")"
+          API="repos/$GITHUB_REPOSITORY/contents/.github/publish-code16-run-id.txt"
+          SHA="$(gh api "$API" --jq .sha 2>/dev/null || true)"
+          ARGS=(--method PUT "$API" -f message='Registra execução temporária da publicação code 16' -f content="$CONTENT" -f branch=main)
+          if [ -n "$SHA" ]; then ARGS+=(-f sha="$SHA"); fi
+          gh api "${ARGS[@]}" >/dev/null
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Validar build e barra de navegacao
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p 'require("./config/android-build.json").versionCode')" = "16"
+          test "$(node -p 'require("./config/android-build.json").versionName')" = "1.0.6"
+          test -f components/navigation-progress.tsx
+          grep -Fq 'NavigationProgress' app/layout.tsx
+          grep -Fq 'var(--site-gold)' components/navigation-progress.tsx
+          grep -Fq 'useSearchParams' components/navigation-progress.tsx
+          test -f .github/bridge-code15-public-cert.pem
+          test -f .github/ci-signing-bridge-code15.cms.b64
+          test -n "$CAPACITOR_SERVER_URL"
+          echo "$CAPACITOR_SERVER_URL" | grep -q '^https://'
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Auditar robustez critica
+        run: npm run audit:robustez
+
+      - name: Validar aplicacao web e TypeScript
+        run: npm run build
+
+      - name: Criar e sincronizar Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          grep -Eq 'applicationId[[:space:]]+"br\.com\.comunidadesantaluzia\.app"' android/app/build.gradle
+          grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
+          grep -Eq "versionName[[:space:]]+\"${APP_VERSION_NAME}\"" android/app/build.gradle
+          test -f android/app/src/main/assets/public/whatajong/index.html
+          test -f android/app/src/main/java/br/com/comunidadesantaluzia/app/WhatajongActivity.java
+
+      - name: Baixar chave privada efemera da ponte
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-code15-private-key
+          path: ${{ runner.temp }}/bridge-code15-private
+          github-token: ${{ github.token }}
+          run-id: 32079761125
+
+      - name: Recuperar e validar chave Android original
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/signing-code16"
+          base64 --decode .github/ci-signing-bridge-code15.cms.b64 > "$RUNNER_TEMP/signing-code16/recovery.cms"
+          ACTUAL="$(sha256sum "$RUNNER_TEMP/signing-code16/recovery.cms" | awk '{print $1}')"
+          test "$ACTUAL" = "$EXPECTED_CMS_SHA256"
+          openssl cms -decrypt -binary -inform DER \
+            -in "$RUNNER_TEMP/signing-code16/recovery.cms" \
+            -recip .github/bridge-code15-public-cert.pem \
+            -inkey "$RUNNER_TEMP/bridge-code15-private/private.pem" \
+            -out "$RUNNER_TEMP/signing-code16/recovery.zip"
+          unzip -q "$RUNNER_TEMP/signing-code16/recovery.zip" -d "$RUNNER_TEMP/signing-code16/recovery"
+          JKS="$RUNNER_TEMP/signing-code16/recovery/santa-luzia-release.jks"
+          PASS_FILE="$RUNNER_TEMP/signing-code16/recovery/signing-password.txt"
+          ALIAS_FILE="$RUNNER_TEMP/signing-code16/recovery/santa-luzia-signing-alias.txt"
+          test -s "$JKS" && test -s "$PASS_FILE" && test -s "$ALIAS_FILE"
+          PASS="$(tr -d '\r\n' < "$PASS_FILE")"
+          ALIAS="$(tr -d '\r\n' < "$ALIAS_FILE")"
+          echo "::add-mask::$PASS"
+          test "$ALIAS" = "santa-luzia"
+          keytool -list -v -keystore "$JKS" -storepass "$PASS" -alias "$ALIAS" > "$RUNNER_TEMP/signing-code16/key-info.txt"
+          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/signing-code16/key-info.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+          echo "KEYSTORE_PATH=$JKS" >> "$GITHUB_ENV"
+          echo "SIGNING_PASSWORD_FILE=$PASS_FILE" >> "$GITHUB_ENV"
+          echo "SIGNING_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+
+      - name: Configurar assinatura original
+        shell: bash
+        run: |
+          set -euo pipefail
+          PASS="$(tr -d '\r\n' < "$SIGNING_PASSWORD_FILE")"
+          echo "::add-mask::$PASS"
+          ANDROID_KEYSTORE_PATH="$KEYSTORE_PATH" \
+          ANDROID_KEYSTORE_PASSWORD="$PASS" \
+          ANDROID_KEY_ALIAS="$SIGNING_ALIAS" \
+          ANDROID_KEY_PASSWORD="$PASS" \
+          node scripts/configure-android-signing.cjs
+
+      - name: Gerar APK assinado code 16
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          PASS="$(tr -d '\r\n' < "$SIGNING_PASSWORD_FILE")"
+          echo "::add-mask::$PASS"
+          for tentativa in 1 2 3; do
+            if ANDROID_KEYSTORE_PATH="$KEYSTORE_PATH" \
+               ANDROID_KEYSTORE_PASSWORD="$PASS" \
+               ANDROID_KEY_ALIAS="$SIGNING_ALIAS" \
+               ANDROID_KEY_PASSWORD="$PASS" \
+               ./gradlew assembleRelease --no-daemon; then
+              exit 0
+            fi
+            if [ "$tentativa" -lt 3 ]; then sleep $((tentativa * 30)); fi
+          done
+          exit 1
+
+      - name: Validar APK final
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner-code16.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner-code16.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+          BADGING="$($AAPT dump badging "$APK" | head -1)"
+          echo "$BADGING" | grep -Fq "name='br.com.comunidadesantaluzia.app'"
+          echo "$BADGING" | grep -Fq "versionCode='16'"
+          echo "$BADGING" | grep -Fq "versionName='1.0.6'"
+          unzip -l "$APK" | grep -Fq 'assets/public/whatajong/index.html'
+          echo "FINAL_APK=$APK" >> "$GITHUB_ENV"
+
+      - name: Preparar arquivos oficiais
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp "$FINAL_APK" dist/santa-luzia.apk
+          cp "$FINAL_APK" dist/Santa-Luzia-1.0.6.apk
+          (cd dist && sha256sum santa-luzia.apk > santa-luzia.apk.sha256)
+          (cd dist && sha256sum Santa-Luzia-1.0.6.apk > Santa-Luzia-1.0.6.apk.sha256)
+          echo "APK_SHA256=$(sha256sum dist/santa-luzia.apk | awk '{print $1}')" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$(stat -c%s dist/santa-luzia.apk)" >> "$GITHUB_ENV"
+
+      - name: Guardar APK assinado
+        uses: actions/upload-artifact@v4
+        with:
+          name: Santa-Luzia-1.0.6-code16-assinado
+          path: |
+            dist/santa-luzia.apk
+            dist/Santa-Luzia-1.0.6.apk
+            dist/santa-luzia.apk.sha256
+            dist/Santa-Luzia-1.0.6.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Substituir release oficial 1.0.6 pela build code 16
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="android-v1.0.6"
+          NOTES="Santa Luzia 1.0.6 — build interna 16. Inclui todas as correções da build 15 e adiciona uma barra fina de progresso no topo em todas as transições de páginas, tanto online quanto offline, usando automaticamente as cores rubi/vinho e dourado do tema Santa Luzia. APK assinada com a mesma chave original e validada pelo certificado histórico."
+          gh release upload "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-1.0.6.apk dist/santa-luzia.apk.sha256 dist/Santa-Luzia-1.0.6.apk.sha256 --clobber
+          gh release edit "$TAG" --latest --title "Santa Luzia Android 1.0.6" --notes "$NOTES"
+
+      - name: Atualizar metadados do atualizador interno
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'config/android-release.json'
+          const atual = JSON.parse(fs.readFileSync(path, 'utf8'))
+          atual.versionCode = 16
+          atual.versionName = '1.0.6'
+          atual.publishedAt = '2026-08-17'
+          atual.required = false
+          atual.apkSize = Number(process.env.APK_SIZE)
+          atual.apkSha256 = process.env.APK_SHA256
+          atual.highlights = [
+            'Barra de progresso no topo ao navegar entre páginas, online e offline, com as cores do tema Santa Luzia',
+            'Formações realizadas movidas para o Histórico e presença liberada somente no dia correto',
+            'Painel do membro mantém a mesma organização quando o aparelho está offline',
+            'Liturgia com rolagem estabilizada, versículos organizados e referências alinhadas com o Quiz',
+            'APK 1.0.6 code 16 assinada com a mesma chave original'
+          ]
+          fs.writeFileSync(path, JSON.stringify(atual, null, 2) + '\n')
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add config/android-release.json
+          git commit -m 'Publica Android 1.0.6 code 16 com barra de navegacao'
+          git push origin HEAD:main
+
+      - name: Registrar resultado temporario
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESULT="$RUNNER_TEMP/publish-code16-result.json"
+          printf '{\n  "versionCode": 16,\n  "versionName": "1.0.6",\n  "apkSize": %s,\n  "apkSha256": "%s",\n  "certificateSha256": "%s",\n  "runId": %s\n}\n' "$APK_SIZE" "$APK_SHA256" "$EXPECTED_CERT" "$GITHUB_RUN_ID" > "$RESULT"
+          CONTENT="$(base64 -w 0 "$RESULT")"
+          API="repos/$GITHUB_REPOSITORY/contents/.github/publish-code16-result.json"
+          SHA="$(gh api "$API" --jq .sha 2>/dev/null || true)"
+          ARGS=(--method PUT "$API" -f message='Registra resultado temporário da publicação code 16' -f content="$CONTENT" -f branch=main)
+          if [ -n "$SHA" ]; then ARGS+=(-f sha="$SHA"); fi
+          gh api "${ARGS[@]}" >/dev/null
+
+      - name: Limpar material sensivel do runner
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/signing-code16" "$RUNNER_TEMP/bridge-code15-private" || true
