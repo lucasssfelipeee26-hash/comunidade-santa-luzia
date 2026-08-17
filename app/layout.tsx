@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next"
+import { Suspense } from "react"
 import { Cormorant_Garamond, Inter } from "next/font/google"
 import "./globals.css"
 import "./mobile-fixes.css"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { AppRuntime } from "@/components/app-runtime"
 import { OfflineLiturgiaRuntime } from "@/components/offline-liturgia-runtime"
+import { NavigationProgress } from "@/components/navigation-progress"
 import { lerTemaSite } from "@/lib/site-theme"
 
 export const dynamic = "force-dynamic"
@@ -41,6 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body suppressHydrationWarning className="app-mobile-shell font-sans antialiased">
         <AppRuntime>
+          <Suspense fallback={null}><NavigationProgress /></Suspense>
           <OfflineLiturgiaRuntime />
           {children}
           <MobileBottomNav />
