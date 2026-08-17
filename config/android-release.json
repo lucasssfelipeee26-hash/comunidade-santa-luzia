@@ -1,15 +1,15 @@
 {
-  "versionCode": 14,
+  "versionCode": 16,
   "versionName": "1.0.6",
-  "publishedAt": "2026-08-16",
+  "publishedAt": "2026-08-17",
   "required": false,
   "apkSize": 23521738,
-  "apkSha256": "e073f6c9b93159f8e872469ec1ea5cc8c4efba3b321fd614b4e3a01f1727539a",
+  "apkSha256": "8478eb0cd6ab089ade2aa3ab4aeadcd484c0471a7f85f5493de288c9758eb443",
   "highlights": [
-    "Whatajong completo baseado no jogo original apresentado, totalmente em português do Brasil",
-    "Tema Santa Luzia em rubi, vinho, dourado e marfim, mantendo peças, animações, partículas, loja, recompensas e poderes",
-    "Músicas e efeitos sonoros permanecem dentro do APK para funcionamento offline",
-    "Pontuação do Whatajong integrada ao ranking do Santa Luzia e sincronizada quando houver conexão",
-    "APK 1.0.6 code 14 assinado com a mesma chave original da versão 1.0.5"
+    "Barra de progresso no topo ao navegar entre páginas, online e offline, com as cores do tema Santa Luzia",
+    "Formações realizadas movidas para o Histórico e presença liberada somente no dia correto",
+    "Painel do membro mantém a mesma organização quando o aparelho está offline",
+    "Liturgia com rolagem estabilizada, versículos organizados e referências alinhadas com o Quiz",
+    "APK 1.0.6 code 16 assinada com a mesma chave original"
   ]
 }
