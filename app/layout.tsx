@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { Suspense } from "react"
 import { Cormorant_Garamond, Inter } from "next/font/google"
 import "./globals.css"
 import "./mobile-fixes.css"
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body suppressHydrationWarning className="app-mobile-shell font-sans antialiased">
         <AppRuntime>
-          <NavigationProgress />
+          <Suspense fallback={null}><NavigationProgress /></Suspense>
           <OfflineLiturgiaRuntime />
           {children}
           <MobileBottomNav />
