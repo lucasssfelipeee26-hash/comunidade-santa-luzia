@@ -55,12 +55,16 @@ function carregarMembroOffline(): Membro | null {
 
 export function MembroAreaContent() {
   const { membroAtual } = useStore()
-  const [membroOffline, setMembroOffline] = useState<Membro | null>(() => carregarMembroOffline())
+  const [membroOffline, setMembroOffline] = useState<Membro | null>(null)
 
   useEffect(() => {
-    if (!membroAtual) return
-    setMembroOffline(membroAtual)
-    try { localStorage.setItem(MEMBRO_OFFLINE_KEY, JSON.stringify(membroAtual)) } catch {}
+    if (membroAtual) {
+      setMembroOffline(membroAtual)
+      try { localStorage.setItem(MEMBRO_OFFLINE_KEY, JSON.stringify(membroAtual)) } catch {}
+      return
+    }
+    const salvo = carregarMembroOffline()
+    if (salvo) setMembroOffline(salvo)
   }, [membroAtual])
 
   const membro = membroAtual || membroOffline
