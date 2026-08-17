@@ -14,6 +14,9 @@ function contarPaginas(largura: number, larguraTotal: number) {
 
 export function LeitorPaginado({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
+  const larguraConfigurada = useRef(0)
+  const paginaRef = useRef(0)
+  const totalRef = useRef(1)
   const [pagina, setPagina] = useState(0)
   const [total, setTotal] = useState(1)
 
@@ -22,37 +25,52 @@ export function LeitorPaginado({ children }: { children: ReactNode }) {
     if (!el) return
 
     let quadro = 0
+
     const atualizar = () => {
       const largura = Math.max(1, el.clientWidth)
       const passo = largura + ESPACO_ENTRE_PAGINAS
       const paginas = contarPaginas(largura, el.scrollWidth)
-      setTotal(paginas)
-      setPagina(Math.min(paginas - 1, Math.max(0, Math.round(el.scrollLeft / passo))))
+      const proximaPagina = Math.min(paginas - 1, Math.max(0, Math.round(el.scrollLeft / passo)))
+
+      if (paginas !== totalRef.current) {
+        totalRef.current = paginas
+        setTotal(paginas)
+      }
+      if (proximaPagina !== paginaRef.current) {
+        paginaRef.current = proximaPagina
+        setPagina(proximaPagina)
+      }
     }
 
     const agendarAtualizacao = () => {
       window.cancelAnimationFrame(quadro)
-      quadro = window.requestAnimationFrame(() => {
-        quadro = window.requestAnimationFrame(atualizar)
-      })
+      quadro = window.requestAnimationFrame(atualizar)
     }
 
     const configurar = () => {
-      // A coluna precisa ter exatamente a largura visível. O mínimo antigo de
-      // 280 px criava uma falsa página extra em celulares mais estreitos.
-      el.style.columnWidth = `${Math.max(1, el.clientWidth)}px`
-      el.style.columnGap = `${ESPACO_ENTRE_PAGINAS}px`
+      const largura = Math.max(1, el.clientWidth)
+      if (Math.abs(larguraConfigurada.current - largura) > TOLERANCIA_DE_MEDICAO) {
+        larguraConfigurada.current = largura
+        el.style.columnWidth = `${largura}px`
+        el.style.columnGap = `${ESPACO_ENTRE_PAGINAS}px`
+      }
       agendarAtualizacao()
     }
 
     configurar()
     const ro = new ResizeObserver(configurar)
     ro.observe(el)
+
+    // O conteúdo pode mudar quando outra leitura/documento é aberto. Observamos
+    // somente mudanças de conteúdo, nunca atributos/scroll, para evitar o ciclo
+    // de remedição que fazia o WebView piscar durante a navegação.
     const mo = new MutationObserver(agendarAtualizacao)
-    mo.observe(el, { childList: true, subtree: true, characterData: true, attributes: true })
+    mo.observe(el, { childList: true, subtree: true, characterData: true })
+
     el.addEventListener("load", agendarAtualizacao, true)
     el.addEventListener("scroll", atualizar, { passive: true })
     document.fonts?.ready.then(agendarAtualizacao).catch(() => {})
+
     return () => {
       window.cancelAnimationFrame(quadro)
       ro.disconnect()
@@ -60,19 +78,23 @@ export function LeitorPaginado({ children }: { children: ReactNode }) {
       el.removeEventListener("load", agendarAtualizacao, true)
       el.removeEventListener("scroll", atualizar)
     }
-  }, [children])
+  }, [])
 
   const ir = (delta: number) => {
     const el = ref.current
     if (!el) return
-    const destino = Math.min(total - 1, Math.max(0, pagina + delta))
-    el.scrollTo({ left: destino * (el.clientWidth + ESPACO_ENTRE_PAGINAS), behavior: "auto" })
+    const destino = Math.min(totalRef.current - 1, Math.max(0, paginaRef.current + delta))
+    paginaRef.current = destino
     setPagina(destino)
+    el.scrollTo({ left: destino * (el.clientWidth + ESPACO_ENTRE_PAGINAS), behavior: "auto" })
   }
 
   return (
     <div className="mt-3">
-      <div ref={ref} className="h-[clamp(300px,calc(100dvh-330px),620px)] overflow-x-auto overflow-y-hidden break-words [column-fill:auto] [column-gap:24px] [overflow-wrap:anywhere] [scrollbar-width:none] sm:h-[clamp(420px,64dvh,720px)] [&::-webkit-scrollbar]:hidden [&_img]:max-w-full [&_table]:max-w-full">
+      <div
+        ref={ref}
+        className="h-[clamp(300px,calc(100dvh-330px),620px)] overflow-x-auto overflow-y-hidden overscroll-contain break-words [column-fill:auto] [column-gap:24px] [overflow-wrap:anywhere] [scrollbar-width:none] sm:h-[clamp(420px,64dvh,720px)] [&::-webkit-scrollbar]:hidden [&_img]:max-w-full [&_table]:max-w-full"
+      >
         {children}
       </div>
       {total > 1 && (

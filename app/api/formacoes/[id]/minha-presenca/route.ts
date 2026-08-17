@@ -11,6 +11,17 @@ import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
+function hojeEmCuiaba() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Cuiaba",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
+  const mapa = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]))
+  return `${mapa.year}-${mapa.month}-${mapa.day}`
+}
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
   if (!sessao) {
@@ -37,6 +48,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
   if (formacao.status === "cancelada") {
     return NextResponse.json({ erro: "Não é possível registrar presença em uma formação cancelada." }, { status: 409 })
+  }
+
+  const hoje = hojeEmCuiaba()
+  if (formacao.data !== hoje) {
+    const mensagem = formacao.data > hoje
+      ? "A presença só poderá ser marcada no dia da formação."
+      : "O período para marcar presença nesta formação já terminou."
+    return NextResponse.json({ erro: mensagem, dataFormacao: formacao.data, hoje }, { status: 409 })
   }
 
   const body = await request.json().catch(() => null) as {

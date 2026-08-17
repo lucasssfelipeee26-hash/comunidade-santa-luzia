@@ -7,6 +7,7 @@ import { documentoLecionarioDasLeituras } from "@/lib/iliturgia-conteudo-dia"
 import { obterLiturgiaCompletaOffline } from "@/lib/liturgia-completa-offline"
 import { tempoLiturgico } from "@/lib/iliturgia-calendario"
 import { celebracaoDoDiaBrasil, imagemCelebracao } from "@/lib/iliturgia-sanctoral-brasil"
+import { normalizarReferenciaBiblica } from "@/lib/referencia-biblica"
 
 export const dynamic = "force-dynamic"
 
@@ -20,18 +21,42 @@ function dataPorExtenso(dataIso: string) {
   }).format(new Date(Date.UTC(ano, mes - 1, dia, 12, 0, 0)))
 }
 
-function refs(itens?:string[]):LeituraLocal[]{return (itens||[]).filter(Boolean).map(referencia=>({referencia}))}
-function mesclarLeituras(principal:LiturgiaLocal["leituras"],reserva:LiturgiaLocal["leituras"]):LiturgiaLocal["leituras"]{
+function refs(itens?: string[]): LeituraLocal[] {
+  return (itens || [])
+    .map((referencia) => normalizarReferenciaBiblica(referencia))
+    .filter(Boolean)
+    .map((referencia) => ({ referencia }))
+}
+
+function normalizarItens(itens?: LeituraLocal[]) {
+  return itens?.map((item) => ({
+    ...item,
+    ...(item.referencia ? { referencia: normalizarReferenciaBiblica(item.referencia) } : {}),
+  }))
+}
+
+function normalizarLeituras(leituras: LiturgiaLocal["leituras"]): LiturgiaLocal["leituras"] {
   return {
-    primeiraLeitura:principal.primeiraLeitura?.length?principal.primeiraLeitura:reserva.primeiraLeitura,
-    salmo:principal.salmo?.length?principal.salmo:reserva.salmo,
-    segundaLeitura:principal.segundaLeitura?.length?principal.segundaLeitura:reserva.segundaLeitura,
-    evangelho:principal.evangelho?.length?principal.evangelho:reserva.evangelho,
-    extras:principal.extras?.length?principal.extras:reserva.extras,
+    primeiraLeitura: normalizarItens(leituras.primeiraLeitura),
+    salmo: normalizarItens(leituras.salmo),
+    segundaLeitura: normalizarItens(leituras.segundaLeitura),
+    evangelho: normalizarItens(leituras.evangelho),
+    extras: normalizarItens(leituras.extras),
   }
 }
-function nomeTempo(chave:ReturnType<typeof tempoLiturgico>){
-  return ({advento:"Advento",natal:"Natal",quaresma:"Quaresma",pascoa:"Tempo Pascal",tempocomum:"Tempo Comum"} as const)[chave]
+
+function mesclarLeituras(principal: LiturgiaLocal["leituras"], reserva: LiturgiaLocal["leituras"]): LiturgiaLocal["leituras"] {
+  return {
+    primeiraLeitura: principal.primeiraLeitura?.length ? principal.primeiraLeitura : reserva.primeiraLeitura,
+    salmo: principal.salmo?.length ? principal.salmo : reserva.salmo,
+    segundaLeitura: principal.segundaLeitura?.length ? principal.segundaLeitura : reserva.segundaLeitura,
+    evangelho: principal.evangelho?.length ? principal.evangelho : reserva.evangelho,
+    extras: principal.extras?.length ? principal.extras : reserva.extras,
+  }
+}
+
+function nomeTempo(chave: ReturnType<typeof tempoLiturgico>) {
+  return ({ advento: "Advento", natal: "Natal", quaresma: "Quaresma", pascoa: "Tempo Pascal", tempocomum: "Tempo Comum" } as const)[chave]
 }
 
 function aplicarCalendarioBrasil(local: LiturgiaLocal, dataIso: string): LiturgiaLocal {
@@ -45,36 +70,36 @@ function aplicarCalendarioBrasil(local: LiturgiaLocal, dataIso: string): Liturgi
   }
 }
 
-async function montarDoIndice(dataIso:string):Promise<LiturgiaLocal|null>{
-  const indice=liturgiaDoIndiceAnual(dataIso)
-  if(!indice)return null
-  const data=dataIsoParaDate(dataIso)
-  const tempo=tempoLiturgico(data)
-  const celebracao=celebracaoDoDiaBrasil(data)
-  const leituras={
-    primeiraLeitura:refs(indice.primeiraLeitura),
-    salmo:refs(indice.salmo),
-    segundaLeitura:refs(indice.segundaLeitura),
-    evangelho:refs(indice.evangelho),
+async function montarDoIndice(dataIso: string): Promise<LiturgiaLocal | null> {
+  const indice = liturgiaDoIndiceAnual(dataIso)
+  if (!indice) return null
+  const data = dataIsoParaDate(dataIso)
+  const tempo = tempoLiturgico(data)
+  const celebracao = celebracaoDoDiaBrasil(data)
+  const leituras = {
+    primeiraLeitura: refs(indice.primeiraLeitura),
+    salmo: refs(indice.salmo),
+    segundaLeitura: refs(indice.segundaLeitura),
+    evangelho: refs(indice.evangelho),
   }
-  const base:LiturgiaLocal={
-    data:dataPorExtenso(dataIso),
-    liturgia:indice.liturgia||(celebracao?.nome||nomeTempo(tempo)),
-    cor:indice.cor||"Verde",
-    tempoLiturgicoAtual:nomeTempo(tempo),
-    tempoCategoria:tempo,
-    santoDoDia:celebracao?{nome:celebracao.nome,imagem:imagemCelebracao(celebracao)}:null,
-    fonte:{nome:"Acervo offline iLiturgia"},
+  const base: LiturgiaLocal = {
+    data: dataPorExtenso(dataIso),
+    liturgia: indice.liturgia || (celebracao?.nome || nomeTempo(tempo)),
+    cor: indice.cor || "Verde",
+    tempoLiturgicoAtual: nomeTempo(tempo),
+    tempoCategoria: tempo,
+    santoDoDia: celebracao ? { nome: celebracao.nome, imagem: imagemCelebracao(celebracao) } : null,
+    fonte: { nome: "Acervo offline iLiturgia" },
     leituras,
   }
-  const caminho=documentoLecionarioDasLeituras(leituras.primeiraLeitura,leituras.segundaLeitura,leituras.evangelho)
-  if(!caminho)return base
-  try{
-    const {leituras:_leituras,...semLeituras}=base
-    const extraida=await liturgiaDoArquivoLecionario(caminho,semLeituras)
-    return extraida?{...extraida,leituras:mesclarLeituras(extraida.leituras,base.leituras)}:base
-  }catch(error){
-    console.error(`[Liturgia offline] Não foi possível resolver ${dataIso} em ${caminho}:`,error)
+  const caminho = documentoLecionarioDasLeituras(leituras.primeiraLeitura, leituras.segundaLeitura, leituras.evangelho)
+  if (!caminho) return base
+  try {
+    const { leituras: _leituras, ...semLeituras } = base
+    const extraida = await liturgiaDoArquivoLecionario(caminho, semLeituras)
+    return extraida ? { ...extraida, leituras: mesclarLeituras(extraida.leituras, base.leituras) } : base
+  } catch (error) {
+    console.error(`[Liturgia offline] Não foi possível resolver ${dataIso} em ${caminho}:`, error)
     return base
   }
 }
@@ -84,23 +109,23 @@ export async function GET() {
   const ciclos = ciclosLiturgicos(dataIsoParaDate(dataIso))
   const localOriginal = obterLiturgiaLocal(dataIso)
   const localCompleta = obterLiturgiaCompletaOffline(dataIso)
-  let local:LiturgiaLocal|null=localOriginal || localCompleta
+  let local: LiturgiaLocal | null = localOriginal || localCompleta
 
-  if(localOriginal){
+  if (localOriginal) {
     const arquivoOrigem = localOriginal.fonte?.arquivoOrigem?.replace(/^assets\/Resources\//, "")
     if (arquivoOrigem?.toLowerCase().startsWith("lecionario/")) {
       try {
         const { leituras: _leituras, ...base } = localOriginal
         const extraida = await liturgiaDoArquivoLecionario(arquivoOrigem, base)
         if (extraida && (extraida.leituras.primeiraLeitura?.length || extraida.leituras.evangelho?.length)) {
-          local = {...extraida,leituras:mesclarLeituras(extraida.leituras,localOriginal.leituras)}
+          local = { ...extraida, leituras: mesclarLeituras(extraida.leituras, localOriginal.leituras) }
         }
       } catch (error) {
         console.error("[Liturgia offline] Falha ao estruturar o Lecionário incorporado:", error)
       }
     }
-  }else if(!localCompleta){
-    local=await montarDoIndice(dataIso)
+  } else if (!localCompleta) {
+    local = await montarDoIndice(dataIso)
   }
 
   if (!local) {
@@ -113,13 +138,14 @@ export async function GET() {
   }
 
   local = aplicarCalendarioBrasil(local, dataIso)
+  local = { ...local, leituras: normalizarLeituras(local.leituras) }
 
   if (!local.tempoLiturgicoAtual || !local.tempoCategoria) {
     const categoria = tempoLiturgico(dataIsoParaDate(dataIso))
     local = { ...local, tempoCategoria: categoria, tempoLiturgicoAtual: nomeTempo(categoria) }
   }
 
-  const temTexto=Boolean(local.leituras?.primeiraLeitura?.some(x=>x.texto)||local.leituras?.evangelho?.some(x=>x.texto))
+  const temTexto = Boolean(local.leituras?.primeiraLeitura?.some((x) => x.texto) || local.leituras?.evangelho?.some((x) => x.texto))
   return NextResponse.json({
     ...local,
     dataIso,
