@@ -8,6 +8,7 @@ import type { Liturgia } from "@/app/api/liturgia/route"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { LeitorPaginado } from "@/components/leitor-paginado"
+import { normalizarReferenciaBiblica, separarNumeroVersiculo } from "@/lib/referencia-biblica"
 
 type LiturgiaApp = Liturgia & { dataIso?: string; origem?: "offline"; offline?: boolean; quizDisponivel?: boolean }
 
@@ -28,14 +29,53 @@ const corMap: Record<string, string> = {
 
 type ItensLeitura = Liturgia["leituras"]["primeiraLeitura"]
 
+function ReferenciaBiblica({ valor }: { valor?: string }) {
+  const referencia = normalizarReferenciaBiblica(valor)
+  if (!referencia) return null
+  return (
+    <span className="inline-flex max-w-full items-center rounded-full border border-[#d4af37]/45 bg-[#fff7df] px-3 py-1 text-xs font-bold tracking-[.01em] text-[#7b1326] shadow-sm">
+      {referencia}
+    </span>
+  )
+}
+
+function TextoComVersiculos({ texto }: { texto: string }) {
+  const linhas = texto.replace(/\r/g, "").split("\n")
+  return (
+    <div className="space-y-2.5 text-pretty">
+      {linhas.map((linha, indice) => {
+        const limpa = linha.trim()
+        if (!limpa) return <div key={`espaco-${indice}`} className="h-1" aria-hidden="true" />
+        const versiculo = separarNumeroVersiculo(limpa)
+        if (!versiculo) return <p key={indice} className="leading-7 sm:leading-8">{limpa}</p>
+        return (
+          <p key={indice} className="grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-2 leading-7 sm:leading-8">
+            <sup className="mt-0.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-[#8f182e]/8 px-1 text-[11px] font-extrabold leading-none text-[#8f182e]">
+              {versiculo.numero}
+            </sup>
+            <span className="min-w-0">{versiculo.texto}</span>
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
 function ConteudoLeitura({ itens }: { itens: NonNullable<ItensLeitura> }) {
-  return <div className="text-[0.98rem] leading-6 text-foreground/90 sm:text-base sm:leading-7">
-    {itens.map((item, i) => <div key={i} className="mb-4 last:mb-0">
-      {item.titulo && <p className="mb-2 font-medium text-foreground">{item.titulo}</p>}
-      {item.refrao && <p className="mb-2 font-semibold italic text-[#8f182e]">R. {item.refrao}</p>}
-      {item.texto && <p className="whitespace-pre-line text-pretty">{item.texto}</p>}
-    </div>)}
-  </div>
+  return (
+    <div className="text-[0.98rem] text-foreground/90 sm:text-base">
+      {itens.map((item, i) => (
+        <section key={i} className="mb-5 last:mb-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {item.titulo && <p className="mr-auto font-medium leading-6 text-foreground">{item.titulo}</p>}
+            <ReferenciaBiblica valor={item.referencia} />
+          </div>
+          {item.refrao && <p className="mb-3 rounded-xl border border-[#8f182e]/15 bg-[#8f182e]/5 px-3 py-2 font-semibold italic leading-6 text-[#8f182e]">R. {item.refrao}</p>}
+          {item.texto && <TextoComVersiculos texto={item.texto} />}
+        </section>
+      ))}
+    </div>
+  )
 }
 
 export function LiturgiaDiaria() {
@@ -76,8 +116,10 @@ export function LiturgiaDiaria() {
         </button>
         <div className="mt-3 border-b border-[#d4af37]/30 pb-3">
           <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#9a731d]">Liturgia da Palavra</p>
-          <h4 className="font-serif text-2xl font-semibold text-[#7b1326]">{leituraAtiva.titulo}</h4>
-          {leituraAtiva.itens?.[0]?.referencia && <p className="mt-1 text-sm text-muted-foreground">{leituraAtiva.itens[0].referencia}</p>}
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="font-serif text-2xl font-semibold text-[#7b1326]">{leituraAtiva.titulo}</h4>
+            <ReferenciaBiblica valor={leituraAtiva.itens?.[0]?.referencia} />
+          </div>
         </div>
         <LeitorPaginado key={leituraAtiva.id}>
           <ConteudoLeitura itens={leituraAtiva.itens!} />
@@ -87,7 +129,7 @@ export function LiturgiaDiaria() {
         <div className="grid gap-2">
           {blocos.map((bloco) => <button key={bloco.id} type="button" onClick={() => setLeituraAtivaId(bloco.id)} className="flex min-h-16 w-full items-center gap-3 rounded-xl border border-[#d9cfb9] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[#d4af37] active:scale-[.99]">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f5e8c3] text-[#8f182e]"><BookOpen className="size-4" /></span>
-            <span className="min-w-0 flex-1"><strong className="block font-serif text-lg text-[#583b28]">{bloco.titulo}</strong>{bloco.itens?.[0]?.referencia && <span className="block truncate text-xs text-muted-foreground">{bloco.itens[0].referencia}</span>}</span>
+            <span className="min-w-0 flex-1"><strong className="block font-serif text-lg text-[#583b28]">{bloco.titulo}</strong>{bloco.itens?.[0]?.referencia && <span className="mt-1 block whitespace-normal text-xs font-semibold leading-4 text-[#7b1326]">{normalizarReferenciaBiblica(bloco.itens[0].referencia)}</span>}</span>
             <ChevronRight className="size-5 shrink-0 text-[#8f182e]" />
           </button>)}
         </div>
@@ -99,7 +141,7 @@ export function LiturgiaDiaria() {
       </div>
 
       {data.quizDisponivel && <div className="mt-6 rounded-2xl border border-accent/45 bg-[#fffaf0] p-4">
-        <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" /><div><h4 className="font-serif text-lg font-semibold text-primary">Quiz alinhado com esta Liturgia</h4><p className="mt-1 text-sm leading-6 text-muted-foreground">O Quiz de hoje é criado automaticamente a partir das leituras e do Evangelho desta celebração.</p></div></div>
+        <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" /><div><h4 className="font-serif text-lg font-semibold text-primary">Quiz alinhado com esta Liturgia</h4><p className="mt-1 text-sm leading-6 text-muted-foreground">O Quiz de hoje usa exatamente as mesmas referências bíblicas normalizadas exibidas acima.</p></div></div>
         <Link href="/area-restrita/ranking" onClick={marcarLeituraConcluida} className={`${buttonVariants({ size: "lg" })} mt-3 w-full sm:w-auto`}>Concluir leitura e abrir Quiz</Link>
       </div>}
     </div>
