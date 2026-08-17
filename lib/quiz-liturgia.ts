@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import { SignJWT, jwtVerify } from "jose"
 import type { QuizPergunta } from "@/lib/db"
+import { normalizarReferenciaBiblica } from "@/lib/referencia-biblica"
 
 export type LeituraQuiz = {
   referencia?: string
@@ -119,11 +120,15 @@ export function gerarPerguntasLiturgia(liturgia: LiturgiaQuizPayload, seed: stri
   const segunda = leituras.segundaLeitura?.[0]
   const evangelho = leituras.evangelho?.[0]
 
+  const referenciaPrimeira = normalizarReferenciaBiblica(primeira?.referencia)
+  const referenciaSalmo = normalizarReferenciaBiblica(salmo?.referencia)
+  const referenciaSegunda = normalizarReferenciaBiblica(segunda?.referencia)
+  const referenciaEvangelho = normalizarReferenciaBiblica(evangelho?.referencia)
   const referencias = unicos([
-    evangelho?.referencia,
-    primeira?.referencia,
-    segunda?.referencia,
-    salmo?.referencia,
+    referenciaEvangelho,
+    referenciaPrimeira,
+    referenciaSegunda,
+    referenciaSalmo,
   ])
 
   const cores = ["Branco", "Verde", "Roxo", "Vermelho", "Rosa"]
@@ -149,15 +154,15 @@ export function gerarPerguntasLiturgia(liturgia: LiturgiaQuizPayload, seed: stri
     pergunta(
       "referencia-evangelho",
       "Qual destas referências corresponde ao Evangelho de hoje?",
-      evangelho?.referencia || "",
-      referencias.filter((x) => normalizar(x) !== normalizar(evangelho?.referencia || "")),
+      referenciaEvangelho,
+      referencias.filter((x) => normalizar(x) !== normalizar(referenciaEvangelho)),
       seed,
     ),
     pergunta(
       "referencia-primeira",
       "Qual destas referências corresponde à Primeira Leitura de hoje?",
-      primeira?.referencia || "",
-      referencias.filter((x) => normalizar(x) !== normalizar(primeira?.referencia || "")),
+      referenciaPrimeira,
+      referencias.filter((x) => normalizar(x) !== normalizar(referenciaPrimeira)),
       seed,
     ),
     pergunta(
