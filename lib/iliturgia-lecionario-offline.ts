@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { gunzipSync } from "node:zlib"
 import type { LiturgiaLocal, LeituraLocal } from "@/lib/liturgia-local"
+import { normalizarReferenciaBiblica } from "@/lib/referencia-biblica"
 
 type Documento={id:string;path:string;title?:string;text?:string;html?:string}
 type Pacote={documents?:Documento[]}
@@ -49,18 +50,29 @@ function posicoes(texto:string){return MARCADORES.map(m=>({m,i:indiceMarcador(te
 function secao(texto:string,marcador:string){const ps=posicoes(texto),ini=indiceMarcador(texto,marcador);if(ini<0)return "";const prox=ps.find(x=>x.i>ini);return texto.slice(ini+marcador.length,prox?.i??texto.length).trim()}
 function referenciaDoTexto(v:string){
  const linhas=v.split("\n").map(x=>x.trim()).filter(Boolean)
- for(const linha of linhas.slice(0,8)){const m=linha.match(/((?:[1-3]\s*)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ]{0,15})\s+(\d[0-9,;.+\-–a-zA-Z ]{1,40})$/);if(m)return `${m[1]} ${m[2]}`.trim()}
+ for(const linha of linhas.slice(0,8)){
+  const m=linha.match(/((?:[1-3]\s*)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ]{0,15})\s+(\d[0-9,;.+\-–—a-zA-Z() ]{1,48})$/)
+  if(m)return normalizarReferenciaBiblica(`${m[1]} ${m[2]}`)
+ }
  return ""
 }
+function indiceReferencia(linhas:string[],referencia:string){
+ if(!referencia)return -1
+ return linhas.findIndex(linha=>normalizarReferenciaBiblica(linha).endsWith(referencia))
+}
 function leituraDaSecao(v:string,tituloPadrao:string):LeituraLocal[]{
- if(!v)return [];const linhas=v.split("\n").map(x=>x.trim()).filter(Boolean),referencia=referenciaDoTexto(v);let inicio=0
- if(referencia){const idx=linhas.findIndex(x=>x.includes(referencia));if(idx>=0)inicio=idx+1}
- const titulo=linhas.slice(0,Math.max(1,inicio)).filter(x=>x!==referencia).join(" ").trim()||tituloPadrao
+ if(!v)return []
+ const linhas=v.split("\n").map(x=>x.trim()).filter(Boolean),referencia=referenciaDoTexto(v)
+ let inicio=0
+ if(referencia){const idx=indiceReferencia(linhas,referencia);if(idx>=0)inicio=idx+1}
+ const titulo=linhas.slice(0,Math.max(1,inicio)).filter(x=>normalizarReferenciaBiblica(x)!==referencia).join(" ").trim()||tituloPadrao
  const texto=linhas.slice(inicio).join("\n").replace(/^(Palavra do Senhor\.?|Palavra da Salvação\.?)$/gim,"").trim()
  return texto?[{titulo,referencia:referencia||undefined,texto}]:[]
 }
 function salmoDaSecao(v:string):LeituraLocal[]{
- if(!v)return [];const referencia=referenciaDoTexto(v),linhas=v.split("\n").map(x=>x.trim()).filter(Boolean),refraoLinha=linhas.find(x=>/^(R\.|R:|R\s—)/i.test(x)),refrao=refraoLinha?.replace(/^(R\.|R:|R\s—)\s*/i,"").trim(),texto=linhas.filter(x=>x!==refraoLinha&&x!==referencia).join("\n").trim();return texto?[{titulo:"Salmo Responsorial",referencia:referencia||undefined,refrao,texto}]:[]
+ if(!v)return []
+ const referencia=referenciaDoTexto(v),linhas=v.split("\n").map(x=>x.trim()).filter(Boolean),refraoLinha=linhas.find(x=>/^(R\.|R:|R\s—)/i.test(x)),refrao=refraoLinha?.replace(/^(R\.|R:|R\s—)\s*/i,"").trim(),texto=linhas.filter(x=>x!==refraoLinha&&normalizarReferenciaBiblica(x)!==referencia).join("\n").trim()
+ return texto?[{titulo:"Salmo Responsorial",referencia:referencia||undefined,refrao,texto}]:[]
 }
 
 export function liturgiaEstruturadaDoDocumento(doc:Documento,base:Omit<LiturgiaLocal,"leituras">):LiturgiaLocal{
