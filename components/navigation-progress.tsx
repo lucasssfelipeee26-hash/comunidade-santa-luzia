@@ -1,9 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { usePathname } from "next/navigation"
-
-const EVENTO_FIM = "santa-luzia:navigation-complete"
+import { usePathname, useSearchParams } from "next/navigation"
 
 function linkInternoValido(evento: MouseEvent) {
   if (evento.defaultPrevented || evento.button !== 0) return false
@@ -28,40 +26,49 @@ function linkInternoValido(evento: MouseEvent) {
 
 export function NavigationProgress() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const rotaAtual = `${pathname}?${searchParams.toString()}`
   const [visivel, setVisivel] = useState(false)
   const [progresso, setProgresso] = useState(0)
   const intervalo = useRef<number | null>(null)
   const fallback = useRef<number | null>(null)
+  const ocultar = useRef<number | null>(null)
 
   function limparTimers() {
     if (intervalo.current !== null) window.clearInterval(intervalo.current)
     if (fallback.current !== null) window.clearTimeout(fallback.current)
+    if (ocultar.current !== null) window.clearTimeout(ocultar.current)
     intervalo.current = null
     fallback.current = null
+    ocultar.current = null
   }
 
   function iniciar() {
     limparTimers()
     setVisivel(true)
-    setProgresso(8)
+    setProgresso(7)
 
     intervalo.current = window.setInterval(() => {
       setProgresso((atual) => {
-        if (atual >= 88) return atual
-        const passo = atual < 35 ? 13 : atual < 65 ? 7 : 2.5
-        return Math.min(88, atual + passo)
+        if (atual >= 90) return atual
+        const passo = atual < 30 ? 12 : atual < 60 ? 6 : atual < 80 ? 3 : 1.2
+        return Math.min(90, atual + passo)
       })
-    }, 140)
+    }, 120)
 
-    fallback.current = window.setTimeout(() => finalizar(), 12_000)
+    fallback.current = window.setTimeout(() => finalizar(), 10_000)
   }
 
   function finalizar() {
-    limparTimers()
+    if (intervalo.current !== null) window.clearInterval(intervalo.current)
+    if (fallback.current !== null) window.clearTimeout(fallback.current)
+    intervalo.current = null
+    fallback.current = null
     setProgresso(100)
-    window.setTimeout(() => {
+    ocultar.current = window.setTimeout(() => {
       setVisivel(false)
       setProgresso(0)
+      ocultar.current = null
     }, 220)
   }
 
@@ -70,40 +77,25 @@ export function NavigationProgress() {
       if (linkInternoValido(evento)) iniciar()
     }
     const aoVoltarOuAvancar = () => iniciar()
-    const aoConcluir = () => finalizar()
+    const aoTrocarDocumento = () => iniciar()
 
     document.addEventListener("click", aoClicar, true)
     window.addEventListener("popstate", aoVoltarOuAvancar)
-    window.addEventListener(EVENTO_FIM, aoConcluir)
-
-    const originalPush = history.pushState.bind(history)
-    const originalReplace = history.replaceState.bind(history)
-
-    history.pushState = ((...args: Parameters<History["pushState"]>) => {
-      originalPush(...args)
-      window.dispatchEvent(new Event(EVENTO_FIM))
-    }) as History["pushState"]
-
-    history.replaceState = ((...args: Parameters<History["replaceState"]>) => {
-      originalReplace(...args)
-      window.dispatchEvent(new Event(EVENTO_FIM))
-    }) as History["replaceState"]
+    window.addEventListener("beforeunload", aoTrocarDocumento)
 
     return () => {
       limparTimers()
       document.removeEventListener("click", aoClicar, true)
       window.removeEventListener("popstate", aoVoltarOuAvancar)
-      window.removeEventListener(EVENTO_FIM, aoConcluir)
-      history.pushState = originalPush
-      history.replaceState = originalReplace
+      window.removeEventListener("beforeunload", aoTrocarDocumento)
     }
   }, [])
 
   useEffect(() => {
     if (visivel) finalizar()
-    // A mudança de pathname é a confirmação mais confiável de que a nova tela entrou.
+    // A mudança de rota confirma que a nova página entrou, inclusive em navegação offline.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+  }, [rotaAtual])
 
   return (
     <div
@@ -111,8 +103,11 @@ export function NavigationProgress() {
       className={`pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px] overflow-hidden transition-opacity duration-200 ${visivel ? "opacity-100" : "opacity-0"}`}
     >
       <div
-        className="santa-luzia-navigation-progress h-full rounded-r-full shadow-[0_0_8px_rgba(212,175,55,.65)] transition-[width] duration-150 ease-out"
-        style={{ width: `${progresso}%` }}
+        className="h-full rounded-r-full shadow-[0_0_9px_rgba(212,175,55,.72)] transition-[width] duration-150 ease-out"
+        style={{
+          width: `${progresso}%`,
+          background: "linear-gradient(90deg, var(--site-deep), var(--site-main), var(--site-gold), var(--site-gold-light), var(--site-main))",
+        }}
       />
     </div>
   )
