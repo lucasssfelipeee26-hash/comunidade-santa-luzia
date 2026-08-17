@@ -11,7 +11,26 @@ import { Label } from "@/components/ui/label"
 import { NotificationSoundPreferences } from "@/components/notification-sound-preferences"
 import { AndroidNotificationSettings } from "@/components/android-notification-settings"
 
-const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
+const PERFIL_OFFLINE_KEY = "santa-luzia:offline:v1:meu-perfil"
+
+const fetcher = async (url: string) => {
+  try {
+    const resposta = await fetch(url, { cache: "no-store" })
+    const json = await resposta.json().catch(() => null)
+    if (!resposta.ok || !json) throw new Error(json?.erro || "Perfil indisponível.")
+    if (json?.perfil) {
+      try { localStorage.setItem(PERFIL_OFFLINE_KEY, JSON.stringify({ atualizadoEm: Date.now(), dados: json })) } catch {}
+    }
+    return json
+  } catch (erro) {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(PERFIL_OFFLINE_KEY) || "null")
+      if (salvo?.dados?.perfil) return salvo.dados
+    } catch {}
+    throw erro
+  }
+}
+
 const EMOJIS_RECADOS = [
   { valor: "✝️", rotulo: "Cruz" },
   { valor: "⛪", rotulo: "Igreja" },
@@ -40,7 +59,7 @@ type Perfil = {
 }
 
 export function ProfileSettings() {
-  const { data } = useSWR<{ perfil?: Perfil }>("/api/perfil", fetcher)
+  const { data } = useSWR<{ perfil?: Perfil }>("/api/perfil", fetcher, { revalidateOnFocus: false })
   const perfil = data?.perfil
   const [nome, setNome] = useState("")
   const [nascimento, setNascimento] = useState("")
@@ -81,6 +100,10 @@ export function ProfileSettings() {
   async function salvar() {
     if (nome.trim().length < 3) { setMensagem("Informe um nome válido."); return }
     if (bio.length > 280) { setMensagem("O recado deve ter no máximo 280 caracteres."); return }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setMensagem("Para alterar o perfil, conecte-se à internet. O painel continua disponível offline.")
+      return
+    }
     setSalvando(true); setMensagem("")
     try {
       const resposta = await fetch("/api/perfil", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome: nome.trim(), dataNascimento: nascimento, dataVotos: votos, foto, bio }) })
@@ -128,7 +151,7 @@ export function ProfileSettings() {
         <NotificationSoundPreferences />
         <div className="mt-2"><AndroidNotificationSettings /></div>
 
-        {perfil.tipo === "membro" && <div className="mt-2 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white/70 px-3 py-2 text-[10px]"><span className="truncate text-muted-foreground">Privacidade e conta</span><div className="flex shrink-0 gap-2"><Link href="/privacidade" className="font-semibold text-primary hover:underline">Política</Link><Link href="/excluir-conta" className="font-semibold text-destructive hover:underline">Excluir</Link></div></div>}
+        {perfil.tipo === "membro" && <div className="mt-2 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white/70 px-3 py-2 text-[10px]"><span className="truncate text-muted-foreground">Privacidade e conta</span><div className="flex shrink-0 gap-2"><Link href="/privacidade" className="font-semibold text-primary hover:underline">Política</Link><Link href="/excluir-conta" className="font-semibold text-destructive">Excluir</Link></div></div>}
       </div>
     </details>
   )
