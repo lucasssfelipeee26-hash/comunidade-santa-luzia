@@ -18,6 +18,7 @@ export type NotificacaoRow = {
 
 type Store = { notificacoes: NotificacaoRow[] }
 const ARQUIVO = path.join(DATA_DIR, "notificacoes.json")
+export const NOTIFICACAO_TEMPO_DE_VIDA_MS = 24 * 60 * 60 * 1000
 
 function ler(): Store {
   try {
@@ -37,11 +38,23 @@ function salvar(store: Store) {
   fs.renameSync(temporario, ARQUIVO)
 }
 
+function removerExpiradas(store: Store, agora = Date.now()) {
+  const quantidade = store.notificacoes.length
+  store.notificacoes = store.notificacoes.filter((n) =>
+    Number.isFinite(n.criado_em) && agora - n.criado_em < NOTIFICACAO_TEMPO_DE_VIDA_MS,
+  )
+  return quantidade !== store.notificacoes.length
+}
+
 export function salvarNotificacao(input: Omit<NotificacaoRow, "id" | "criado_em" | "lida_em">) {
   const store = ler()
-  const existente = store.notificacoes.find((n) => n.usuario_id === input.usuario_id && n.chave === input.chave)
-  if (existente) return existente
   const agora = Date.now()
+  const removeu = removerExpiradas(store, agora)
+  const existente = store.notificacoes.find((n) => n.usuario_id === input.usuario_id && n.chave === input.chave)
+  if (existente) {
+    if (removeu) salvar(store)
+    return existente
+  }
   const row: NotificacaoRow = {
     ...input,
     titulo: input.titulo.trim().slice(0, 120),
@@ -52,7 +65,7 @@ export function salvarNotificacao(input: Omit<NotificacaoRow, "id" | "criado_em"
     lida_em: null,
   }
   store.notificacoes.push(row)
-  // Evita crescimento ilimitado: preserva as 250 notificações mais recentes por usuário.
+  // Segurança adicional contra crescimento ilimitado, embora a expiração normal seja de 24 horas.
   const porUsuario = new Map<string, NotificacaoRow[]>()
   for (const n of store.notificacoes) {
     const lista = porUsuario.get(n.usuario_id) || []
@@ -73,7 +86,9 @@ export function notificarUsuarios(
 }
 
 export function listarNotificacoes(usuarioId: string, limite = 60) {
-  return ler().notificacoes
+  const store = ler()
+  if (removerExpiradas(store)) salvar(store)
+  return store.notificacoes
     .filter((n) => n.usuario_id === usuarioId)
     .sort((a, b) => b.criado_em - a.criado_em)
     .slice(0, Math.max(1, Math.min(100, limite)))
@@ -81,10 +96,16 @@ export function listarNotificacoes(usuarioId: string, limite = 60) {
 
 export function marcarNotificacaoLida(usuarioId: string, id: string) {
   const store = ler()
+  const removeu = removerExpiradas(store)
   const row = store.notificacoes.find((n) => n.id === id && n.usuario_id === usuarioId)
-  if (!row) return false
+  if (!row) {
+    if (removeu) salvar(store)
+    return false
+  }
   if (!row.lida_em) {
     row.lida_em = Date.now()
+    salvar(store)
+  } else if (removeu) {
     salvar(store)
   }
   return true
@@ -92,6 +113,7 @@ export function marcarNotificacaoLida(usuarioId: string, id: string) {
 
 export function marcarTodasNotificacoesLidas(usuarioId: string) {
   const store = ler()
+  const removeu = removerExpiradas(store)
   const agora = Date.now()
   let alteradas = 0
   for (const n of store.notificacoes) {
@@ -100,6 +122,6 @@ export function marcarTodasNotificacoesLidas(usuarioId: string) {
       alteradas++
     }
   }
-  if (alteradas) salvar(store)
+  if (alteradas || removeu) salvar(store)
   return alteradas
 }

@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header"
 import { Hero } from "@/components/hero"
 import { DeferredLiturgia } from "@/components/home-deferred"
 import { SiteFooter } from "@/components/site-footer"
+import { lerSessao } from "@/lib/auth"
 
 const atalhos = [
   {
@@ -36,24 +37,30 @@ const atalhos = [
   },
 ]
 
-export default function VisitantePage() {
+export default async function VisitantePage() {
+  const sessao = await lerSessao()
+  const autenticado = Boolean(sessao)
+  const atalhosVisiveis = autenticado ? atalhos.filter((item) => item.href !== "/area-restrita/cadastro") : atalhos
+
   return (
     <div className="public-home min-h-screen bg-[#fffaf0]">
       <SiteHeader />
       <main>
-        <div className="border-b border-[#d4af37]/45 bg-[#fff7e5] px-4 py-2.5 text-center text-xs font-semibold text-[#6d4d0f]">
-          <span className="mr-1">Modo visitante</span>
-          <span className="text-[#756b5f]">· Centro Litúrgico, Escala do Dia e Biblioteca</span>
-          <Link href="/area-restrita/login" className="ml-2 inline-flex items-center gap-1 font-bold text-[#7b1326] hover:underline">
-            <LogIn className="size-3.5" /> Entrar
-          </Link>
-        </div>
+        {!autenticado && (
+          <div className="border-b border-[#d4af37]/45 bg-[#fff7e5] px-4 py-2.5 text-center text-xs font-semibold text-[#6d4d0f]">
+            <span className="mr-1">Modo visitante</span>
+            <span className="text-[#756b5f]">· Centro Litúrgico, Escala do Dia e Biblioteca</span>
+            <Link href="/area-restrita/login" className="ml-2 inline-flex items-center gap-1 font-bold text-[#7b1326] hover:underline">
+              <LogIn className="size-3.5" /> Entrar
+            </Link>
+          </div>
+        )}
 
         <Hero />
 
         <section className="relative z-10 bg-[#fffaf0] py-8 sm:py-10">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 px-3 sm:gap-4 sm:px-4 lg:grid-cols-4 lg:px-6">
-            {atalhos.map(({ icon: Icon, ...item }) => (
+          <div className={`mx-auto grid max-w-7xl grid-cols-2 gap-3 px-3 sm:gap-4 sm:px-4 lg:px-6 ${atalhosVisiveis.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
+            {atalhosVisiveis.map(({ icon: Icon, ...item }) => (
               <Link
                 prefetch={false}
                 key={item.title}

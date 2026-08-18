@@ -105,29 +105,31 @@ export function NotificationCenter() {
 
       {aberto && (
         <>
-          <button type="button" aria-label="Fechar notificações" className="fixed inset-0 z-[85] bg-black/25 backdrop-blur-sm" onClick={() => setAberto(false)} />
-          <section role="dialog" aria-modal="true" aria-label="Notificações" className="fixed left-1/2 top-1/2 z-[90] flex max-h-[78vh] w-[calc(100%_-_24px)] max-w-[470px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-2xl backdrop-blur-2xl">
-            <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-              <div>
-                <h2 className="font-serif text-xl font-semibold text-primary">Notificações</h2>
-                <p className="text-xs text-muted-foreground">Ao abrir o sino, as notificações são consideradas vistas.</p>
-              </div>
+          <button type="button" aria-label="Fechar notificações" className="fixed inset-0 z-[115] bg-black/30 backdrop-blur-sm" onClick={() => setAberto(false)} />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Notificações"
+            className="fixed inset-x-3 bottom-[max(14px,env(safe-area-inset-bottom))] top-[calc(env(safe-area-inset-top)+72px)] z-[120] mx-auto flex max-w-[470px] flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-2xl"
+          >
+            <header className="flex min-h-16 items-center justify-between gap-3 border-b border-border px-4 py-3">
+              <h2 className="font-serif text-xl font-semibold text-primary">Notificações</h2>
               <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="inline-flex size-9 items-center justify-center rounded-xl text-primary hover:bg-primary/5">
                 <X className="size-4" />
               </button>
             </header>
 
-            <div className="overflow-y-auto p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pb-4">
               {notificacoes.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma notificação por enquanto.</div>}
               {notificacoes.map((n) => (
                 <button key={n.id} type="button" onClick={() => abrirNotificacao(n)} className="mb-1 flex w-full items-start gap-3 rounded-2xl bg-white p-3 text-left transition active:scale-[.99] hover:bg-primary/[.035]">
                   <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary"><Icone tipo={n.tipo} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-start justify-between gap-2">
-                      <strong className="text-sm text-foreground">{n.titulo}</strong>
+                      <strong className="min-w-0 break-words text-sm text-foreground">{n.titulo}</strong>
                       <span className="shrink-0 text-[10px] text-muted-foreground">{tempo(n.criado_em)}</span>
                     </span>
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">{n.mensagem}</span>
+                    <span className="mt-1 block break-words text-xs leading-5 text-muted-foreground">{n.mensagem}</span>
                   </span>
                 </button>
               ))}

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import useSWR from "swr"
 import {
   BookOpenText,
@@ -15,6 +15,8 @@ import {
   UserPlus,
   X,
 } from "lucide-react"
+import { PrayerPersonIcon } from "@/components/prayer-person-icon"
+import { carregarSessaoOffline } from "@/lib/offline-data"
 import { site } from "@/lib/site"
 
 const publicBaseLinks = [
@@ -26,20 +28,42 @@ const publicBaseLinks = [
 ]
 
 type HeaderMeResponse = { sessao: null | { tipo: "moderador" | "membro" } }
-const headerFetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => r.json())
+const headerFetcher = (url: string) => fetch(url, { cache: "no-store", credentials: "same-origin" }).then(async (r) => {
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+})
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false)
+  const [sessaoOffline, setSessaoOffline] = useState<HeaderMeResponse["sessao"] | undefined>(undefined)
   const { data: me } = useSWR<HeaderMeResponse>("/api/auth/me", headerFetcher, {
     revalidateOnFocus: false,
+    revalidateOnReconnect: true,
     dedupingInterval: 60_000,
   })
-  const autenticado = Boolean(me?.sessao)
+
+  useEffect(() => {
+    const cache = carregarSessaoOffline<HeaderMeResponse>()
+    setSessaoOffline(cache?.dados?.sessao ?? null)
+  }, [])
+
+  const sessao = me === undefined ? sessaoOffline : me.sessao
+  const autenticado = Boolean(sessao)
   const acessoHref = autenticado ? "/area-restrita" : "/area-restrita/login"
   const acessoLabel = autenticado ? "Meu painel" : "Entrar"
+
+  // Para uma conta já autenticada, Início fica exclusivamente na barra inferior.
+  // O menu superior ganha o painel/perfil com o ícone da pessoa em oração.
   const navLinks = autenticado
-    ? [...publicBaseLinks, { href: "/area-restrita", label: "Meu painel", curto: "Painel", icon: LogIn }]
-    : [...publicBaseLinks, { href: "/area-restrita/cadastro", label: "Solicitar acesso", curto: "Cadastro", icon: UserPlus }, { href: "/area-restrita/login", label: "Entrar", curto: "Entrar", icon: LogIn }]
+    ? [
+        ...publicBaseLinks.filter((link) => link.href !== "/visitante"),
+        { href: "/area-restrita", label: "Meu painel", curto: "Painel", icon: PrayerPersonIcon },
+      ]
+    : [
+        ...publicBaseLinks,
+        { href: "/area-restrita/cadastro", label: "Solicitar acesso", curto: "Cadastro", icon: UserPlus },
+        { href: "/area-restrita/login", label: "Entrar", curto: "Entrar", icon: LogIn },
+      ]
 
   return (
     <header className="app-safe-header sticky top-0 z-50 border-b border-[#d4af37]/60 bg-[#fffdf8] text-[#5f1020] shadow-[0_3px_14px_rgba(89,55,12,.08)]" data-no-pull-refresh>
@@ -63,7 +87,7 @@ export function SiteHeader() {
             </Link>
           ))}
           <Link prefetch={false} href={acessoHref} className="ml-3 inline-flex items-center gap-2 rounded-md border border-[#c99a2e] bg-[#f6e7b7] px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-[#681225] shadow-sm transition hover:bg-[#d4af37] hover:text-[#4b0b17]">
-            <LogIn className="size-4" /> {acessoLabel}
+            {autenticado ? <PrayerPersonIcon className="size-4" /> : <LogIn className="size-4" />} {acessoLabel}
           </Link>
         </nav>
 
