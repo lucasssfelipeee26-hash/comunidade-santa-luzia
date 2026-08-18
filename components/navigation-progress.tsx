@@ -69,7 +69,7 @@ export function NavigationProgress() {
       setVisivel(false)
       setProgresso(0)
       ocultar.current = null
-    }, 220)
+    }, 240)
   }
 
   useEffect(() => {
@@ -100,10 +100,10 @@ export function NavigationProgress() {
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px] overflow-hidden transition-opacity duration-200 ${visivel ? "opacity-100" : "opacity-0"}`}
+      className={`pointer-events-none fixed inset-x-2 top-[max(8px,env(safe-area-inset-top))] z-[9999] h-1 overflow-hidden rounded-full bg-primary/10 shadow-[0_1px_7px_rgba(82,17,35,.16)] transition-opacity duration-200 ${visivel ? "opacity-100" : "opacity-0"}`}
     >
       <div
-        className="h-full rounded-r-full shadow-[0_0_9px_rgba(212,175,55,.72)] transition-[width] duration-150 ease-out"
+        className="h-full rounded-full shadow-[0_0_10px_rgba(212,175,55,.8)] transition-[width] duration-150 ease-out"
         style={{
           width: `${progresso}%`,
           background: "linear-gradient(90deg, var(--site-deep), var(--site-main), var(--site-gold), var(--site-gold-light), var(--site-main))",
