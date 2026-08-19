@@ -3,7 +3,7 @@ const PRESENCAS_KEY = "santa-luzia:offline:v1:presencas-formacao-pendentes"
 
 export type LocalFirstQueueItem = {
   id: string
-  tipo: "atraso" | "formacao-presenca" | "quiz-liturgia"
+  tipo: "atraso" | "formacao-presenca" | "quiz-liturgia" | "notificacao-lida"
   criadoEm?: number
   ownerId?: string
   formacaoId?: string
