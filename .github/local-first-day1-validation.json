@@ -1,10 +1,10 @@
 {
-  "checkedAt": "2026-08-19T22:52:27.798Z",
+  "checkedAt": "2026-08-19T22:54:46.117Z",
   "node": "v22.23.2",
-  "installExit": 1,
-  "typescriptExit": 99,
-  "auditExit": 99,
-  "buildExit": 99,
+  "installExit": 0,
+  "typescriptExit": 0,
+  "auditExit": 0,
+  "buildExit": 0,
   "desacoplamentoExit": 0,
-  "ok": false
+  "ok": true
 }

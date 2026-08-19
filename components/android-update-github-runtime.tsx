@@ -102,7 +102,7 @@ export function AndroidUpdateGithubRuntime() {
       const separador = MANIFESTO_URL.includes("?") ? "&" : "?"
       const response = await fetch(`${MANIFESTO_URL}${separador}update=${Date.now()}`, {
         cache: "no-store",
-        headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+        headers: { Accept: "application/json" },
         signal: controller.signal,
       })
       if (!response.ok) throw new Error(`GitHub respondeu HTTP ${response.status}`)
