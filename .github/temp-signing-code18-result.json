@@ -1,0 +1,12 @@
+{
+  "publishedAt": "2026-08-19T23:54:11.076Z",
+  "versionName": "1.0.6",
+  "versionCode": 18,
+  "apkSize": 23524146,
+  "apkSha256": "41f3e6107e8dcb26eafc313d44a996989d28f409f66ebd66392aadc55532f4f0",
+  "certificateSha256": "1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18",
+  "expectedCertificateSha256": "1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18",
+  "certificateMatches": true,
+  "releaseTag": "android-v1.0.6",
+  "asset": "santa-luzia.apk"
+}

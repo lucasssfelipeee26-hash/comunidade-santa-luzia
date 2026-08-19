@@ -1,16 +1,16 @@
 {
-  "versionCode": 17,
+  "versionCode": 18,
   "versionName": "1.0.6",
-  "publishedAt": "2026-08-18",
+  "publishedAt": "2026-08-19",
   "required": false,
-  "apkSize": 23521490,
-  "apkSha256": "3ef3c23fa78b76ab660fcde4c62186fcff1dd07a6eab40762f4a807ca4531a98",
+  "apkSize": 23524146,
+  "apkSha256": "41f3e6107e8dcb26eafc313d44a996989d28f409f66ebd66392aadc55532f4f0",
   "highlights": [
-    "Navegação autenticada reorganizada para Início, Escala, Formação e Quiz, sem aba Visitante",
-    "Modo local com a identidade do aplicativo e sem telas de Tentar conectar ou Santa Luzia Offline",
-    "Notificações expiram após 24 horas e a central respeita a navegação inferior",
-    "Formação sem selo Confirmada e presença liberada somente na data correta",
-    "Splash nativa marfim, ícone adaptativo atualizado e barra de carregamento mais visível",
-    "APK 1.0.6 code 17 assinada com a mesma chave Android original"
+    "Atualizações Android agora são verificadas diretamente no GitHub, sem depender do Railway",
+    "Dados offline importantes usam SQLite nativo e continuam após limpar apenas o cache",
+    "Ações feitas offline entram em uma fila durável e sincronizam quando a conexão volta",
+    "Sincronização por revisão reduz downloads repetidos e o tráfego de dados",
+    "Notificações recentes ficam disponíveis localmente e reconciliam o estado depois",
+    "O modo local também consegue detectar e instalar uma atualização pelo GitHub"
   ]
 }
