@@ -12,7 +12,7 @@
 <body>
 <div class="progress" id="progress"><i></i></div>
 <main class="app">
-<header class="top"><div class="seal">SL</div><div class="brand"><strong>SANTA LUZIA</strong><small>Acólitos e Coroinhas São Padre Pio</small></div></header>
+<header class="top"><div class="seal">SL</div><div class="brand"><strong>SANTA LUZIA</strong><small>Acólitos e Coroinhas São Padre Pio</small></div></header><div id="githubUpdate" hidden style="margin:10px 2px 2px;border:1px solid #d4af3766;border-radius:16px;background:#fff6dd;padding:11px;color:#521123;font-size:11px;line-height:1.45"></div>
 <nav class="nav" id="nav"></nav>
 <section class="page" id="inicio"></section>
 <section class="page" id="liturgia"></section>
@@ -26,7 +26,7 @@
 <nav class="bottom" id="bottom"></nav>
 <script>
 (()=>{"use strict";
-const SERVER="https://comunidade-santa-luzia-production.up.railway.app",FALLBACK_SNAPSHOT="santa-luzia:android-offline:snapshot:v1",FALLBACK_QUEUE="santa-luzia:android-offline:queue:v1";
+const SERVER="https://comunidade-santa-luzia-production.up.railway.app",UPDATE_MANIFEST="https://raw.githubusercontent.com/lucasssfelipeee26-hash/comunidade-santa-luzia/main/config/android-release.json",UPDATE_APK="https://github.com/lucasssfelipeee26-hash/comunidade-santa-luzia/releases/latest/download/santa-luzia.apk",FALLBACK_SNAPSHOT="santa-luzia:android-offline:snapshot:v1",FALLBACK_QUEUE="santa-luzia:android-offline:queue:v1";
 const topTabs=[["liturgia","✝","Liturgia"],["equipe","👥","Equipe"],["biblioteca","▤","Biblioteca"],["atrasos","⏰","Atrasos"]];
 const bottomTabs=[["inicio","⌂","Início"],["escala","▣","Escala"],["formacao","◇","Formação"],["quiz","✦","Quiz"]];
 let active="inicio",snapshot=null,queueCache=[],liturgiaAtual=null,quizRespostas={};
@@ -42,6 +42,28 @@ async function loadNative(){const p=nativeStore();if(p){try{const[s,q]=await Pro
 async function saveQueue(){const p=nativeStore();if(p){try{await p.saveQueue({queue:JSON.stringify(queueCache)});return}catch{}}try{localStorage.setItem(FALLBACK_QUEUE,JSON.stringify(queueCache))}catch{}}
 async function enqueue(item){const owner=user()?.id;if(owner&&!item.ownerId)item.ownerId=String(owner);queueCache.push(item);await saveQueue();renderAll()}
 function progress(){const el=document.getElementById("progress");el.classList.add("on");setTimeout(()=>el.classList.remove("on"),480)}
+async function checkGithubUpdate(){
+  if(!navigator.onLine)return;
+  const host=document.getElementById("githubUpdate");
+  try{
+    const r=await fetch(UPDATE_MANIFEST+"?t="+Date.now(),{cache:"no-store",headers:{Accept:"application/json"}});if(!r.ok)return;
+    const m=await r.json();
+    if(!Number.isInteger(m?.versionCode)||!Number.isInteger(m?.apkSize)||!/^[a-f0-9]{64}$/i.test(String(m?.apkSha256||"")))return;
+    const app=window.Capacitor?.Plugins?.App;if(!app?.getInfo)return;
+    const info=await app.getInfo(),build=parseInt(info?.build||"0",10);if(!Number.isFinite(build)||m.versionCode<=build){host.hidden=true;return}
+    host.hidden=false;host.innerHTML='<strong>Atualização '+esc(m.versionName||"")+' disponível</strong><br>Encontrada diretamente no GitHub. <button id="installGithubUpdate" class="action primary" style="margin-left:6px;min-height:34px;padding:6px 10px">Baixar e instalar</button>';
+    document.getElementById("installGithubUpdate").onclick=async()=>{
+      const btn=document.getElementById("installGithubUpdate");btn.disabled=true;btn.textContent="Preparando…";
+      try{
+        const updater=window.Capacitor?.Plugins?.AppUpdater;
+        if(updater?.downloadAndInstall){await updater.downloadAndInstall({url:UPDATE_APK,fileName:'Santa-Luzia-'+String(m.versionName||'atualizacao')+'-code'+m.versionCode+'.apk',expectedSha256:String(m.apkSha256).toLowerCase(),expectedSize:Number(m.apkSize)});return}
+        const browser=window.Capacitor?.Plugins?.Browser;if(browser?.open){await browser.open({url:UPDATE_APK});return}
+        location.href=UPDATE_APK;
+      }catch{btn.disabled=false;btn.textContent="Tentar novamente"}
+    };
+  }catch{}
+}
+async function tryRemoteServer(){if(!navigator.onLine)return;void checkGithubUpdate();try{const c=new AbortController(),t=setTimeout(()=>c.abort(),3500);const r=await fetch(SERVER+"/api/app/status?local="+Date.now(),{cache:"no-store",signal:c.signal});clearTimeout(t);if(r.ok)location.href=SERVER}catch{}}
 function navs(){document.getElementById("nav").innerHTML=topTabs.map(([k,i,n])=>`<button data-tab="${k}">${i} ${n}</button>`).join("");document.getElementById("bottom").innerHTML=bottomTabs.map(([k,i,n])=>`<button data-tab="${k}"><b>${i}</b>${n}</button>`).join("");document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>setActive(b.dataset.tab))}
 function setActive(k){progress();active=k;document.querySelectorAll(".page").forEach(x=>x.classList.toggle("on",x.id===k));document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("on",x.dataset.tab===k));window.scrollTo({top:0,behavior:"instant"});if((k==="liturgia"||k==="quiz")&&!liturgiaAtual)void loadLiturgia()}
 function avatar(p){return p?.foto?`<div class="avatar"><img src="${esc(p.foto)}" alt="" /></div>`:`<div class="avatar">${esc(initials(p?.nome))}</div>`}
@@ -57,7 +79,7 @@ function renderQuiz(){const qs=quizFromLiturgia(liturgiaAtual),done=queueCache.s
 async function loadLiturgia(){const iso=isoHoje(),month=iso.slice(0,7);try{const r=await fetch(`offline/liturgia-completa/${month}.json`);const pack=await r.json();liturgiaAtual=pack?.dias?.[iso]||null}catch{liturgiaAtual=null}renderLiturgia();renderQuiz()}
 function renderLiturgia(){const root=document.getElementById("liturgia"),l=liturgiaAtual;if(!l){root.innerHTML=`<div class="hero"><small>Liturgia Diária</small><h2>Palavra de Deus</h2></div><div class="empty">O conteúdo desta data não está no pacote local.</div>`;return}const read=(title,a)=>Array.isArray(a)&&a.length?a.map(x=>`<h4>${esc(title)}</h4><div class="ref">${esc(x.referencia||x.titulo||"")}</div>${x.refrao?`<p><strong>${esc(x.refrao)}</strong></p>`:""}<p>${esc(x.texto||"")}</p>`).join(""):"";root.innerHTML=`<div class="hero"><small>${esc(l.cor||"Liturgia")}</small><h2>${esc(l.liturgia||"Liturgia Diária")}</h2><p>${fmt(isoHoje())} · ${esc(l.tempoLiturgicoAtual||"")}</p></div><div class="card lit">${read("Primeira Leitura",l.leituras?.primeiraLeitura)}${read("Salmo Responsorial",l.leituras?.salmo)}${read("Segunda Leitura",l.leituras?.segundaLeitura)}${read("Evangelho",l.leituras?.evangelho)}${l.oracoes?.coleta?`<h4>Oração da Coleta</h4><p>${esc(l.oracoes.coleta)}</p>`:""}</div>`}
 function renderAll(){renderInicio();renderEscala();renderFormacao();renderEquipe();renderBiblioteca();renderAtrasos();renderQuiz();setActive(active)}
-window.addEventListener("online",()=>{setTimeout(()=>{location.href=SERVER},300)});navs();loadNative().then(()=>{renderAll();setActive("inicio");void loadLiturgia()});
+window.addEventListener("online",()=>{setTimeout(()=>{void tryRemoteServer()},300)});navs();loadNative().then(()=>{renderAll();setActive("inicio");void loadLiturgia();void checkGithubUpdate();setInterval(()=>{void checkGithubUpdate()},5*60*1000)});
 })();
 </script>
 </body>
