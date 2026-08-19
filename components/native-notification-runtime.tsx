@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { androidNotificationConfig } from "@/lib/android-notifications"
 import { loadSoundPreferences } from "@/lib/sound-preferences"
+import { enfileirarNotificacaoLida, salvarNotificacoesCache, ultimoUsuarioNotificacoes } from "@/lib/local-notification-cache"
 
 type NotificacaoServidor = {
   id: string
@@ -22,7 +23,7 @@ type RespostaNotificacoes = {
 const CHAVE_EXIBIDAS = "santa-luzia:notificacoes-nativas-exibidas:v2"
 const CHAVE_PERMISSAO = "santa-luzia:notificacoes-permissao-solicitada:v1"
 const TIMEOUT_NOTIFICACOES = 6_500
-const INTERVALO_NOTIFICACOES = 10_000
+const INTERVALO_NOTIFICACOES = 60_000
 
 function idNumerico(texto: string) {
   let hash = 2166136261
@@ -64,6 +65,7 @@ export function NativeNotificationRuntime() {
     let removerListener: (() => Promise<void>) | undefined
     let timer: number | undefined
     let canalPreparado = ""
+    let usuarioAtualId = ultimoUsuarioNotificacoes()
 
     async function iniciar() {
       try {
@@ -76,13 +78,18 @@ export function NativeNotificationRuntime() {
         const handle = await LocalNotifications.addListener("localNotificationActionPerformed", ({ notification }) => {
           const notificacaoId = notification.extra?.notificacaoId
           if (typeof notificacaoId === "string") {
+            const ownerId = usuarioAtualId || ultimoUsuarioNotificacoes()
             void fetchComTimeout("/api/notificacoes", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
               body: JSON.stringify({ id: notificacaoId }),
             })
-              .then(() => window.dispatchEvent(new CustomEvent("santa-luzia:notificacoes-atualizadas")))
-              .catch(() => undefined)
+              .then((resposta) => {
+                if (!resposta.ok && ownerId) enfileirarNotificacaoLida(ownerId, notificacaoId)
+                window.dispatchEvent(new CustomEvent("santa-luzia:notificacoes-atualizadas"))
+              })
+              .catch(() => { if (ownerId) enfileirarNotificacaoLida(ownerId, notificacaoId) })
           }
           const rota = notification.extra?.rota
           if (typeof rota === "string" && rota.startsWith("/")) {
@@ -104,6 +111,8 @@ export function NativeNotificationRuntime() {
             if (!resposta.ok) return
             const dados = await resposta.json() as RespostaNotificacoes
             if (!dados.autenticado || !dados.usuario?.id) return
+            usuarioAtualId = String(dados.usuario.id)
+            await salvarNotificacoesCache(usuarioAtualId, dados.notificacoes || [], (dados.notificacoes || []).filter((n) => !n.lida_em).length)
 
             let permissao = await LocalNotifications.checkPermissions()
             if (permissao.display !== "granted" && !localStorage.getItem(CHAVE_PERMISSAO)) {

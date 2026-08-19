@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { Bell, BrainCircuit, CalendarDays, Gamepad2, Sparkles, Trophy, X } from "lucide-react"
+import { carregarNotificacoesCache, enfileirarTodasNotificacoesLidas, marcarCacheComoLido, salvarNotificacoesCache, ultimoUsuarioNotificacoes } from "@/lib/local-notification-cache"
 
 type Notificacao = {
   id: string
@@ -15,8 +16,31 @@ type Notificacao = {
   lida_em: number | null
 }
 
-type Dados = { autenticado?: boolean; notificacoes?: Notificacao[]; naoLidas?: number }
-const fetcher = (url: string) => fetch(url, { cache: "no-store", credentials: "same-origin" }).then(async (r) => r.ok ? r.json() : null)
+type Dados = { autenticado?: boolean; usuario?: { id?: string }; notificacoes?: Notificacao[]; naoLidas?: number; offline?: boolean }
+
+const fetcher = async (url: string): Promise<Dados | null> => {
+  try {
+    const response = await fetch(url, { cache: "no-store", credentials: "same-origin" })
+    if (response.ok) {
+      const dados = await response.json() as Dados
+      const usuarioId = String(dados.usuario?.id || "")
+      if (dados.autenticado && usuarioId && Array.isArray(dados.notificacoes)) {
+        await salvarNotificacoesCache(usuarioId, dados.notificacoes, dados.naoLidas)
+      }
+      return dados
+    }
+  } catch {}
+
+  const cache = carregarNotificacoesCache()
+  if (!cache) return null
+  return {
+    autenticado: true,
+    usuario: { id: cache.usuarioId },
+    notificacoes: cache.notificacoes as Notificacao[],
+    naoLidas: cache.naoLidas,
+    offline: true,
+  }
+}
 
 function Icone({ tipo }: { tipo: Notificacao["tipo"] }) {
   if (tipo === "quiz") return <BrainCircuit className="size-4" />
@@ -40,7 +64,7 @@ export function NotificationCenter() {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const { data, mutate } = useSWR<Dados>("/api/notificacoes", fetcher, {
-    refreshInterval: 8_000,
+    refreshInterval: 60_000,
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     dedupingInterval: 2_000,
@@ -61,19 +85,27 @@ export function NotificationCenter() {
   function marcarTodasComoVistas() {
     if (!data || naoLidas <= 0) return
     const agora = Date.now()
-    void mutate({
-      ...data,
-      naoLidas: 0,
-      notificacoes: notificacoes.map((n) => ({ ...n, lida_em: n.lida_em || agora })),
-    }, false)
+    const usuarioId = String(data.usuario?.id || ultimoUsuarioNotificacoes() || "")
+    const atualizadas = notificacoes.map((n) => ({ ...n, lida_em: n.lida_em || agora }))
+    void mutate({ ...data, naoLidas: 0, notificacoes: atualizadas }, false)
+    if (usuarioId) marcarCacheComoLido(usuarioId)
+
+    if (!navigator.onLine) {
+      if (usuarioId) enfileirarTodasNotificacoesLidas(usuarioId)
+      return
+    }
 
     void fetch("/api/notificacoes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ action: "todas" }),
     })
-      .then(() => mutate())
-      .catch(() => mutate())
+      .then((response) => {
+        if (!response.ok && usuarioId) enfileirarTodasNotificacoesLidas(usuarioId)
+        if (response.ok) void mutate()
+      })
+      .catch(() => { if (usuarioId) enfileirarTodasNotificacoesLidas(usuarioId) })
   }
 
   function abrirCentro() {
@@ -119,6 +151,7 @@ export function NotificationCenter() {
               </button>
             </header>
 
+            {data?.offline && <div className="mx-3 mt-3 rounded-xl bg-secondary/60 px-3 py-2 text-center text-[11px] font-medium text-muted-foreground">Exibindo as notificações salvas neste aparelho. A sincronização será retomada quando a conexão voltar.</div>}
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pb-4">
               {notificacoes.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma notificação por enquanto.</div>}
               {notificacoes.map((n) => (

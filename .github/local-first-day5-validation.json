@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-08-19T23:21:47.208Z",
+  "codemodExit": 0,
+  "installExit": 0,
+  "typescriptExit": 2,
+  "auditExit": 0,
+  "buildExit": 1,
+  "notificationCheckExit": 0,
+  "ok": false
+}
