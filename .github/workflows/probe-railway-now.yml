@@ -1,0 +1,56 @@
+name: Verificar Railway agora
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/probe-railway-now.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Consultar endpoint público do aplicativo
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 20 \
+            'https://comunidade-santa-luzia-production.up.railway.app/api/app/status?probe=now' \
+            -o /tmp/status.json
+          node - <<'NODE'
+          const fs = require('fs')
+          const status = JSON.parse(fs.readFileSync('/tmp/status.json','utf8'))
+          const out = {
+            checkedAt: new Date().toISOString(),
+            ok: status.ok,
+            displayVersion: status.displayVersion,
+            revisaoTema: status.revisaoTema,
+            android: status.android ? {
+              available: status.android.available,
+              versionCode: status.android.versionCode,
+              versionName: status.android.versionName,
+              required: status.android.required,
+              apkSize: status.android.apkSize,
+              apkSha256: status.android.apkSha256,
+              downloadUrl: status.android.downloadUrl,
+            } : null,
+          }
+          fs.writeFileSync('.github/railway-status-now.json', JSON.stringify(out, null, 2)+'\n')
+          console.log(JSON.stringify(out, null, 2))
+          NODE
+      - name: Registrar resultado
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/railway-status-now.json
+          git commit -m 'Registra status atual do Railway' || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
