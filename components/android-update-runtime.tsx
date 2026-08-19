@@ -73,7 +73,7 @@ export function AndroidUpdateRuntime() {
     } catch {
       buildInstaladoRef.current = -1
     }
-    return buildInstaladoRef.current
+    return buildInstaladoRef.current ?? -1
   }, [])
 
   const buscarStatus = useCallback(async () => {
@@ -118,7 +118,6 @@ export function AndroidUpdateRuntime() {
 
       const buildInstalado = await obterBuildInstalado()
       if (buildInstalado < 0) {
-        // Não oferece uma APK sem conseguir comparar com segurança a build instalada.
         return
       }
       if (candidato.versionCode <= buildInstalado) {
