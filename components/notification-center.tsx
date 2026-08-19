@@ -64,10 +64,10 @@ export function NotificationCenter() {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const { data, mutate } = useSWR<Dados>("/api/notificacoes", fetcher, {
-    refreshInterval: 60_000,
+    refreshInterval: 2 * 60_000,
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
-    dedupingInterval: 2_000,
+    dedupingInterval: 30_000,
   })
   const notificacoes = data?.notificacoes || []
   const naoLidas = Number(data?.naoLidas || 0)
