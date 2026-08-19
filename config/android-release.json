@@ -1,15 +1,16 @@
 {
-  "versionCode": 16,
+  "versionCode": 17,
   "versionName": "1.0.6",
-  "publishedAt": "2026-08-17",
+  "publishedAt": "2026-08-18",
   "required": false,
-  "apkSize": 23521738,
-  "apkSha256": "8478eb0cd6ab089ade2aa3ab4aeadcd484c0471a7f85f5493de288c9758eb443",
+  "apkSize": 23521490,
+  "apkSha256": "3ef3c23fa78b76ab660fcde4c62186fcff1dd07a6eab40762f4a807ca4531a98",
   "highlights": [
-    "Barra de progresso no topo ao navegar entre páginas, online e offline, com as cores do tema Santa Luzia",
-    "Formações realizadas movidas para o Histórico e presença liberada somente no dia correto",
-    "Painel do membro mantém a mesma organização quando o aparelho está offline",
-    "Liturgia com rolagem estabilizada, versículos organizados e referências alinhadas com o Quiz",
-    "APK 1.0.6 code 16 assinada com a mesma chave original"
+    "Navegação autenticada reorganizada para Início, Escala, Formação e Quiz, sem aba Visitante",
+    "Modo local com a identidade do aplicativo e sem telas de Tentar conectar ou Santa Luzia Offline",
+    "Notificações expiram após 24 horas e a central respeita a navegação inferior",
+    "Formação sem selo Confirmada e presença liberada somente na data correta",
+    "Splash nativa marfim, ícone adaptativo atualizado e barra de carregamento mais visível",
+    "APK 1.0.6 code 17 assinada com a mesma chave Android original"
   ]
 }
