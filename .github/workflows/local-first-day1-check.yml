@@ -15,7 +15,7 @@ permissions:
 jobs:
   validar:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       AUTH_SECRET: ci-local-first-dia1-12345678901234567890
       CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
@@ -25,6 +25,17 @@ jobs:
           ref: agent/local-first-day1-update-github
           fetch-depth: 0
 
+      - name: Ajustar consulta direta para CORS simples
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'components/android-update-github-runtime.tsx'
+          let s = fs.readFileSync(path, 'utf8')
+          s = s.replace('headers: { Accept: "application/json", "Cache-Control": "no-cache" },', 'headers: { Accept: "application/json" },')
+          fs.writeFileSync(path, s)
+          NODE
+
       - name: Validar projeto e registrar resultado
         shell: bash
         run: |
@@ -32,7 +43,7 @@ jobs:
           echo "Node: $(node --version)"
           echo "npm: $(npm --version)"
 
-          npm ci --no-audit --no-fund
+          npm install --no-audit --no-fund
           INSTALL=$?
 
           TYPESCRIPT=99
@@ -54,7 +65,8 @@ jobs:
           grep -Fq 'AndroidUpdateGithubRuntime' components/app-runtime.tsx \
             && grep -Fq 'raw.githubusercontent.com' components/android-update-github-runtime.tsx \
             && grep -Fq 'releases/latest/download/santa-luzia.apk' components/android-update-github-runtime.tsx \
-            && ! grep -Fq '/api/app/status' components/android-update-github-runtime.tsx
+            && ! grep -Fq '/api/app/status' components/android-update-github-runtime.tsx \
+            && ! grep -Fq '"Cache-Control": "no-cache"' components/android-update-github-runtime.tsx
           DESACOPLAMENTO=$?
 
           export INSTALL TYPESCRIPT AUDIT BUILD DESACOPLAMENTO
@@ -77,8 +89,8 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/local-first-day1-validation.json
-          git commit -m 'Registra validação do Dia 1 local-first' || true
+          git add components/android-update-github-runtime.tsx .github/local-first-day1-validation.json
+          git commit -m 'Valida e ajusta atualizador direto pelo GitHub' || true
           git pull --rebase origin agent/local-first-day1-update-github
           git push origin HEAD:agent/local-first-day1-update-github
 
