@@ -1,0 +1,37 @@
+name: Local-first Dia 1 — validação
+
+on:
+  push:
+    branches:
+      - agent/local-first-day1-update-github
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_SECRET: ci-local-first-dia1-12345678901234567890
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Auditoria de robustez
+        run: npm run audit:robustez
+      - name: Build
+        run: npm run build
+      - name: Confirmar desacoplamento do atualizador
+        run: |
+          grep -Fq 'AndroidUpdateGithubRuntime' components/app-runtime.tsx
+          grep -Fq 'raw.githubusercontent.com' components/android-update-github-runtime.tsx
+          grep -Fq 'releases/latest/download/santa-luzia.apk' components/android-update-github-runtime.tsx
+          ! grep -Fq '/api/app/status' components/android-update-github-runtime.tsx
