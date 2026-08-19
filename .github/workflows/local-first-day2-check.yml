@@ -8,6 +8,9 @@ on:
       - native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
       - lib/native-offline-store.ts
       - .github/workflows/local-first-day2-check.yml
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
