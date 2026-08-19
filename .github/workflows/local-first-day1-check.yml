@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/local-first-day1-update-github
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
