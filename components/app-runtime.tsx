@@ -4,7 +4,7 @@ import { SWRConfig } from "swr"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { NativeNotificationRuntime } from "@/components/native-notification-runtime"
 import { ServerSyncRuntime } from "@/components/server-sync-runtime"
-import { AndroidUpdateRuntime } from "@/components/android-update-runtime"
+import { AndroidUpdateGithubRuntime } from "@/components/android-update-github-runtime"
 import { NativePlatformRuntime } from "@/components/native-platform-runtime"
 import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-runtime"
 import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
@@ -21,7 +21,7 @@ export function AppRuntime({ children }: { children: React.ReactNode }) {
       <GameRankingRefreshRuntime />
       <AndroidOfflineSnapshotRuntime />
       <AppChangelogRuntime />
-      <AndroidUpdateRuntime />
+      <AndroidUpdateGithubRuntime />
       <ServerSyncRuntime />
       <PullToRefresh />
     </SWRConfig>
