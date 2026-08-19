@@ -23,7 +23,7 @@ type RespostaNotificacoes = {
 const CHAVE_EXIBIDAS = "santa-luzia:notificacoes-nativas-exibidas:v2"
 const CHAVE_PERMISSAO = "santa-luzia:notificacoes-permissao-solicitada:v1"
 const TIMEOUT_NOTIFICACOES = 6_500
-const INTERVALO_NOTIFICACOES = 60_000
+const INTERVALO_NOTIFICACOES = 2 * 60_000
 
 function idNumerico(texto: string) {
   let hash = 2166136261

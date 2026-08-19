@@ -81,6 +81,7 @@ export function PullToRefresh() {
       renderizarDistancia(LIMIAR_ATUALIZAR, true)
 
       try {
+        window.dispatchEvent(new CustomEvent("santa-luzia:manual-sync"))
         router.refresh()
         await mutate((key) => typeof key === "string" && key.startsWith("/api/"), undefined, { revalidate: true })
         emitAppFeedback("success")

@@ -32,8 +32,9 @@ const REVISAO_KEY = "santa-luzia:ultima-revisao-servidor"
 const ULTIMA_SYNC_KEY = "santa-luzia:ultima-sincronizacao"
 const TEMA_KEY = "santa-luzia:ultima-revisao-tema"
 const RELEASE_KEY = "santa-luzia:release-visto"
-const INTERVALO_STATUS = 7_000
-const INTERVALO_COMPLETO = 60_000
+const ULTIMA_COMPLETA_KEY = "santa-luzia:ultima-sincronizacao-completa"
+const INTERVALO_STATUS = 60_000
+const INTERVALO_COMPLETO = 15 * 60_000
 const TIMEOUT_REQUISICAO = 6_500
 
 function lerLocal(chave: string) {
@@ -79,7 +80,7 @@ export function ServerSyncRuntime() {
     let encerrado = false
     let emAndamento = false
     let forcarPendente = false
-    let ultimaCompleta = 0
+    let ultimaCompleta = Number(lerLocal(ULTIMA_COMPLETA_KEY) || 0)
     let redeNativa: boolean | null = null
     const listenersNativos: Array<{ remove: () => Promise<void> }> = []
 
@@ -118,7 +119,6 @@ export function ServerSyncRuntime() {
         const temaMudou = Boolean(status.revisaoTema && temaAnterior && temaAnterior !== status.revisaoTema)
         const agora = Date.now()
         const precisaCompleta =
-          forcarRevalidacao ||
           primeiraSincronizacao ||
           mudou ||
           agora - ultimaCompleta >= INTERVALO_COMPLETO
@@ -140,6 +140,7 @@ export function ServerSyncRuntime() {
 
         if (precisaCompleta) {
           ultimaCompleta = agora
+          salvarLocal(ULTIMA_COMPLETA_KEY, String(agora))
           const resultados = await Promise.all([
             comLimite(sincronizarRelatosAtrasoPendentes(), relatos),
             comLimite(sincronizarPresencasFormacaoPendentes(), presencasFormacao),
@@ -165,7 +166,6 @@ export function ServerSyncRuntime() {
         const releaseMudou = Boolean(releaseAnterior && releaseAnterior !== status.appRelease)
         if (
           mudou ||
-          forcarRevalidacao ||
           primeiraSincronizacao ||
           relatos.enviados > 0 ||
           presencasFormacao.enviados > 0 ||
@@ -203,11 +203,14 @@ export function ServerSyncRuntime() {
     const aoVisibilidade = () => {
       if (document.visibilityState !== "visible") return
       const ultima = Number(lerLocal(ULTIMA_SYNC_KEY) || 0)
-      void sincronizar(Date.now() - ultima > 15_000)
+      void sincronizar(Date.now() - ultima > INTERVALO_STATUS)
     }
+
+    const aoSincronizacaoManual = () => { void sincronizar(true) }
 
     window.addEventListener("online", aoVoltarInternet)
     window.addEventListener("offline", aoPerderInternet)
+    window.addEventListener("santa-luzia:manual-sync", aoSincronizacaoManual)
     document.addEventListener("visibilitychange", aoVisibilidade)
 
     if (Capacitor.isNativePlatform()) {
@@ -254,6 +257,7 @@ export function ServerSyncRuntime() {
       window.clearInterval(timer)
       window.removeEventListener("online", aoVoltarInternet)
       window.removeEventListener("offline", aoPerderInternet)
+      window.removeEventListener("santa-luzia:manual-sync", aoSincronizacaoManual)
       document.removeEventListener("visibilitychange", aoVisibilidade)
       listenersNativos.forEach((handle) => { void handle.remove() })
     }
