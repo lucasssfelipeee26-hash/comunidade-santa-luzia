@@ -1,11 +1,9 @@
 name: Local-first Dia 5 — validação final
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/local-first-day5-notifications
-    paths:
-      - .github/workflows/local-first-day5-final-check.yml
+      - main
 
 permissions:
   contents: write
