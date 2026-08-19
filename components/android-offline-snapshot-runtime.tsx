@@ -3,11 +3,14 @@
 import { useEffect } from "react"
 import { Capacitor } from "@capacitor/core"
 import { OfflineStore } from "@/lib/native-offline-store"
+import { OFFLINE_DATA_EVENT } from "@/lib/offline-data"
+import { migrarFilasLegadasParaNativa, removerEspelhosLegados } from "@/lib/local-first-queue"
 
 type QueueItem = {
   id: string
   tipo: "atraso" | "formacao-presenca" | "quiz-liturgia"
   criadoEm?: number
+  ownerId?: string
   formacaoId?: string
   payload: Record<string, unknown>
 }
@@ -173,17 +176,26 @@ export function AndroidOfflineSnapshotRuntime() {
       drenando = true
       const restantes: QueueItem[] = []
       try {
+        const auth = await jsonComTimeout("/api/auth/me")
+        const usuarioAtual = String(auth?.sessao?.usuario?.id || "")
+        if (!usuarioAtual) return
         for (const item of items) {
+          if (item.ownerId && String(item.ownerId) !== usuarioAtual) {
+            restantes.push(item)
+            continue
+          }
           try {
             if (!(await enviarItem(item))) restantes.push(item)
           } catch {
             restantes.push(item)
           }
         }
-        if (usaNativo) await salvarFila(restantes)
-        else {
-          const removidos = items.filter((item) => !restantes.some((r) => r.id === item.id)).map((item) => String(item.id))
-          if (removidos.length) enviarBridge({ type: "SL_OFFLINE_QUEUE_REMOVE", ids: removidos })
+        const removidos = items.filter((item) => !restantes.some((r) => r.id === item.id)).map((item) => String(item.id))
+        if (usaNativo) {
+          await salvarFila(restantes)
+          if (removidos.length) removerEspelhosLegados(removidos)
+        } else if (removidos.length) {
+          enviarBridge({ type: "SL_OFFLINE_QUEUE_REMOVE", ids: removidos })
         }
         if (restantes.length !== items.length) {
           window.dispatchEvent(new CustomEvent("santa-luzia:server-sync", { detail: { origem: "android-offline-queue", imediato: true } }))
@@ -196,8 +208,10 @@ export function AndroidOfflineSnapshotRuntime() {
 
     async function pedirFila() {
       if (!navigator.onLine) return
-      if (usaNativo) void drenarFila(await lerFila())
-      else enviarBridge({ type: "SL_OFFLINE_GET_QUEUE" })
+      if (usaNativo) {
+        await migrarFilasLegadasParaNativa()
+        void drenarFila(await lerFila())
+      } else enviarBridge({ type: "SL_OFFLINE_GET_QUEUE" })
     }
 
     function aoMensagem(event: MessageEvent) {
@@ -214,6 +228,7 @@ export function AndroidOfflineSnapshotRuntime() {
 
     const aoOnline = () => { void salvarSnapshot(); void pedirFila() }
     const aoSincronizar = () => { void salvarSnapshot(); void pedirFila() }
+    const aoFilaOffline = () => { void pedirFila() }
     const aoLimpar = () => { void limparPersistente() }
     const aoVisibilidade = () => { if (document.visibilityState === "visible") { void salvarSnapshot(); void pedirFila() } }
 
@@ -221,6 +236,7 @@ export function AndroidOfflineSnapshotRuntime() {
     window.addEventListener("online", aoOnline)
     window.addEventListener("santa-luzia:server-sync", aoSincronizar)
     window.addEventListener("santa-luzia:offline-snapshot-sync", aoSincronizar)
+    window.addEventListener(OFFLINE_DATA_EVENT, aoFilaOffline)
     window.addEventListener("santa-luzia:offline-clear", aoLimpar)
     document.addEventListener("visibilitychange", aoVisibilidade)
 
@@ -245,6 +261,7 @@ export function AndroidOfflineSnapshotRuntime() {
       window.removeEventListener("online", aoOnline)
       window.removeEventListener("santa-luzia:server-sync", aoSincronizar)
       window.removeEventListener("santa-luzia:offline-snapshot-sync", aoSincronizar)
+      window.removeEventListener(OFFLINE_DATA_EVENT, aoFilaOffline)
       window.removeEventListener("santa-luzia:offline-clear", aoLimpar)
       document.removeEventListener("visibilitychange", aoVisibilidade)
       iframe?.remove()

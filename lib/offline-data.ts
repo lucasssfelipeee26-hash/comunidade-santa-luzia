@@ -1,3 +1,5 @@
+import { espelharPresencasNaFilaDuravel, espelharRelatosAtrasoNaFilaDuravel, filaNativaDisponivel, migrarFilasLegadasParaNativa } from "@/lib/local-first-queue"
+
 export const OFFLINE_DATA_EVENT = "santa-luzia:offline-data"
 
 const ESCALAS_KEY = "santa-luzia:offline:v1:escalas"
@@ -152,7 +154,10 @@ export function listarRelatosAtrasoPendentes(reportadoPor?: string | null) {
 
 function salvarRelatosAtrasoPendentes(itens: RelatoAtrasoPendente[]) {
   const salvo = salvarJson(ATRASOS_KEY, itens)
-  if (salvo) emitirAtualizacao({ tipo: "atrasos", pendentes: itens.length })
+  if (salvo) {
+    espelharRelatosAtrasoNaFilaDuravel(itens)
+    emitirAtualizacao({ tipo: "atrasos", pendentes: itens.length })
+  }
   return salvo
 }
 
@@ -211,6 +216,10 @@ export async function enviarOuEnfileirarRelatoAtraso(
 
 export async function sincronizarRelatosAtrasoPendentes() {
   if (typeof window === "undefined" || !navigator.onLine) return { enviados: 0, restantes: listarRelatosAtrasoPendentes().length }
+  if (await filaNativaDisponivel()) {
+    await migrarFilasLegadasParaNativa()
+    return { enviados: 0, restantes: listarRelatosAtrasoPendentes().length }
+  }
 
   const todos = listarRelatosAtrasoPendentes()
   if (!todos.length) return { enviados: 0, restantes: 0 }
@@ -275,7 +284,10 @@ export function listarPresencasFormacaoPendentes(usuarioId?: string | null) {
 
 function salvarPresencasFormacaoPendentes(itens: PresencaFormacaoPendente[]) {
   const salvo = salvarJson(PRESENCAS_FORMACAO_KEY, itens)
-  if (salvo) emitirAtualizacao({ tipo: "presencas-formacao", pendentes: itens.length })
+  if (salvo) {
+    espelharPresencasNaFilaDuravel(itens)
+    emitirAtualizacao({ tipo: "presencas-formacao", pendentes: itens.length })
+  }
   return salvo
 }
 
@@ -338,6 +350,10 @@ export async function enviarOuEnfileirarMinhaPresencaFormacao(
 
 export async function sincronizarPresencasFormacaoPendentes() {
   if (typeof window === "undefined" || !navigator.onLine) {
+    return { enviados: 0, restantes: listarPresencasFormacaoPendentes().length }
+  }
+  if (await filaNativaDisponivel()) {
+    await migrarFilasLegadasParaNativa()
     return { enviados: 0, restantes: listarPresencasFormacaoPendentes().length }
   }
 
