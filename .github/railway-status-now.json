@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-08-19T09:26:59.519Z",
+  "ok": true,
+  "displayVersion": "1.0.6",
+  "revisaoTema": "1786888208986-63:ui-20260818-update-banner-v2",
+  "android": {
+    "available": true,
+    "versionCode": 17,
+    "versionName": "1.0.6",
+    "required": false,
+    "apkSize": 23521490,
+    "apkSha256": "3ef3c23fa78b76ab660fcde4c62186fcff1dd07a6eab40762f4a807ca4531a98",
+    "downloadUrl": "https://comunidade-santa-luzia-production.up.railway.app/api/app/android/download?version=17"
+  }
+}
