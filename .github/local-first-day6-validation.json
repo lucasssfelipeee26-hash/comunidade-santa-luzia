@@ -1,10 +1,10 @@
 {
-  "checkedAt": "2026-08-19T23:30:41.123Z",
-  "codemodExit": 0,
-  "installExit": 0,
-  "typescriptExit": 0,
-  "auditExit": 0,
-  "buildExit": 0,
+  "checkedAt": "2026-08-19T23:31:39.928Z",
+  "codemodExit": 1,
+  "installExit": 99,
+  "typescriptExit": 99,
+  "auditExit": 99,
+  "buildExit": 99,
   "trafficCheckExit": 0,
-  "ok": true
+  "ok": false
 }
