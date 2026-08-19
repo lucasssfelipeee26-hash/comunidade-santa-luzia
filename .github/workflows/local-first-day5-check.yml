@@ -1,0 +1,86 @@
+name: Local-first Dia 5 — notificações resilientes
+
+on:
+  push:
+    branches:
+      - agent/local-first-day5-notifications
+    paths:
+      - lib/local-notification-cache.ts
+      - lib/local-first-queue.ts
+      - scripts/day5-apply-notification-resilience.cjs
+      - .github/workflows/local-first-day5-check.yml
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AUTH_SECRET: ci-local-first-dia5-12345678901234567890
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/local-first-day5-notifications
+          fetch-depth: 0
+
+      - name: Aplicar e validar notificações resilientes
+        shell: bash
+        run: |
+          set +e
+          node scripts/day5-apply-notification-resilience.cjs
+          CODEMOD=$?
+          INSTALL=99
+          TYPESCRIPT=99
+          AUDIT=99
+          BUILD=99
+          NOTIFICATIONCHECK=99
+
+          if [ "$CODEMOD" -eq 0 ]; then
+            npm install --no-audit --no-fund
+            INSTALL=$?
+          fi
+          if [ "$INSTALL" -eq 0 ]; then
+            npx tsc --noEmit
+            TYPESCRIPT=$?
+            npm run audit:robustez
+            AUDIT=$?
+            npm run build
+            BUILD=$?
+          fi
+
+          grep -Fq 'notificacao-lida' lib/local-first-queue.ts \
+            && grep -Fq 'saveDocument' lib/local-notification-cache.ts \
+            && grep -Fq 'enfileirarNotificacaoLida' components/native-notification-runtime.tsx \
+            && grep -Fq 'carregarNotificacoesCache' components/notification-center.tsx \
+            && grep -Fq 'item.tipo === "notificacao-lida"' components/android-offline-snapshot-runtime.tsx \
+            && grep -Fq 'refreshInterval: 60_000' components/notification-center.tsx
+          NOTIFICATIONCHECK=$?
+
+          export CODEMOD INSTALL TYPESCRIPT AUDIT BUILD NOTIFICATIONCHECK
+          node <<'NODE'
+          const fs = require('fs')
+          const n = k => Number(process.env[k])
+          const r = {
+            checkedAt: new Date().toISOString(),
+            codemodExit: n('CODEMOD'), installExit: n('INSTALL'), typescriptExit: n('TYPESCRIPT'),
+            auditExit: n('AUDIT'), buildExit: n('BUILD'), notificationCheckExit: n('NOTIFICATIONCHECK'),
+          }
+          r.ok = [r.codemodExit,r.installExit,r.typescriptExit,r.auditExit,r.buildExit,r.notificationCheckExit].every(v => v === 0)
+          fs.writeFileSync('.github/local-first-day5-validation.json', JSON.stringify(r, null, 2) + '\n')
+          console.log(JSON.stringify(r, null, 2))
+          NODE
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add components/native-notification-runtime.tsx components/notification-center.tsx components/android-offline-snapshot-runtime.tsx .github/local-first-day5-validation.json
+          git commit -m 'Aplica notificações resilientes local-first' || true
+          git pull --rebase origin agent/local-first-day5-notifications
+          git push origin HEAD:agent/local-first-day5-notifications
+
+          test "$CODEMOD" -eq 0 && test "$INSTALL" -eq 0 && test "$TYPESCRIPT" -eq 0 && test "$AUDIT" -eq 0 && test "$BUILD" -eq 0 && test "$NOTIFICATIONCHECK" -eq 0
