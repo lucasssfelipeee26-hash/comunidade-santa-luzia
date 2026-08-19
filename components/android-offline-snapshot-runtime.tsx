@@ -8,7 +8,7 @@ import { migrarFilasLegadasParaNativa, removerEspelhosLegados } from "@/lib/loca
 
 type QueueItem = {
   id: string
-  tipo: "atraso" | "formacao-presenca" | "quiz-liturgia"
+  tipo: "atraso" | "formacao-presenca" | "quiz-liturgia" | "notificacao-lida"
   criadoEm?: number
   ownerId?: string
   formacaoId?: string
@@ -207,6 +207,15 @@ export function AndroidOfflineSnapshotRuntime() {
           body: JSON.stringify(item.payload),
         })
         return response.ok || response.status === 409
+      }
+      if (item.tipo === "notificacao-lida") {
+        const response = await fetch("/api/notificacoes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(item.payload),
+        })
+        return response.ok || response.status === 404
       }
       return false
     }
