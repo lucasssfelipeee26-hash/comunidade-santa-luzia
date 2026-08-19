@@ -18,7 +18,7 @@ type Notificacao = {
 
 type Dados = { autenticado?: boolean; usuario?: { id?: string }; notificacoes?: Notificacao[]; naoLidas?: number; offline?: boolean }
 
-const fetcher = async (url: string): Promise<Dados | null> => {
+const fetcher = async (url: string): Promise<Dados> => {
   try {
     const response = await fetch(url, { cache: "no-store", credentials: "same-origin" })
     if (response.ok) {
@@ -32,7 +32,7 @@ const fetcher = async (url: string): Promise<Dados | null> => {
   } catch {}
 
   const cache = carregarNotificacoesCache()
-  if (!cache) return null
+  if (!cache) return { autenticado: false, notificacoes: [], naoLidas: 0, offline: true }
   return {
     autenticado: true,
     usuario: { id: cache.usuarioId },
