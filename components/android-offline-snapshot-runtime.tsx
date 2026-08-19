@@ -18,6 +18,21 @@ type QueueItem = {
 const BRIDGE_ORIGIN = "https://localhost"
 const BRIDGE_URL = `${BRIDGE_ORIGIN}/offline-bridge.html`
 const TIMEOUT = 7_000
+const SNAPSHOT_REVISION_KEY = "santa-luzia:local-first:snapshot-revision"
+const SNAPSHOT_USER_KEY = "santa-luzia:local-first:snapshot-user"
+const INTERVALO_SNAPSHOT = 5 * 60_000
+
+function lerLocal(chave: string) {
+  try { return window.localStorage.getItem(chave) } catch { return null }
+}
+
+function salvarLocal(chave: string, valor: string) {
+  try { window.localStorage.setItem(chave, valor) } catch {}
+}
+
+function removerLocal(chave: string) {
+  try { window.localStorage.removeItem(chave) } catch {}
+}
 
 async function jsonComTimeout(url: string) {
   const controller = new AbortController()
@@ -49,15 +64,30 @@ export function AndroidOfflineSnapshotRuntime() {
       iframe.contentWindow.postMessage(message, BRIDGE_ORIGIN)
     }
 
-    async function salvarSnapshotPersistente(snapshot: unknown) {
+    async function salvarSnapshotPersistente(snapshot: Record<string, unknown>) {
       const texto = JSON.stringify(snapshot)
-      if (usaNativo) await OfflineStore.saveSnapshot({ snapshot: texto })
-      else enviarBridge({ type: "SL_OFFLINE_SAVE_SNAPSHOT", snapshot })
+      if (usaNativo) {
+        await OfflineStore.saveSnapshot({ snapshot: texto })
+        const documentos: Array<[string, unknown]> = [
+          ["snapshot:auth", snapshot.auth ?? null],
+          ["snapshot:perfil", snapshot.perfil ?? null],
+          ["snapshot:perfis", snapshot.perfis ?? []],
+          ["snapshot:formacoes", snapshot.formacoes ?? { formacoes: [] }],
+          ["snapshot:ranking", snapshot.ranking ?? { ranking: [], membros: [], ocorrencias: [] }],
+          ["snapshot:escalas", snapshot.escalas ?? { escalas: [] }],
+          ["snapshot:biblioteca", snapshot.biblioteca ?? { livros: [] }],
+        ]
+        await Promise.allSettled(documentos.map(([key, value]) =>
+          OfflineStore.saveDocument({ key, value: JSON.stringify(value) })
+        ))
+      } else enviarBridge({ type: "SL_OFFLINE_SAVE_SNAPSHOT", snapshot })
     }
 
     async function limparPersistente() {
       if (usaNativo) await OfflineStore.clear().catch(() => undefined)
       else enviarBridge({ type: "SL_OFFLINE_CLEAR" })
+      removerLocal(SNAPSHOT_REVISION_KEY)
+      removerLocal(SNAPSHOT_USER_KEY)
     }
 
     async function lerFila(): Promise<QueueItem[]> {
@@ -88,6 +118,13 @@ export function AndroidOfflineSnapshotRuntime() {
           return
         }
 
+        const usuarioId = String(sessao.usuario.id)
+        const status = await jsonComTimeout(`/api/app/status?snapshot=${Date.now()}`)
+        const revisaoDados = String(status?.revisaoDados || "")
+        const mesmaRevisao = Boolean(revisaoDados && lerLocal(SNAPSHOT_REVISION_KEY) === revisaoDados)
+        const mesmoUsuario = lerLocal(SNAPSHOT_USER_KEY) === usuarioId
+        if (mesmaRevisao && mesmoUsuario) return
+
         const [perfilResposta, perfisResposta, formacoes, ranking, escalas, biblioteca] = await Promise.all([
           jsonComTimeout("/api/perfil"),
           jsonComTimeout("/api/perfis"),
@@ -100,8 +137,9 @@ export function AndroidOfflineSnapshotRuntime() {
         const perfil = perfilResposta?.perfil
 
         const snapshot = {
-          versao: 3,
+          versao: 4,
           atualizadoEm: Date.now(),
+          revisaoDados: revisaoDados || null,
           auth: {
             sessao: {
               tipo: sessao.tipo,
@@ -135,6 +173,8 @@ export function AndroidOfflineSnapshotRuntime() {
         }
 
         await salvarSnapshotPersistente(snapshot)
+        if (revisaoDados) salvarLocal(SNAPSHOT_REVISION_KEY, revisaoDados)
+        salvarLocal(SNAPSHOT_USER_KEY, usuarioId)
       } finally {
         salvando = false
       }
@@ -252,7 +292,7 @@ export function AndroidOfflineSnapshotRuntime() {
       void pedirFila()
     }
 
-    const timer = window.setInterval(() => { void salvarSnapshot(); void pedirFila() }, 90_000)
+    const timer = window.setInterval(() => { void salvarSnapshot(); void pedirFila() }, INTERVALO_SNAPSHOT)
 
     return () => {
       encerrado = true
