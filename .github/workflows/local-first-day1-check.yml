@@ -25,84 +25,63 @@ jobs:
           ref: agent/local-first-day1-update-github
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - id: install
-        name: Instalar dependências
-        continue-on-error: true
-        run: npm ci --no-audit --no-fund
-
-      - id: typescript
-        name: TypeScript
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        run: npx tsc --noEmit
-
-      - id: audit
-        name: Auditoria de robustez
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        run: npm run audit:robustez
-
-      - id: build
-        name: Build
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        run: npm run build
-
-      - id: desacoplamento
-        name: Confirmar desacoplamento do atualizador
-        continue-on-error: true
+      - name: Validar projeto e registrar resultado
+        shell: bash
         run: |
-          grep -Fq 'AndroidUpdateGithubRuntime' components/app-runtime.tsx
-          grep -Fq 'raw.githubusercontent.com' components/android-update-github-runtime.tsx
-          grep -Fq 'releases/latest/download/santa-luzia.apk' components/android-update-github-runtime.tsx
-          ! grep -Fq '/api/app/status' components/android-update-github-runtime.tsx
+          set +e
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
 
-      - name: Registrar resultado verificável
-        if: always()
-        env:
-          INSTALL: ${{ steps.install.outcome }}
-          TYPESCRIPT: ${{ steps.typescript.outcome }}
-          AUDIT: ${{ steps.audit.outcome }}
-          BUILD: ${{ steps.build.outcome }}
-          DESACOPLAMENTO: ${{ steps.desacoplamento.outcome }}
-        run: |
+          npm ci --no-audit --no-fund
+          INSTALL=$?
+
+          TYPESCRIPT=99
+          AUDIT=99
+          BUILD=99
+          DESACOPLAMENTO=99
+
+          if [ "$INSTALL" -eq 0 ]; then
+            npx tsc --noEmit
+            TYPESCRIPT=$?
+
+            npm run audit:robustez
+            AUDIT=$?
+
+            npm run build
+            BUILD=$?
+          fi
+
+          grep -Fq 'AndroidUpdateGithubRuntime' components/app-runtime.tsx \
+            && grep -Fq 'raw.githubusercontent.com' components/android-update-github-runtime.tsx \
+            && grep -Fq 'releases/latest/download/santa-luzia.apk' components/android-update-github-runtime.tsx \
+            && ! grep -Fq '/api/app/status' components/android-update-github-runtime.tsx
+          DESACOPLAMENTO=$?
+
+          export INSTALL TYPESCRIPT AUDIT BUILD DESACOPLAMENTO
           node <<'NODE'
           const fs = require('fs')
+          const n = (v) => Number(process.env[v])
           const resultado = {
             checkedAt: new Date().toISOString(),
-            install: process.env.INSTALL,
-            typescript: process.env.TYPESCRIPT,
-            audit: process.env.AUDIT,
-            build: process.env.BUILD,
-            desacoplamento: process.env.DESACOPLAMENTO,
-            ok: [process.env.INSTALL, process.env.TYPESCRIPT, process.env.AUDIT, process.env.BUILD, process.env.DESACOPLAMENTO].every(v => v === 'success'),
+            node: process.version,
+            installExit: n('INSTALL'),
+            typescriptExit: n('TYPESCRIPT'),
+            auditExit: n('AUDIT'),
+            buildExit: n('BUILD'),
+            desacoplamentoExit: n('DESACOPLAMENTO'),
           }
+          resultado.ok = [resultado.installExit, resultado.typescriptExit, resultado.auditExit, resultado.buildExit, resultado.desacoplamentoExit].every(v => v === 0)
           fs.writeFileSync('.github/local-first-day1-validation.json', JSON.stringify(resultado, null, 2) + '\n')
-          console.log(resultado)
+          console.log(JSON.stringify(resultado, null, 2))
           NODE
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .github/local-first-day1-validation.json
-          git commit -m 'Registra validação do Dia 1 local-first' || exit 0
+          git commit -m 'Registra validação do Dia 1 local-first' || true
           git pull --rebase origin agent/local-first-day1-update-github
           git push origin HEAD:agent/local-first-day1-update-github
 
-      - name: Encerrar com falha se necessário
-        if: always()
-        env:
-          INSTALL: ${{ steps.install.outcome }}
-          TYPESCRIPT: ${{ steps.typescript.outcome }}
-          AUDIT: ${{ steps.audit.outcome }}
-          BUILD: ${{ steps.build.outcome }}
-          DESACOPLAMENTO: ${{ steps.desacoplamento.outcome }}
-        run: |
-          test "$INSTALL" = success
-          test "$TYPESCRIPT" = success
-          test "$AUDIT" = success
-          test "$BUILD" = success
-          test "$DESACOPLAMENTO" = success
+          if [ "$INSTALL" -ne 0 ] || [ "$TYPESCRIPT" -ne 0 ] || [ "$AUDIT" -ne 0 ] || [ "$BUILD" -ne 0 ] || [ "$DESACOPLAMENTO" -ne 0 ]; then
+            exit 1
+          fi
