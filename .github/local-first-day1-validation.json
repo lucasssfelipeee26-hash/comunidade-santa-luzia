@@ -1,9 +1,10 @@
 {
-  "checkedAt": "2026-08-19T22:51:41.276Z",
-  "install": "skipped",
-  "typescript": "skipped",
-  "audit": "skipped",
-  "build": "skipped",
-  "desacoplamento": "skipped",
+  "checkedAt": "2026-08-19T22:52:27.798Z",
+  "node": "v22.23.2",
+  "installExit": 1,
+  "typescriptExit": 99,
+  "auditExit": 99,
+  "buildExit": 99,
+  "desacoplamentoExit": 0,
   "ok": false
 }
