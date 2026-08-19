@@ -1,0 +1,94 @@
+name: Local-first Dia 3 — fila offline durável
+
+on:
+  push:
+    branches:
+      - agent/local-first-day3-queue
+    paths:
+      - scripts/day3-apply-local-first-queue.cjs
+      - .github/workflows/local-first-day3-check.yml
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AUTH_SECRET: ci-local-first-dia3-12345678901234567890
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/local-first-day3-queue
+          fetch-depth: 0
+
+      - name: Aplicar e validar fila unificada
+        shell: bash
+        run: |
+          set +e
+          node scripts/day3-apply-local-first-queue.cjs
+          CODEMOD=$?
+
+          INSTALL=99
+          TYPESCRIPT=99
+          AUDIT=99
+          BUILD=99
+          QUEUECHECK=99
+
+          if [ "$CODEMOD" -eq 0 ]; then
+            npm install --no-audit --no-fund
+            INSTALL=$?
+          fi
+          if [ "$INSTALL" -eq 0 ]; then
+            npx tsc --noEmit
+            TYPESCRIPT=$?
+            npm run audit:robustez
+            AUDIT=$?
+            npm run build
+            BUILD=$?
+          fi
+
+          grep -Fq 'migrarFilasLegadasParaNativa' lib/offline-data.ts \
+            && grep -Fq 'espelharRelatosAtrasoNaFilaDuravel' lib/offline-data.ts \
+            && grep -Fq 'ownerId?: string' components/android-offline-snapshot-runtime.tsx \
+            && grep -Fq 'removerEspelhosLegados' components/android-offline-snapshot-runtime.tsx \
+            && grep -Fq 'item.ownerId' components/android-offline-snapshot-runtime.tsx \
+            && grep -Fq 'item.ownerId' android-web/offline.html
+          QUEUECHECK=$?
+
+          export CODEMOD INSTALL TYPESCRIPT AUDIT BUILD QUEUECHECK
+          node <<'NODE'
+          const fs = require('fs')
+          const n = (v) => Number(process.env[v])
+          const r = {
+            checkedAt: new Date().toISOString(),
+            codemodExit: n('CODEMOD'),
+            installExit: n('INSTALL'),
+            typescriptExit: n('TYPESCRIPT'),
+            auditExit: n('AUDIT'),
+            buildExit: n('BUILD'),
+            queueCheckExit: n('QUEUECHECK'),
+          }
+          r.ok = [r.codemodExit,r.installExit,r.typescriptExit,r.auditExit,r.buildExit,r.queueCheckExit].every(v => v === 0)
+          fs.writeFileSync('.github/local-first-day3-validation.json', JSON.stringify(r, null, 2) + '\n')
+          console.log(JSON.stringify(r, null, 2))
+          NODE
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/offline-data.ts components/android-offline-snapshot-runtime.tsx android-web/offline.html .github/local-first-day3-validation.json
+          git commit -m 'Aplica fila offline durável unificada' || true
+          git pull --rebase origin agent/local-first-day3-queue
+          git push origin HEAD:agent/local-first-day3-queue
+
+          test "$CODEMOD" -eq 0 \
+            && test "$INSTALL" -eq 0 \
+            && test "$TYPESCRIPT" -eq 0 \
+            && test "$AUDIT" -eq 0 \
+            && test "$BUILD" -eq 0 \
+            && test "$QUEUECHECK" -eq 0
