@@ -1,0 +1,51 @@
+name: Temporário — gerar ponte de assinatura code 18
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/temp-signing-bridge-generate.yml
+
+permissions:
+  contents: write
+
+env:
+  BRIDGE_PRIVATE: .github/.temp-signing-bridge-private.pem
+  BRIDGE_PUBLIC: .github/temp-signing-bridge-public.pem
+  BRIDGE_ID: .github/temp-signing-bridge-id.txt
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gerar par RSA efêmero
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$BRIDGE_PRIVATE"
+          openssl pkey -in "$BRIDGE_PRIVATE" -pubout -out "$BRIDGE_PUBLIC"
+          printf '%s\n' "$GITHUB_SHA" > "$BRIDGE_ID"
+          chmod 600 "$BRIDGE_PRIVATE"
+
+      - name: Guardar privada somente no cache temporário do Actions
+        uses: actions/cache/save@v4
+        with:
+          path: .github/.temp-signing-bridge-private.pem
+          key: santa-luzia-signing-bridge-${{ github.sha }}
+
+      - name: Publicar somente chave pública e identificador
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$BRIDGE_PRIVATE"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$BRIDGE_PUBLIC" "$BRIDGE_ID"
+          git commit -m 'Cria ponte criptográfica temporária para code 18'
+          git pull --rebase origin main
+          git push origin HEAD:main
