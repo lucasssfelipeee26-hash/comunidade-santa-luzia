@@ -40,23 +40,32 @@ jobs:
           set +e
           RESULTADO=success
           FALHOU_EM=""
+          : > "$RUNNER_TEMP/motion-validation.log"
 
-          npm install --no-audit --no-fund
-          if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="npm-install"; fi
+          npm install --no-audit --no-fund > "$RUNNER_TEMP/check.log" 2>&1
+          CODE=$?
+          cat "$RUNNER_TEMP/check.log"
+          if [ $CODE -ne 0 ]; then RESULTADO=failure; FALHOU_EM="npm-install"; cp "$RUNNER_TEMP/check.log" "$RUNNER_TEMP/motion-validation.log"; fi
 
           if [ "$RESULTADO" = success ]; then
-            npx tsc --noEmit
-            if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="typescript"; fi
+            npx tsc --noEmit > "$RUNNER_TEMP/check.log" 2>&1
+            CODE=$?
+            cat "$RUNNER_TEMP/check.log"
+            if [ $CODE -ne 0 ]; then RESULTADO=failure; FALHOU_EM="typescript"; cp "$RUNNER_TEMP/check.log" "$RUNNER_TEMP/motion-validation.log"; fi
           fi
 
           if [ "$RESULTADO" = success ]; then
-            npm run audit:robustez
-            if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="audit-robustez"; fi
+            npm run audit:robustez > "$RUNNER_TEMP/check.log" 2>&1
+            CODE=$?
+            cat "$RUNNER_TEMP/check.log"
+            if [ $CODE -ne 0 ]; then RESULTADO=failure; FALHOU_EM="audit-robustez"; cp "$RUNNER_TEMP/check.log" "$RUNNER_TEMP/motion-validation.log"; fi
           fi
 
           if [ "$RESULTADO" = success ]; then
-            npm run build
-            if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="next-build"; fi
+            npm run build > "$RUNNER_TEMP/check.log" 2>&1
+            CODE=$?
+            cat "$RUNNER_TEMP/check.log"
+            if [ $CODE -ne 0 ]; then RESULTADO=failure; FALHOU_EM="next-build"; cp "$RUNNER_TEMP/check.log" "$RUNNER_TEMP/motion-validation.log"; fi
           fi
 
           echo "RESULTADO=$RESULTADO" >> "$GITHUB_ENV"
@@ -68,6 +77,8 @@ jobs:
           set -euo pipefail
           node - <<'NODE'
           const fs = require('fs')
+          const logPath = process.env.RUNNER_TEMP + '/motion-validation.log'
+          const details = fs.existsSync(logPath) ? fs.readFileSync(logPath,'utf8').trim().slice(-6000) : ''
           const path = '.github/motion2-validation-result.json'
           const result = {
             validatedAt: new Date().toISOString(),
@@ -76,7 +87,8 @@ jobs:
             versionCode: 19,
             result: process.env.RESULTADO || 'failure',
             failedAt: process.env.FALHOU_EM || null,
-            checks: ['npm-install','typescript','audit-robustez','next-build']
+            checks: ['npm-install','typescript','audit-robustez','next-build'],
+            details: details || null
           }
           fs.writeFileSync(path, JSON.stringify(result,null,2)+'\n')
           NODE
