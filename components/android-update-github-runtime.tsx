@@ -264,9 +264,9 @@ export function AndroidUpdateGithubRuntime() {
       }
 
       const buildInstalado = await obterBuildInstalado()
-      const urlDownload = buildInstalado > 0 && buildInstalado < 18
-        ? APK_PONTE_CODE17_URL
-        : release.downloadUrl
+      const urlsDownload = buildInstalado > 0 && buildInstalado < 18
+        ? [APK_PONTE_CODE17_URL]
+        : [release.downloadUrl, APK_PONTE_CODE17_URL]
 
       const { AppUpdater } = await import("@/lib/native-app-updater")
       const listener = await AppUpdater.addListener("downloadProgress", (progresso) => {
@@ -277,12 +277,26 @@ export function AndroidUpdateGithubRuntime() {
       })
 
       try {
-        await AppUpdater.downloadAndInstall({
-          url: urlDownload,
-          fileName: `Santa-Luzia-${release.versionName}-code${release.versionCode}.apk`,
-          expectedSha256: release.apkSha256,
-          expectedSize: release.apkSize,
-        })
+        let instalado = false
+        let ultimaFalha: unknown = null
+        for (const urlDownload of urlsDownload) {
+          try {
+            await AppUpdater.downloadAndInstall({
+              url: urlDownload,
+              fileName: `Santa-Luzia-${release.versionName}-code${release.versionCode}.apk`,
+              expectedSha256: release.apkSha256,
+              expectedSize: release.apkSize,
+            })
+            instalado = true
+            break
+          } catch (falha) {
+            ultimaFalha = falha
+          }
+        }
+        if (!instalado) {
+          if (ultimaFalha instanceof Error) throw ultimaFalha
+          throw new Error("Não foi possível concluir a atualização pelas origens oficiais.")
+        }
         setEtapa("installing")
         setPercentual(100)
       } finally {
@@ -350,7 +364,7 @@ export function AndroidUpdateGithubRuntime() {
           {!atualizadorInterno && <p className="rounded-2xl bg-[#f8f3ed] p-3 text-center text-[11px] leading-5 text-[#62575a]">Esta instalação antiga abrirá o download no navegador. As builds atuais fazem o processo dentro do aplicativo.</p>}
           {!release.required && <button type="button" onClick={deixarParaDepois} className="w-full py-1 text-sm font-semibold text-[#756a6d]">Atualizar depois</button>}
 
-          <div className="flex gap-2 border-t border-[#e9dfd8] pt-4 text-[11px] leading-5 text-[#756a6d]"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#557265]" /><p>O code 17 usa uma ponte única pelo servidor oficial para instalar o code 18. A partir do code 18, a APK é baixada diretamente do GitHub Releases e continua passando por tamanho, SHA-256, pacote, versão e assinatura nativa.</p></div>
+          <div className="flex gap-2 border-t border-[#e9dfd8] pt-4 text-[11px] leading-5 text-[#756a6d]"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#557265]" /><p>O code 17 usa uma ponte única pelo servidor oficial para instalar o code 18. As builds compatíveis usam GitHub Releases diretamente e mantêm a ponte oficial apenas como fallback, sempre com validação de tamanho, SHA-256, pacote, versão e assinatura nativa.</p></div>
         </div>
       </section>
     </div>
