@@ -153,6 +153,13 @@ export function PullToRefresh() {
         </span>
         <span>{atualizando ? "Atualizando Santa Luzia…" : progresso >= 1 ? "Solte para atualizar" : "Puxe para atualizar"}</span>
       </div>
+      <style>{`
+        .motion2-enabled .motion2-pull-default { display: none; }
+        .motion2-enabled .motion2-pull-logo { display: grid; }
+        .motion2-enabled .motion2-pull-syncing { animation: motion2PullLogo 680ms cubic-bezier(.2,.72,.2,1) infinite; }
+        @keyframes motion2PullLogo { from { transform: perspective(320px) rotateY(0deg) rotateZ(0deg); } to { transform: perspective(320px) rotateY(360deg) rotateZ(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .motion2-enabled .motion2-pull-syncing { animation: none; } }
+      `}</style>
     </div>
   )
 }
