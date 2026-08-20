@@ -1,0 +1,13 @@
+{
+  "publishedAt": "2026-08-20T23:53:47.717Z",
+  "versionName": "2.0.0",
+  "versionCode": 19,
+  "apkSize": 23524382,
+  "apkSha256": "70fdc02a8002f660fe14d4a375c6d3eaa6a2f03a721b956dd5d77d8cc0d870a9",
+  "certificateSha256": "1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18",
+  "expectedCertificateSha256": "1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18",
+  "certificateMatches": true,
+  "releaseTag": "android-v2.0.0",
+  "asset": "santa-luzia.apk",
+  "motion2": true
+}
