@@ -33,7 +33,11 @@ import javax.net.ssl.HttpsURLConnection;
 
 @CapacitorPlugin(name = "AppUpdater")
 public class AppUpdaterPlugin extends Plugin {
-    private static final String HOST_OFICIAL = "comunidade-santa-luzia-production.up.railway.app";
+    private static final String HOST_RAILWAY = "comunidade-santa-luzia-production.up.railway.app";
+    private static final String HOST_GITHUB = "github.com";
+    private static final String HOST_GITHUB_RELEASE_ASSETS = "release-assets.githubusercontent.com";
+    private static final String HOST_GITHUB_OBJECTS = "objects.githubusercontent.com";
+    private static final String GITHUB_RELEASE_PREFIX = "/lucasssfelipeee26-hash/comunidade-santa-luzia/releases/";
     private static final String MIME_APK = "application/vnd.android.package-archive";
     private static final long INTERVALO_PROGRESSO_MS = 180L;
 
@@ -77,10 +81,27 @@ public class AppUpdaterPlugin extends Plugin {
         return 0L;
     }
 
+    private boolean hostOficial(String host) {
+        if (host == null) return false;
+        String normalizado = host.toLowerCase(Locale.ROOT);
+        return HOST_RAILWAY.equals(normalizado)
+            || HOST_GITHUB.equals(normalizado)
+            || HOST_GITHUB_RELEASE_ASSETS.equals(normalizado)
+            || HOST_GITHUB_OBJECTS.equals(normalizado);
+    }
+
+    private boolean enderecoInicialOficial(URI uri) {
+        if (uri == null || !"https".equalsIgnoreCase(uri.getScheme()) || !hostOficial(uri.getHost())) return false;
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        if (!HOST_GITHUB.equals(host)) return true;
+        String caminho = uri.getPath();
+        return caminho != null && caminho.startsWith(GITHUB_RELEASE_PREFIX);
+    }
+
     private void validarEntrada(String endereco, String nomeArquivo, String shaEsperado, long tamanhoEsperado) throws Exception {
         URI uri = new URI(endereco);
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || !HOST_OFICIAL.equalsIgnoreCase(uri.getHost())) {
-            throw new IllegalArgumentException("A atualização não veio do servidor oficial.");
+        if (!enderecoInicialOficial(uri)) {
+            throw new IllegalArgumentException("A atualização não veio de uma origem oficial autorizada.");
         }
         if (!nomeArquivo.toLowerCase(Locale.ROOT).endsWith(".apk")) {
             throw new IllegalArgumentException("O arquivo de atualização é inválido.");
@@ -172,7 +193,7 @@ public class AppUpdaterPlugin extends Plugin {
     private HttpsURLConnection abrirConexao(String endereco) throws Exception {
         URL atual = new URL(endereco);
         for (int redirecionamentos = 0; redirecionamentos <= 3; redirecionamentos++) {
-            if (!"https".equalsIgnoreCase(atual.getProtocol()) || !HOST_OFICIAL.equalsIgnoreCase(atual.getHost())) {
+            if (!"https".equalsIgnoreCase(atual.getProtocol()) || !hostOficial(atual.getHost())) {
                 throw new IOException("O servidor tentou redirecionar a atualização para uma origem não autorizada.");
             }
 
@@ -181,7 +202,7 @@ public class AppUpdaterPlugin extends Plugin {
             conexao.setReadTimeout(45_000);
             conexao.setInstanceFollowRedirects(false);
             conexao.setRequestProperty("Accept", MIME_APK);
-            conexao.setRequestProperty("User-Agent", "SantaLuziaAndroid-Updater/2");
+            conexao.setRequestProperty("User-Agent", "SantaLuziaAndroid-Updater/3");
 
             int codigo = conexao.getResponseCode();
             if (codigo < 300 || codigo >= 400) return conexao;
