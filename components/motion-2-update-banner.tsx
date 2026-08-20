@@ -7,6 +7,7 @@ import { ArrowDownToLine, CheckCircle2, Layers3, RefreshCw, ShieldCheck, Sparkle
 const REPOSITORIO = "lucasssfelipeee26-hash/comunidade-santa-luzia"
 const MANIFESTO_URL = `https://raw.githubusercontent.com/${REPOSITORIO}/main/config/android-release.json`
 const APK_URL = `https://github.com/${REPOSITORIO}/releases/latest/download/santa-luzia.apk`
+const APK_FALLBACK_URL = "https://comunidade-santa-luzia-production.up.railway.app/api/app/android/download"
 const MOTION_BUILD = 19
 const DISPENSADA = "santa-luzia:motion2:dispensada"
 
@@ -109,12 +110,26 @@ export function Motion2UpdateBanner() {
         setPercentual(Math.max(0, Math.min(100, evento.percent || 0)))
       })
       try {
-        await AppUpdater.downloadAndInstall({
-          url: APK_URL,
-          fileName: `Santa-Luzia-Motion-2-code${manifesto.versionCode}.apk`,
-          expectedSize: manifesto.apkSize,
-          expectedSha256: manifesto.apkSha256.toLowerCase(),
-        })
+        let instalado = false
+        let ultimaFalha: unknown = null
+        for (const url of [APK_URL, APK_FALLBACK_URL]) {
+          try {
+            await AppUpdater.downloadAndInstall({
+              url,
+              fileName: `Santa-Luzia-Motion-2-code${manifesto.versionCode}.apk`,
+              expectedSize: manifesto.apkSize,
+              expectedSha256: manifesto.apkSha256.toLowerCase(),
+            })
+            instalado = true
+            break
+          } catch (falha) {
+            ultimaFalha = falha
+          }
+        }
+        if (!instalado) {
+          if (ultimaFalha instanceof Error) throw ultimaFalha
+          throw new Error("Não foi possível obter a atualização pelas origens oficiais.")
+        }
         setEtapa("installing")
         setPercentual(100)
       } finally {
@@ -176,7 +191,7 @@ export function Motion2UpdateBanner() {
             {etapa === "error" ? "Tentar novamente" : baixando ? "Preparando atualização…" : "Atualizar para Motion 2.0"}
           </button>
           <button type="button" onClick={depois} className="w-full py-1 text-xs font-bold text-[#756a6d]">Atualizar depois</button>
-          <p className="text-center text-[10px] leading-4 text-[#827477]">O APK continua sendo validado por tamanho, SHA-256, pacote, versão e assinatura antes da instalação.</p>
+          <p className="text-center text-[10px] leading-4 text-[#827477]">O download tenta primeiro o GitHub Releases; instalações antigas do code 18 podem usar a ponte oficial do servidor. Tamanho, SHA-256, pacote, versão e assinatura continuam obrigatórios.</p>
         </div>
       </section>
       <style>{`
