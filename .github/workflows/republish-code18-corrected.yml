@@ -1,0 +1,157 @@
+name: Republicar Android code 18 corrigido
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/republish-code18-corrected.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: republish-code18-corrected
+  cancel-in-progress: false
+
+env:
+  APP_VERSION_CODE: "18"
+  APP_VERSION_NAME: "1.0.6"
+  AUTH_SECRET: ci-code18-corrected-12345678901234567890
+  CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+  EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
+  BRIDGE_PRIVATE: .github/.temp-signing-bridge-private.pem
+
+jobs:
+  assinar-publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Restaurar chave efêmera da ponte
+        uses: actions/cache/restore@v4
+        with:
+          path: .github/.temp-signing-bridge-private.pem
+          key: santa-luzia-signing-bridge-421bc125ce9be08617705100254c469097e1238e
+          fail-on-cache-miss: true
+      - name: Recuperar chave histórica de assinatura
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$BRIDGE_PRIVATE"
+          base64 -d .github/temp-signing-pass-code18.enc.b64 > "$RUNNER_TEMP/pass.enc"
+          openssl pkeyutl -decrypt -inkey "$BRIDGE_PRIVATE" -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in "$RUNNER_TEMP/pass.enc" -out "$RUNNER_TEMP/pass.txt"
+          base64 -d .github/temp-signing-recovery-code18.enc.b64 > "$RUNNER_TEMP/recovery.enc"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$RUNNER_TEMP/recovery.enc" -out "$RUNNER_TEMP/recovery.zip" -pass file:"$RUNNER_TEMP/pass.txt"
+          mkdir -p "$RUNNER_TEMP/signing"
+          unzip -q "$RUNNER_TEMP/recovery.zip" -d "$RUNNER_TEMP/signing"
+          STORE_PASS="$(tr -d '\r\n' < "$RUNNER_TEMP/signing/signing-password.txt")"
+          KEY_ALIAS="$(tr -d '\r\n' < "$RUNNER_TEMP/signing/santa-luzia-signing-alias.txt")"
+          test -s "$RUNNER_TEMP/signing/santa-luzia-release.jks" && test -n "$STORE_PASS" && test -n "$KEY_ALIAS"
+          echo "::add-mask::$STORE_PASS"
+          echo "::add-mask::$KEY_ALIAS"
+          printf 'ANDROID_KEYSTORE_PATH=%s\nANDROID_KEYSTORE_PASSWORD=%s\nANDROID_KEY_ALIAS=%s\nANDROID_KEY_PASSWORD=%s\n' "$RUNNER_TEMP/signing/santa-luzia-release.jks" "$STORE_PASS" "$KEY_ALIAS" "$STORE_PASS" >> "$GITHUB_ENV"
+      - name: Validar certificado original
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" > "$RUNNER_TEMP/key.txt"
+          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/key.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+      - name: Validar projeto e preparar Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npx tsc --noEmit
+          npm run audit:robustez
+          npm run build
+          npx cap add android
+          npx cap sync android
+          node scripts/prepare-android.cjs
+          grep -Eq 'versionCode[[:space:]]+18' android/app/build.gradle
+          grep -Eq 'versionName[[:space:]]+"1\.0\.6"' android/app/build.gradle
+          grep -Fq 'release-assets.githubusercontent.com' android/app/src/main/java/br/com/comunidadesantaluzia/app/AppUpdaterPlugin.java
+          grep -Fq 'GITHUB_RELEASE_PREFIX' android/app/src/main/java/br/com/comunidadesantaluzia/app/AppUpdaterPlugin.java
+          node scripts/configure-android-signing.cjs
+      - name: Gerar e validar APK assinada
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd android && ./gradlew assembleRelease --no-daemon)
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APK" && test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/apk-cert.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apk-cert.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+          mkdir -p dist
+          cp "$APK" dist/santa-luzia.apk
+          cp "$APK" dist/Santa-Luzia-1.0.6.apk
+          cp "$APK" dist/Santa-Luzia-1.0.6-code18.apk
+          SHA="$(sha256sum dist/santa-luzia.apk | awk '{print $1}')"
+          SIZE="$(stat -c '%s' dist/santa-luzia.apk)"
+          printf '%s  santa-luzia.apk\n' "$SHA" > dist/santa-luzia.apk.sha256
+          printf 'SIGNED_APK_SHA=%s\nSIGNED_APK_SIZE=%s\nSIGNED_APK_CERT=%s\n' "$SHA" "$SIZE" "$CERT" >> "$GITHUB_ENV"
+      - name: Substituir APK da release code 18
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=android-v1.0.6
+          cat > "$RUNNER_TEMP/notes.md" <<'EOF'
+          Santa Luzia 1.0.6 — build interna 18 corrigida.
+
+          Ponte segura de atualização:
+          - aparelhos antigos recebem primeiro o code 18 pelo servidor oficial;
+          - o code 18 reconhece GitHub Releases e redirecionamentos oficiais;
+          - SHA-256, tamanho, applicationId, versionCode e certificado continuam obrigatórios;
+          - depois do code 18, as próximas versões são baixadas diretamente do GitHub.
+          EOF
+          gh release upload "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-1.0.6.apk dist/Santa-Luzia-1.0.6-code18.apk dist/santa-luzia.apk.sha256 --clobber
+          gh release edit "$TAG" --latest --title "Santa Luzia Android 1.0.6 — code 18 corrigido" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Atualizar manifestos do code 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs')
+          const sha=process.env.SIGNED_APK_SHA
+          const size=Number(process.env.SIGNED_APK_SIZE)
+          const releasePath='config/android-release.json'
+          const release=JSON.parse(fs.readFileSync(releasePath,'utf8'))
+          Object.assign(release,{versionCode:18,versionName:'1.0.6',publishedAt:'2026-08-20',required:false,apkSize:size,apkSha256:sha,highlights:[
+            'Atualizador corrigido para reconhecer GitHub Releases e seus redirecionamentos oficiais',
+            'Aparelhos antigos usam uma ponte segura pelo servidor oficial apenas para chegar ao code 18',
+            'Depois do code 18, as próximas atualizações são baixadas diretamente do GitHub',
+            'Validações de tamanho, SHA-256, pacote, versão e assinatura oficial continuam obrigatórias'
+          ]})
+          fs.writeFileSync(releasePath,JSON.stringify(release,null,2)+'\n')
+          const transitionPath='config/android-transition-code18.json'
+          const transition={versionCode:18,versionName:'1.0.6',publishedAt:'2026-08-20',required:true,apkSize:size,apkSha256:sha,highlights:[
+            'Atualização técnica obrigatória para preparar o novo sistema de atualizações',
+            'Instala o atualizador compatível com GitHub Releases',
+            'Mantém validação de tamanho, SHA-256, pacote e assinatura oficial'
+          ]}
+          fs.writeFileSync(transitionPath,JSON.stringify(transition,null,2)+'\n')
+          const out={publishedAt:new Date().toISOString(),versionName:'1.0.6',versionCode:18,apkSize:size,apkSha256:sha,certificateSha256:process.env.SIGNED_APK_CERT,expectedCertificateSha256:process.env.EXPECTED_CERT,certificateMatches:process.env.SIGNED_APK_CERT===process.env.EXPECTED_CERT,releaseTag:'android-v1.0.6',asset:'santa-luzia.apk',correctedUpdater:true}
+          fs.writeFileSync('.github/temp-signing-code18-result.json',JSON.stringify(out,null,2)+'\n')
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add config/android-release.json config/android-transition-code18.json .github/temp-signing-code18-result.json
+          git commit -m 'Publica Android 1.0.6 code 18 corrigido'
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Limpar runner
+        if: always()
+        shell: bash
+        run: rm -rf "$BRIDGE_PRIVATE" "$RUNNER_TEMP/pass.enc" "$RUNNER_TEMP/pass.txt" "$RUNNER_TEMP/recovery.enc" "$RUNNER_TEMP/recovery.zip" "$RUNNER_TEMP/signing" "$RUNNER_TEMP/key.txt" "$RUNNER_TEMP/apk-cert.txt" || true
