@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { mutate } from "swr"
@@ -116,6 +117,7 @@ export function PullToRefresh() {
 
   const progresso = Math.min(1, distancia / LIMIAR_ATUALIZAR)
   const visivel = atualizando || distancia > 2
+  const giroLogo = atualizando ? undefined : { transform: `rotate(${Math.round(progresso * 300)}deg)` }
 
   return (
     <div
@@ -130,18 +132,34 @@ export function PullToRefresh() {
         transition: atualizando || distancia === 0 ? "transform 150ms ease, opacity 150ms ease, visibility 150ms" : "none",
       }}
     >
-      <div className="flex h-9 items-center gap-2 rounded-full border border-[#d4af37]/60 bg-white px-3 text-[11px] font-semibold text-[#7b1326] shadow-lg">
-        {atualizando ? (
-          <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <ChevronDown
-            className="size-4 transition-transform"
-            style={{ transform: `rotate(${progresso >= 1 ? 180 : 0}deg)` }}
-            aria-hidden="true"
-          />
-        )}
-        <span>{atualizando ? "Atualizando…" : progresso >= 1 ? "Solte para atualizar" : "Puxe para atualizar"}</span>
+      <div className="flex h-10 items-center gap-2 rounded-full border border-[#d4af37]/60 bg-white/95 px-3 text-[11px] font-semibold text-[#7b1326] shadow-lg backdrop-blur-md">
+        <span className="motion2-pull-default">
+          {atualizando ? (
+            <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ChevronDown
+              className="size-4 transition-transform"
+              style={{ transform: `rotate(${progresso >= 1 ? 180 : 0}deg)` }}
+              aria-hidden="true"
+            />
+          )}
+        </span>
+        <span
+          className={`motion2-pull-logo relative hidden size-7 overflow-hidden rounded-full border border-[#d4af37]/70 shadow-sm ${atualizando ? "motion2-pull-syncing" : ""}`}
+          style={giroLogo}
+          aria-hidden="true"
+        >
+          <Image src="/images/santa-luzia-logo.jpg" alt="" fill className="object-cover" sizes="28px" />
+        </span>
+        <span>{atualizando ? "Atualizando Santa Luzia…" : progresso >= 1 ? "Solte para atualizar" : "Puxe para atualizar"}</span>
       </div>
+      <style>{`
+        .motion2-enabled .motion2-pull-default { display: none; }
+        .motion2-enabled .motion2-pull-logo { display: grid; }
+        .motion2-enabled .motion2-pull-syncing { animation: motion2PullLogo 680ms cubic-bezier(.2,.72,.2,1) infinite; }
+        @keyframes motion2PullLogo { from { transform: perspective(320px) rotateY(0deg) rotateZ(0deg); } to { transform: perspective(320px) rotateY(360deg) rotateZ(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .motion2-enabled .motion2-pull-syncing { animation: none; } }
+      `}</style>
     </div>
   )
 }
