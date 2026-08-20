@@ -7,6 +7,7 @@ import { Capacitor } from "@capacitor/core"
 const REPOSITORIO = "lucasssfelipeee26-hash/comunidade-santa-luzia"
 const MANIFESTO_URL = `https://raw.githubusercontent.com/${REPOSITORIO}/main/config/android-release.json`
 const APK_URL = `https://github.com/${REPOSITORIO}/releases/latest/download/santa-luzia.apk`
+const APK_PONTE_CODE17_URL = "https://comunidade-santa-luzia-production.up.railway.app/api/app/android/download"
 const DISPENSADA_KEY = "santa-luzia:android-update-github-dispensada-sessao"
 const INTERVALO_VERIFICACAO = 5 * 60_000
 const TIMEOUT_MANIFESTO = 8_000
@@ -262,6 +263,11 @@ export function AndroidUpdateGithubRuntime() {
         return
       }
 
+      const buildInstalado = await obterBuildInstalado()
+      const urlDownload = buildInstalado > 0 && buildInstalado < 18
+        ? APK_PONTE_CODE17_URL
+        : release.downloadUrl
+
       const { AppUpdater } = await import("@/lib/native-app-updater")
       const listener = await AppUpdater.addListener("downloadProgress", (progresso) => {
         setEtapa(progresso.stage)
@@ -272,7 +278,7 @@ export function AndroidUpdateGithubRuntime() {
 
       try {
         await AppUpdater.downloadAndInstall({
-          url: release.downloadUrl,
+          url: urlDownload,
           fileName: `Santa-Luzia-${release.versionName}-code${release.versionCode}.apk`,
           expectedSha256: release.apkSha256,
           expectedSize: release.apkSize,
@@ -327,7 +333,7 @@ export function AndroidUpdateGithubRuntime() {
           {(baixando || etapa === "installing" || etapa === "error") && (
             <div className="rounded-2xl border border-[#e2d6ca] bg-white p-4 shadow-sm" aria-live="polite">
               {etapa !== "error" ? <>
-                <div className="flex items-center justify-between gap-3 text-xs font-bold text-[#62575a]"><span>{etapa === "verifying" ? "Verificando segurança…" : etapa === "permission" ? "Aguardando autorização do Android…" : etapa === "installing" ? "Pronto para instalar" : "Baixando do GitHub…"}</span><span>{percentual}%</span></div>
+                <div className="flex items-center justify-between gap-3 text-xs font-bold text-[#62575a]"><span>{etapa === "verifying" ? "Verificando segurança…" : etapa === "permission" ? "Aguardando autorização do Android…" : etapa === "installing" ? "Pronto para instalar" : "Baixando atualização…"}</span><span>{percentual}%</span></div>
                 <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#eadfd9]"><div className="h-full rounded-full bg-[linear-gradient(90deg,#713044,#9c8452)] transition-[width] duration-300" style={{ width: `${percentual}%` }} /></div>
                 {total > 0 && etapa === "downloading" && <p className="mt-2 text-[11px] text-[#756a6d]">{(baixados / 1024 / 1024).toFixed(1)} MB de {(total / 1024 / 1024).toFixed(1)} MB</p>}
                 {etapa === "permission" && <p className="mt-2 text-[11px] leading-5 text-[#756a6d]">Ative “Permitir desta fonte” e volte ao aplicativo.</p>}
@@ -344,7 +350,7 @@ export function AndroidUpdateGithubRuntime() {
           {!atualizadorInterno && <p className="rounded-2xl bg-[#f8f3ed] p-3 text-center text-[11px] leading-5 text-[#62575a]">Esta instalação antiga abrirá o download no navegador. As builds atuais fazem o processo dentro do aplicativo.</p>}
           {!release.required && <button type="button" onClick={deixarParaDepois} className="w-full py-1 text-sm font-semibold text-[#756a6d]">Atualizar depois</button>}
 
-          <div className="flex gap-2 border-t border-[#e9dfd8] pt-4 text-[11px] leading-5 text-[#756a6d]"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#557265]" /><p>Versão, tamanho e SHA-256 vêm do repositório oficial. A APK é baixada do GitHub Releases e continua passando pela validação nativa antes da instalação.</p></div>
+          <div className="flex gap-2 border-t border-[#e9dfd8] pt-4 text-[11px] leading-5 text-[#756a6d]"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#557265]" /><p>O code 17 usa uma ponte única pelo servidor oficial para instalar o code 18. A partir do code 18, a APK é baixada diretamente do GitHub Releases e continua passando por tamanho, SHA-256, pacote, versão e assinatura nativa.</p></div>
         </div>
       </section>
     </div>
