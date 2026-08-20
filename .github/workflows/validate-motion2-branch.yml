@@ -1,0 +1,102 @@
+name: Validar Santa Luzia Motion 2.0
+
+on:
+  push:
+    branches: [feature/santa-luzia-motion-2]
+    paths:
+      - .github/workflows/validate-motion2-branch.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: validate-motion2-branch
+  cancel-in-progress: true
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      AUTH_SECRET: ci-motion2-validation-12345678901234567890
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Executar validação completa
+        id: validar
+        shell: bash
+        run: |
+          set +e
+          RESULTADO=success
+          FALHOU_EM=""
+
+          npm install --no-audit --no-fund
+          if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="npm-install"; fi
+
+          if [ "$RESULTADO" = success ]; then
+            npx tsc --noEmit
+            if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="typescript"; fi
+          fi
+
+          if [ "$RESULTADO" = success ]; then
+            npm run audit:robustez
+            if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="audit-robustez"; fi
+          fi
+
+          if [ "$RESULTADO" = success ]; then
+            npm run build
+            if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="next-build"; fi
+          fi
+
+          node - <<'NODE'
+          const fs = require('fs')
+          fs.writeFileSync('.github/motion2-validation-result.json', JSON.stringify({
+            validatedAt: new Date().toISOString(),
+            branch: 'feature/santa-luzia-motion-2',
+            versionName: '2.0.0',
+            versionCode: 19,
+            result: process.env.RESULTADO,
+            failedAt: process.env.FALHOU_EM || null,
+            checks: ['npm-install','typescript','audit-robustez','next-build']
+          }, null, 2) + '\n')
+          NODE
+
+          echo "RESULTADO=$RESULTADO" >> "$GITHUB_ENV"
+          echo "FALHOU_EM=$FALHOU_EM" >> "$GITHUB_ENV"
+        env:
+          RESULTADO: success
+          FALHOU_EM: ""
+      - name: Registrar resultado na branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('fs')
+          const path = '.github/motion2-validation-result.json'
+          const atual = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path,'utf8')) : {}
+          atual.validatedAt = new Date().toISOString()
+          atual.branch = 'feature/santa-luzia-motion-2'
+          atual.versionName = '2.0.0'
+          atual.versionCode = 19
+          atual.result = process.env.RESULTADO || 'failure'
+          atual.failedAt = process.env.FALHOU_EM || null
+          atual.checks = ['npm-install','typescript','audit-robustez','next-build']
+          fs.writeFileSync(path, JSON.stringify(atual,null,2)+'\n')
+          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/motion2-validation-result.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Registra validação Motion 2.0: ${RESULTADO:-failure}"
+            git push origin HEAD:feature/santa-luzia-motion-2
+          fi
+      - name: Falhar job se validação falhou
+        if: always()
+        shell: bash
+        run: test "${RESULTADO:-failure}" = success
