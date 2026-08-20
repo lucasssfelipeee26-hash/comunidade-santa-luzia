@@ -5,6 +5,13 @@ on:
     branches: [feature/santa-luzia-motion-2]
     paths:
       - .github/workflows/validate-motion2-branch.yml
+      - components/motion-2-runtime.tsx
+      - components/motion-2-update-banner.tsx
+      - components/android-update-router-runtime.tsx
+      - components/app-runtime.tsx
+      - components/pull-to-refresh.tsx
+      - app/loading.tsx
+      - config/android-build.json
 
 permissions:
   contents: write
@@ -28,7 +35,6 @@ jobs:
         with:
           node-version: "22"
       - name: Executar validação completa
-        id: validar
         shell: bash
         run: |
           set +e
@@ -53,24 +59,8 @@ jobs:
             if [ $? -ne 0 ]; then RESULTADO=failure; FALHOU_EM="next-build"; fi
           fi
 
-          node - <<'NODE'
-          const fs = require('fs')
-          fs.writeFileSync('.github/motion2-validation-result.json', JSON.stringify({
-            validatedAt: new Date().toISOString(),
-            branch: 'feature/santa-luzia-motion-2',
-            versionName: '2.0.0',
-            versionCode: 19,
-            result: process.env.RESULTADO,
-            failedAt: process.env.FALHOU_EM || null,
-            checks: ['npm-install','typescript','audit-robustez','next-build']
-          }, null, 2) + '\n')
-          NODE
-
           echo "RESULTADO=$RESULTADO" >> "$GITHUB_ENV"
           echo "FALHOU_EM=$FALHOU_EM" >> "$GITHUB_ENV"
-        env:
-          RESULTADO: success
-          FALHOU_EM: ""
       - name: Registrar resultado na branch
         if: always()
         shell: bash
@@ -79,15 +69,16 @@ jobs:
           node - <<'NODE'
           const fs = require('fs')
           const path = '.github/motion2-validation-result.json'
-          const atual = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path,'utf8')) : {}
-          atual.validatedAt = new Date().toISOString()
-          atual.branch = 'feature/santa-luzia-motion-2'
-          atual.versionName = '2.0.0'
-          atual.versionCode = 19
-          atual.result = process.env.RESULTADO || 'failure'
-          atual.failedAt = process.env.FALHOU_EM || null
-          atual.checks = ['npm-install','typescript','audit-robustez','next-build']
-          fs.writeFileSync(path, JSON.stringify(atual,null,2)+'\n')
+          const result = {
+            validatedAt: new Date().toISOString(),
+            branch: 'feature/santa-luzia-motion-2',
+            versionName: '2.0.0',
+            versionCode: 19,
+            result: process.env.RESULTADO || 'failure',
+            failedAt: process.env.FALHOU_EM || null,
+            checks: ['npm-install','typescript','audit-robustez','next-build']
+          }
+          fs.writeFileSync(path, JSON.stringify(result,null,2)+'\n')
           NODE
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
