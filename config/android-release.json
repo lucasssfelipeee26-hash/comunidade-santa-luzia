@@ -1,16 +1,14 @@
 {
   "versionCode": 18,
   "versionName": "1.0.6",
-  "publishedAt": "2026-08-19",
+  "publishedAt": "2026-08-20",
   "required": false,
-  "apkSize": 23524146,
-  "apkSha256": "41f3e6107e8dcb26eafc313d44a996989d28f409f66ebd66392aadc55532f4f0",
+  "apkSize": 23524382,
+  "apkSha256": "65989c89dd8f36f88b25d10a641ffc6ee6808c346a8d8173f4e85da1b15ed58a",
   "highlights": [
-    "Atualizações Android agora são verificadas diretamente no GitHub, sem depender do Railway",
-    "Dados offline importantes usam SQLite nativo e continuam após limpar apenas o cache",
-    "Ações feitas offline entram em uma fila durável e sincronizam quando a conexão volta",
-    "Sincronização por revisão reduz downloads repetidos e o tráfego de dados",
-    "Notificações recentes ficam disponíveis localmente e reconciliam o estado depois",
-    "O modo local também consegue detectar e instalar uma atualização pelo GitHub"
+    "Atualizador corrigido para reconhecer GitHub Releases e seus redirecionamentos oficiais",
+    "Aparelhos antigos usam uma ponte segura pelo servidor oficial apenas para chegar ao code 18",
+    "Depois do code 18, as próximas atualizações são baixadas diretamente do GitHub",
+    "Validações de tamanho, SHA-256, pacote, versão e assinatura oficial continuam obrigatórias"
   ]
 }
