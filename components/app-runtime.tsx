@@ -4,14 +4,13 @@ import { SWRConfig } from "swr"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { NativeNotificationRuntime } from "@/components/native-notification-runtime"
 import { ServerSyncRuntime } from "@/components/server-sync-runtime"
-import { AndroidUpdateGithubRuntime } from "@/components/android-update-github-runtime"
+import { AndroidUpdateRouterRuntime } from "@/components/android-update-router-runtime"
 import { AndroidUpdateTransitionGuard } from "@/components/android-update-transition-guard"
 import { NativePlatformRuntime } from "@/components/native-platform-runtime"
 import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-runtime"
 import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
 import { MobilePolishRuntime } from "@/components/mobile-polish-runtime"
 import { Motion2Runtime } from "@/components/motion-2-runtime"
-import { Motion2UpdateBanner } from "@/components/motion-2-update-banner"
 import { AppChangelogRuntime } from "@/components/app-changelog-runtime"
 
 export function AppRuntime({ children }: { children: React.ReactNode }) {
@@ -26,8 +25,7 @@ export function AppRuntime({ children }: { children: React.ReactNode }) {
       <AndroidOfflineSnapshotRuntime />
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />
-      <Motion2UpdateBanner />
-      <AndroidUpdateGithubRuntime />
+      <AndroidUpdateRouterRuntime />
       <ServerSyncRuntime />
       <PullToRefresh />
     </SWRConfig>
