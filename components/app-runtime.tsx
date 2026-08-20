@@ -5,6 +5,7 @@ import { PullToRefresh } from "@/components/pull-to-refresh"
 import { NativeNotificationRuntime } from "@/components/native-notification-runtime"
 import { ServerSyncRuntime } from "@/components/server-sync-runtime"
 import { AndroidUpdateGithubRuntime } from "@/components/android-update-github-runtime"
+import { AndroidUpdateTransitionGuard } from "@/components/android-update-transition-guard"
 import { NativePlatformRuntime } from "@/components/native-platform-runtime"
 import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-runtime"
 import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
@@ -21,6 +22,7 @@ export function AppRuntime({ children }: { children: React.ReactNode }) {
       <GameRankingRefreshRuntime />
       <AndroidOfflineSnapshotRuntime />
       <AppChangelogRuntime />
+      <AndroidUpdateTransitionGuard />
       <AndroidUpdateGithubRuntime />
       <ServerSyncRuntime />
       <PullToRefresh />
