@@ -1,0 +1,14 @@
+{
+  "validatedAt": "2026-08-20T23:41:02.356Z",
+  "branch": "feature/santa-luzia-motion-2",
+  "versionName": "2.0.0",
+  "versionCode": 19,
+  "result": "failure",
+  "failedAt": "typescript",
+  "checks": [
+    "npm-install",
+    "typescript",
+    "audit-robustez",
+    "next-build"
+  ]
+}
