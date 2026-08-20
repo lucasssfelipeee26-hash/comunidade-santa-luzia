@@ -21,7 +21,7 @@ function texto(el: Element | null) {
   return (el?.textContent || "").replace(/\s+/g, " ").trim()
 }
 
-function retrigger(el: Element | null, classe: string) {
+function retrigger(el: Element | null | undefined, classe: string) {
   if (!(el instanceof HTMLElement)) return
   el.classList.remove(classe)
   void el.offsetWidth
@@ -125,7 +125,7 @@ const CSS = String.raw`
   .motion2-enabled .motion2-place-2 { --motion-metal:#b9bec7; box-shadow:0 12px 30px rgba(99,108,122,.14); }
   .motion2-enabled .motion2-place-3 { --motion-metal:#b98255; box-shadow:0 12px 30px rgba(140,87,48,.14); }
   .motion2-enabled .motion2-avatar-orbit { transform-style:preserve-3d; animation:motion2AvatarTurn 760ms cubic-bezier(.2,.82,.24,1) both; animation-delay:calc(var(--motion-delay,0ms) + 120ms); }
-  .motion2-enabled .motion2-trophy { transform-box:fill-box; transform-origin:center; filter:drop-shadow(0 5px 5px rgba(113,75,12,.25)); animation:motion2Trophy3d 3.6s ease-in-out infinite; }
+  .motion2-enabled .motion2-trophy { transform-box:fill-box; transform-origin:center; stroke:#a7843b; fill:rgba(212,175,55,.1); filter:drop-shadow(0 5px 5px rgba(113,75,12,.25)); animation:motion2Trophy3d 3.6s ease-in-out infinite; }
   .motion2-enabled .motion2-score-pop { animation:motion2ScorePop 420ms var(--motion2-spring) both; }
 
   .motion2-enabled .motion2-formation-card { animation:motion2FormationIn 420ms var(--motion2-ease) both; animation-delay:var(--motion-delay,0ms); transform-origin:50% 100%; }
@@ -137,8 +137,6 @@ const CSS = String.raw`
   .motion2-enabled [aria-busy='true'] .animate-spin { animation-duration:.8s; filter:drop-shadow(0 2px 4px rgba(113,48,68,.12)); }
   .motion2-enabled .motion2-shimmer { position:relative; overflow:hidden; background:#f1ebe8; }
   .motion2-enabled .motion2-shimmer::after { content:""; position:absolute; inset:0; background:linear-gradient(100deg,transparent 25%,rgba(255,255,255,.72) 45%,transparent 65%); transform:translateX(-100%); animation:motion2Shimmer 1.35s ease-in-out infinite; }
-
-  .motion2-enabled body[data-motion-update-banner='true'] [aria-labelledby='android-update-github-title'] { visibility:hidden !important; pointer-events:none !important; }
 
   @keyframes motion2PageIn { from{opacity:.25;transform:translate3d(0,10px,0) scale(.995)} to{opacity:1;transform:none} }
   @keyframes motion2SectionIn { from{opacity:0;transform:translate3d(0,14px,0)} to{opacity:1;transform:none} }
@@ -216,7 +214,7 @@ export function Motion2Runtime() {
     observerRef.current.observe(document.body, { childList: true, subtree: true })
 
     const sincronizou = () => {
-      retrigger(document.querySelector("img[alt='Santa Luzia']")?.parentElement || null, "motion2-logo-spin")
+      retrigger(document.querySelector("img[alt='Santa Luzia']")?.parentElement, "motion2-logo-spin")
       const ranking = Array.from(document.querySelectorAll("strong")).filter((el) => /^\d+$/.test(texto(el)))
       ranking.slice(0, 16).forEach((el) => retrigger(el, "motion2-score-pop"))
       agendarScan()
