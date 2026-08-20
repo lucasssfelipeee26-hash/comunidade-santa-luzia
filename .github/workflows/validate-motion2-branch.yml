@@ -14,6 +14,7 @@ on:
       - config/android-build.json
       - package.json
       - lib/app-release.ts
+      - scripts/auditar-ux-106.cjs
 
 permissions:
   contents: write
