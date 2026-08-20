@@ -12,6 +12,8 @@ on:
       - components/pull-to-refresh.tsx
       - app/loading.tsx
       - config/android-build.json
+      - package.json
+      - lib/app-release.ts
 
 permissions:
   contents: write
