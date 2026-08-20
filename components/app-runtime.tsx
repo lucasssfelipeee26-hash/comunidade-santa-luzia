@@ -10,6 +10,8 @@ import { NativePlatformRuntime } from "@/components/native-platform-runtime"
 import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-runtime"
 import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
 import { MobilePolishRuntime } from "@/components/mobile-polish-runtime"
+import { Motion2Runtime } from "@/components/motion-2-runtime"
+import { Motion2UpdateBanner } from "@/components/motion-2-update-banner"
 import { AppChangelogRuntime } from "@/components/app-changelog-runtime"
 
 export function AppRuntime({ children }: { children: React.ReactNode }) {
@@ -17,12 +19,14 @@ export function AppRuntime({ children }: { children: React.ReactNode }) {
     <SWRConfig value={{ dedupingInterval: 30_000, focusThrottleInterval: 60_000, revalidateOnFocus: false, revalidateOnReconnect: true, keepPreviousData: true, errorRetryCount: 1, errorRetryInterval: 2_500, loadingTimeout: 8_000 }}>
       {children}
       <MobilePolishRuntime />
+      <Motion2Runtime />
       <NativePlatformRuntime />
       <NativeNotificationRuntime />
       <GameRankingRefreshRuntime />
       <AndroidOfflineSnapshotRuntime />
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />
+      <Motion2UpdateBanner />
       <AndroidUpdateGithubRuntime />
       <ServerSyncRuntime />
       <PullToRefresh />
