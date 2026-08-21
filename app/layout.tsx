@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { Cormorant_Garamond, Inter } from "next/font/google"
 import "./globals.css"
 import "./mobile-fixes.css"
+import "./windows-beta.css"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { AppRuntime } from "@/components/app-runtime"
 import { OfflineLiturgiaRuntime } from "@/components/offline-liturgia-runtime"
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html suppressHydrationWarning lang="pt-BR" data-site-theme={lerTemaSite()} className={`${cormorant.variable} ${inter.variable} bg-background`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: 'try{if(navigator.userAgent.includes("SantaLuziaAndroid")){document.documentElement.dataset.nativePlatform="android"}}catch{}' }} />
+        <script dangerouslySetInnerHTML={{ __html: 'try{const ua=navigator.userAgent;if(ua.includes("SantaLuziaAndroid")){document.documentElement.dataset.nativePlatform="android"}else if(ua.includes("SantaLuziaWindowsBeta/")){document.documentElement.dataset.nativePlatform="windows-beta"}}catch{}' }} />
       </head>
       <body suppressHydrationWarning className="app-mobile-shell font-sans antialiased">
         <AppRuntime>
