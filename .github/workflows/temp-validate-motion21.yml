@@ -1,0 +1,29 @@
+name: TEMP — validar Motion 2.1
+
+on:
+  push:
+    branches: [fix/motion-2-1-code20]
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+      CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Validar TypeScript
+        run: npx tsc --noEmit
+      - name: Auditar robustez
+        run: npm run audit:robustez
+      - name: Gerar build web
+        run: npm run build
