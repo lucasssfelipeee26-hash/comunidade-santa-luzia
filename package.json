@@ -15,9 +15,7 @@
     "android:prepare": "node scripts/prepare-android.cjs",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
-    "android:run": "npx cap run android",
-    "windows:beta": "electron electron/main.cjs",
-    "windows:beta:dist": "electron-builder --config electron-builder.config.cjs --win portable --x64 --publish never"
+    "android:run": "npx cap run android"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -50,9 +48,7 @@
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
     "typescript": "5.7.3",
-    "@capacitor/cli": "^8.0.0",
-    "electron": "37.2.6",
-    "electron-builder": "26.0.12"
+    "@capacitor/cli": "^8.0.0"
   },
   "engines": {
     "node": ">=20.9.0"
