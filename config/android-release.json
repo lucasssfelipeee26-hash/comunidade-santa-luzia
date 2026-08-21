@@ -1,13 +1,15 @@
 {
-  "versionCode": 18,
-  "versionName": "1.0.6",
+  "versionCode": 20,
+  "versionName": "2.1.0",
   "publishedAt": "2026-08-20",
   "required": false,
-  "apkSize": 23524382,
-  "apkSha256": "65989c89dd8f36f88b25d10a641ffc6ee6808c346a8d8173f4e85da1b15ed58a",
+  "apkSize": 23524386,
+  "apkSha256": "a9fa830d34a0ca24dcb2c2255e0f5c9252eedb6dfb1fc74f3d6f0993267045fd",
   "highlights": [
-    "Atualizador Android compatível com GitHub Releases",
-    "Validação de tamanho, SHA-256, pacote e assinatura oficial",
-    "A próxima atualização visual será oferecida somente após a publicação do Motion 2.1 corrigido"
+    "Pódio redesenhado com troféu 3D e luzes mais marcantes em ouro, prata e bronze",
+    "Avatares do Top 3 fazem um giro único e mais suave ao entrar ou atualizar o ranking",
+    "Transições entre telas foram simplificadas para eliminar saltos, escalas e efeitos desproporcionais",
+    "Movimentações importantes do ranking aparecem em um banner animado para quem estiver acompanhando",
+    "A animação de Santa Luzia foi refinada para um movimento curto e discreto, sem giro exagerado"
   ]
 }
