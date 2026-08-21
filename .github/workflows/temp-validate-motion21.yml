@@ -3,6 +3,8 @@ name: TEMP — validar Motion 2.1
 on:
   push:
     branches: [fix/motion-2-1-code20]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
