@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Aguardando o workflow android-release.yml concluir para o mesmo commit..."
+          echo "Aguardando android-release.yml concluir para o mesmo commit..."
           concluido=0
           for tentativa in $(seq 1 180); do
             STATUS="$(gh run list --workflow android-release.yml --commit "$GITHUB_SHA" --limit 1 --json status --jq '.[0].status // empty' 2>/dev/null || true)"
@@ -63,11 +63,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          node-version: "21"
-        continue-on-error: true
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
