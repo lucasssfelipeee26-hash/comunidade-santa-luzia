@@ -15,6 +15,19 @@ on:
       - electron-builder.config.cjs
       - package.json
       - .github/workflows/windows-beta-release.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - electron/**
+      - components/windows-beta-runtime.tsx
+      - app/windows-beta.css
+      - app/layout.tsx
+      - components/app-runtime.tsx
+      - config/windows-beta.json
+      - electron-builder.config.cjs
+      - package.json
+      - .github/workflows/windows-beta-release.yml
   workflow_dispatch:
 
 permissions:
