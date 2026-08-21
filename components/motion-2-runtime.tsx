@@ -17,7 +17,7 @@ function androidNativo() {
   }
 }
 
-function texto(el: Element | null) {
+function texto(el: Element | null | undefined) {
   return (el?.textContent || "").replace(/\s+/g, " ").trim()
 }
 
@@ -77,12 +77,11 @@ function prepararPodio() {
   if (!(secao instanceof HTMLElement)) return
 
   secao.classList.add("motion2-podium")
-
   const grade = Array.from(secao.querySelectorAll(":scope > div"))
     .find((el) => el.classList.contains("grid") && el.classList.contains("grid-cols-3"))
+
   if (grade instanceof HTMLElement) {
     grade.classList.add("motion2-podium-grid")
-
     Array.from(grade.children).forEach((card) => {
       if (!(card instanceof HTMLElement)) return
       const badge = Array.from(card.querySelectorAll("span")).find((span) => /^[123]º$/.test(texto(span)))
@@ -92,7 +91,6 @@ function prepararPodio() {
       card.classList.add("motion2-podium-card", `motion2-place-${posicao}`)
       card.style.order = posicao === 1 ? "2" : posicao === 2 ? "1" : "3"
       card.style.setProperty("--motion-delay", `${posicao === 1 ? 80 : posicao === 2 ? 150 : 220}ms`)
-
       if (badge instanceof HTMLElement) badge.classList.add("motion2-position-badge")
       const avatar = card.querySelector("[data-slot='avatar']") || card.querySelector("img")?.parentElement
       if (avatar instanceof HTMLElement) avatar.classList.add("motion2-avatar-orbit")
@@ -145,181 +143,42 @@ function prepararTudo(pathname: string) {
 }
 
 const CSS = String.raw`
-  .motion2-enabled {
-    --motion2-ease: cubic-bezier(.2,.72,.22,1);
-    --motion2-spring: cubic-bezier(.18,.9,.22,1.08);
-  }
+  .motion2-enabled { --motion2-ease:cubic-bezier(.2,.72,.22,1); --motion2-spring:cubic-bezier(.18,.9,.22,1.08); }
+  .motion2-enabled main.motion2-page-enter { animation:motion2PageIn 210ms var(--motion2-ease) both; will-change:opacity,transform; }
+  .motion2-enabled :is(button,a,[role='button']):not([aria-disabled='true']) { transition:scale 120ms ease,box-shadow 180ms ease,background-color 180ms ease,color 180ms ease,border-color 180ms ease,opacity 180ms ease; -webkit-tap-highlight-color:transparent; }
+  .motion2-enabled :is(button,a,[role='button']):not([aria-disabled='true']):active { scale:.982; }
+  .motion2-enabled .mobile-app-bottom-nav { animation:motion2NavRise 280ms var(--motion2-ease) both; }
+  .motion2-enabled .mobile-app-bottom-nav [aria-current='page'] > span { animation:motion2NavActive 280ms var(--motion2-spring) both; box-shadow:0 8px 18px rgba(123,19,38,.18); }
+  .motion2-enabled .mobile-app-bottom-nav [aria-current='page'] svg { animation:motion2IconPop 250ms var(--motion2-spring) both; }
 
-  /* Transição curta e previsível: sem escala no contêiner principal, evitando saltos de layout. */
-  .motion2-enabled main.motion2-page-enter {
-    animation: motion2PageIn 210ms var(--motion2-ease) both;
-    will-change: opacity, transform;
-  }
+  .motion2-enabled .motion2-santa-logo { position:relative; transform-style:preserve-3d; isolation:isolate; }
+  .motion2-enabled .motion2-santa-logo.motion2-logo-enter { animation:motion2LogoEnter 520ms var(--motion2-ease) both; }
+  .motion2-enabled .motion2-santa-logo.motion2-logo-refresh { animation:motion2LogoRefresh 620ms var(--motion2-ease) both; }
+  .motion2-enabled .motion2-santa-logo::after { content:""; position:absolute; inset:-3px; z-index:-1; border-radius:999px; pointer-events:none; border:1px solid rgba(211,174,78,.45); box-shadow:0 0 0 0 rgba(211,174,78,0); opacity:0; }
+  .motion2-enabled .motion2-santa-logo.motion2-logo-enter::after,.motion2-enabled .motion2-santa-logo.motion2-logo-refresh::after { animation:motion2LogoHalo 700ms ease both; }
 
-  .motion2-enabled :is(button,a,[role='button']):not([aria-disabled='true']) {
-    transition: scale 120ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease, opacity 180ms ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .motion2-enabled :is(button,a,[role='button']):not([aria-disabled='true']):active { scale: .982; }
-
-  .motion2-enabled .mobile-app-bottom-nav { animation: motion2NavRise 280ms var(--motion2-ease) both; }
-  .motion2-enabled .mobile-app-bottom-nav [aria-current='page'] > span {
-    animation: motion2NavActive 280ms var(--motion2-spring) both;
-    box-shadow: 0 8px 18px rgba(123,19,38,.18);
-  }
-  .motion2-enabled .mobile-app-bottom-nav [aria-current='page'] svg { animation: motion2IconPop 250ms var(--motion2-spring) both; }
-
-  /* Santa Luzia: entrada sofisticada, sem giro de 360°. */
-  .motion2-enabled .motion2-santa-logo {
-    position: relative;
-    transform-style: preserve-3d;
-    isolation: isolate;
-  }
-  .motion2-enabled .motion2-santa-logo.motion2-logo-enter { animation: motion2LogoEnter 520ms var(--motion2-ease) both; }
-  .motion2-enabled .motion2-santa-logo.motion2-logo-refresh { animation: motion2LogoRefresh 620ms var(--motion2-ease) both; }
-  .motion2-enabled .motion2-santa-logo::after {
-    content:"";
-    position:absolute;
-    inset:-3px;
-    z-index:-1;
-    border-radius:999px;
-    pointer-events:none;
-    border:1px solid rgba(211,174,78,.45);
-    box-shadow:0 0 0 0 rgba(211,174,78,0);
-    opacity:0;
-  }
-  .motion2-enabled .motion2-santa-logo.motion2-logo-enter::after,
-  .motion2-enabled .motion2-santa-logo.motion2-logo-refresh::after { animation: motion2LogoHalo 700ms ease both; }
-
-  /* Pódio proporcional e hierarquia 2º · 1º · 3º. */
-  .motion2-enabled .motion2-podium {
-    position:relative;
-    overflow:hidden;
-    perspective:900px;
-    background:radial-gradient(circle at 50% -8%,rgba(218,181,88,.18),transparent 42%),rgba(255,255,255,.76);
-  }
+  .motion2-enabled .motion2-podium { position:relative; overflow:hidden; perspective:900px; background:radial-gradient(circle at 50% -8%,rgba(218,181,88,.18),transparent 42%),rgba(255,255,255,.76); }
   .motion2-enabled .motion2-podium-grid { align-items:end; gap:.55rem; padding-top:.55rem; }
-  .motion2-enabled .motion2-podium-card {
-    isolation:isolate;
-    overflow:visible;
-    transform-style:preserve-3d;
-    min-height:188px;
-    padding:.72rem .48rem .62rem !important;
-    border-color:transparent !important;
-    animation:motion2PodiumCardIn 560ms var(--motion2-spring) both;
-    animation-delay:var(--motion-delay,0ms);
-  }
-  .motion2-enabled .motion2-podium-card::before {
-    content:"";
-    position:absolute;
-    inset:-2px;
-    z-index:-2;
-    border-radius:24px;
-    padding:2px;
-    pointer-events:none;
-    background:conic-gradient(from 20deg,transparent 0 8%,var(--motion-metal) 18%,#fff9df 24%,var(--motion-metal) 31%,transparent 42% 58%,var(--motion-metal) 70%,#fff 75%,var(--motion-metal) 80%,transparent 91%);
-    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;
-    mask-composite:exclude;
-    animation:motion2BorderOrbit 4.2s linear infinite;
-    opacity:.96;
-  }
-  .motion2-enabled .motion2-podium-card::after {
-    content:"";
-    position:absolute;
-    inset:2px;
-    z-index:-3;
-    border-radius:20px;
-    pointer-events:none;
-    box-shadow:0 0 24px var(--motion-glow);
-    opacity:.62;
-  }
-  .motion2-enabled .motion2-place-1 {
-    --motion-metal:#d5a91e;
-    --motion-glow:rgba(222,172,34,.42);
-    min-height:210px;
-    translate:0 -9px;
-    box-shadow:0 18px 38px rgba(157,111,14,.16) !important;
-  }
-  .motion2-enabled .motion2-place-2 {
-    --motion-metal:#aeb5c1;
-    --motion-glow:rgba(145,157,176,.34);
-    box-shadow:0 13px 30px rgba(80,92,110,.12) !important;
-  }
-  .motion2-enabled .motion2-place-3 {
-    --motion-metal:#b97543;
-    --motion-glow:rgba(181,108,59,.34);
-    box-shadow:0 13px 30px rgba(128,76,42,.12) !important;
-  }
-  .motion2-enabled .motion2-position-badge {
-    display:flex !important;
-    align-items:center;
-    justify-content:center;
-    min-width:44px;
-    height:25px;
-    padding:0 9px !important;
-    font-size:11px !important;
-    line-height:1;
-    letter-spacing:.02em;
-    border:1px solid rgba(255,255,255,.72);
-    box-shadow:0 5px 14px rgba(55,36,19,.13);
-  }
-  .motion2-enabled .motion2-place-1 .motion2-position-badge {
-    min-width:48px;
-    height:28px;
-    font-size:12px !important;
-    background:linear-gradient(135deg,#f6d969,#b9891b) !important;
-    color:#3b2b08 !important;
-  }
-  .motion2-enabled .motion2-place-2 .motion2-position-badge {
-    background:linear-gradient(135deg,#eef1f5,#abb3bf) !important;
-    color:#39414c !important;
-  }
-  .motion2-enabled .motion2-place-3 .motion2-position-badge {
-    background:linear-gradient(135deg,#e7b087,#a86538) !important;
-    color:#452815 !important;
-  }
-  .motion2-enabled .motion2-avatar-orbit {
-    position:relative;
-    transform-style:preserve-3d;
-    backface-visibility:visible;
-    animation:motion2AvatarTurn 1120ms cubic-bezier(.18,.78,.2,1) both;
-    animation-delay:calc(var(--motion-delay,0ms) + 100ms);
-    border-width:3px !important;
-    box-shadow:0 7px 18px rgba(47,31,24,.16),0 0 0 3px rgba(255,255,255,.86);
-  }
+  .motion2-enabled .motion2-podium-card { isolation:isolate; overflow:visible; transform-style:preserve-3d; min-height:188px; padding:.72rem .48rem .62rem !important; border-color:transparent !important; animation:motion2PodiumCardIn 560ms var(--motion2-spring) both; animation-delay:var(--motion-delay,0ms); }
+  .motion2-enabled .motion2-podium-card::before { content:""; position:absolute; inset:-2px; z-index:-2; border-radius:24px; padding:2px; pointer-events:none; background:conic-gradient(from 20deg,transparent 0 8%,var(--motion-metal) 18%,#fff9df 24%,var(--motion-metal) 31%,transparent 42% 58%,var(--motion-metal) 70%,#fff 75%,var(--motion-metal) 80%,transparent 91%); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:motion2BorderOrbit 4.2s linear infinite; opacity:.96; }
+  .motion2-enabled .motion2-podium-card::after { content:""; position:absolute; inset:2px; z-index:-3; border-radius:20px; pointer-events:none; box-shadow:0 0 24px var(--motion-glow); opacity:.62; }
+  .motion2-enabled .motion2-place-1 { --motion-metal:#d5a91e; --motion-glow:rgba(222,172,34,.42); min-height:210px; translate:0 -9px; box-shadow:0 18px 38px rgba(157,111,14,.16) !important; }
+  .motion2-enabled .motion2-place-2 { --motion-metal:#aeb5c1; --motion-glow:rgba(145,157,176,.34); box-shadow:0 13px 30px rgba(80,92,110,.12) !important; }
+  .motion2-enabled .motion2-place-3 { --motion-metal:#b97543; --motion-glow:rgba(181,108,59,.34); box-shadow:0 13px 30px rgba(128,76,42,.12) !important; }
+  .motion2-enabled .motion2-position-badge { display:flex !important; align-items:center; justify-content:center; min-width:44px; height:25px; padding:0 9px !important; font-size:11px !important; line-height:1; letter-spacing:.02em; border:1px solid rgba(255,255,255,.72); box-shadow:0 5px 14px rgba(55,36,19,.13); }
+  .motion2-enabled .motion2-place-1 .motion2-position-badge { min-width:48px; height:28px; font-size:12px !important; background:linear-gradient(135deg,#f6d969,#b9891b) !important; color:#3b2b08 !important; }
+  .motion2-enabled .motion2-place-2 .motion2-position-badge { background:linear-gradient(135deg,#eef1f5,#abb3bf) !important; color:#39414c !important; }
+  .motion2-enabled .motion2-place-3 .motion2-position-badge { background:linear-gradient(135deg,#e7b087,#a86538) !important; color:#452815 !important; }
+  .motion2-enabled .motion2-avatar-orbit { position:relative; transform-style:preserve-3d; backface-visibility:visible; animation:motion2AvatarTurn 1120ms cubic-bezier(.18,.78,.2,1) both; animation-delay:calc(var(--motion-delay,0ms) + 100ms); border-width:3px !important; box-shadow:0 7px 18px rgba(47,31,24,.16),0 0 0 3px rgba(255,255,255,.86); }
   .motion2-enabled .motion2-place-1 .motion2-avatar-orbit { width:76px !important; height:76px !important; }
-  .motion2-enabled .motion2-place-2 .motion2-avatar-orbit,
-  .motion2-enabled .motion2-place-3 .motion2-avatar-orbit { width:62px !important; height:62px !important; }
+  .motion2-enabled .motion2-place-2 .motion2-avatar-orbit,.motion2-enabled .motion2-place-3 .motion2-avatar-orbit { width:62px !important; height:62px !important; }
 
-  /* Troféu metálico desenhado em SVG, com profundidade e movimento próprio. */
   .motion2-enabled .motion2-trophy-original { display:none !important; }
-  .motion2-enabled .motion2-trophy-stage {
-    display:grid;
-    place-items:center;
-    width:58px;
-    height:58px;
-    flex:0 0 58px;
-    perspective:620px;
-    border-radius:20px;
-    background:radial-gradient(circle at 35% 28%,rgba(255,247,198,.92),rgba(234,199,101,.24) 42%,rgba(142,92,18,.08) 70%,transparent 72%);
-    box-shadow:inset 0 0 0 1px rgba(196,151,53,.18),0 9px 24px rgba(116,73,14,.14);
-  }
-  .motion2-enabled .motion2-trophy-model {
-    width:52px;
-    height:52px;
-    overflow:visible;
-    transform-style:preserve-3d;
-    transform-origin:50% 58%;
-    animation:motion2Trophy3d 3.4s ease-in-out infinite;
-  }
+  .motion2-enabled .motion2-trophy-stage { display:grid; place-items:center; width:58px; height:58px; flex:0 0 58px; perspective:620px; border-radius:20px; background:radial-gradient(circle at 35% 28%,rgba(255,247,198,.92),rgba(234,199,101,.24) 42%,rgba(142,92,18,.08) 70%,transparent 72%); box-shadow:inset 0 0 0 1px rgba(196,151,53,.18),0 9px 24px rgba(116,73,14,.14); }
+  .motion2-enabled .motion2-trophy-model { width:52px; height:52px; overflow:visible; transform-style:preserve-3d; transform-origin:50% 58%; animation:motion2Trophy3d 3.4s ease-in-out infinite; }
 
   .motion2-enabled .motion2-score-pop { animation:motion2ScorePop 400ms var(--motion2-spring) both; }
-  .motion2-enabled .motion2-formation-card {
-    animation:motion2FormationIn 360ms var(--motion2-ease) both;
-    animation-delay:var(--motion-delay,0ms);
-    transform-origin:50% 100%;
-  }
+  .motion2-enabled .motion2-formation-card { animation:motion2FormationIn 360ms var(--motion2-ease) both; animation-delay:var(--motion-delay,0ms); transform-origin:50% 100%; }
   .motion2-enabled .motion2-dialog { animation:motion2Backdrop 160ms ease both; }
   .motion2-enabled .motion2-dialog > :is(section,div):not([aria-hidden='true']) { animation:motion2SheetIn 300ms var(--motion2-spring) both; }
   .motion2-enabled .motion2-live-region > * { animation:motion2NoticeIn 280ms var(--motion2-ease) both; }
@@ -344,17 +203,10 @@ const CSS = String.raw`
   @media (min-width:640px) {
     .motion2-enabled .motion2-podium-grid { gap:.85rem; }
     .motion2-enabled .motion2-place-1 .motion2-avatar-orbit { width:86px !important; height:86px !important; }
-    .motion2-enabled .motion2-place-2 .motion2-avatar-orbit,
-    .motion2-enabled .motion2-place-3 .motion2-avatar-orbit { width:70px !important; height:70px !important; }
+    .motion2-enabled .motion2-place-2 .motion2-avatar-orbit,.motion2-enabled .motion2-place-3 .motion2-avatar-orbit { width:70px !important; height:70px !important; }
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .motion2-enabled *, .motion2-enabled *::before, .motion2-enabled *::after {
-      animation-duration:.001ms !important;
-      animation-iteration-count:1 !important;
-      scroll-behavior:auto !important;
-      transition-duration:.001ms !important;
-    }
+  @media (prefers-reduced-motion:reduce) {
+    .motion2-enabled *, .motion2-enabled *::before, .motion2-enabled *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.001ms !important; }
   }
 `
 
@@ -385,7 +237,6 @@ export function Motion2Runtime() {
     }
 
     document.body.classList.add("motion2-enabled")
-
     const agendarScan = () => {
       if (scanPendente.current != null) return
       scanPendente.current = window.requestAnimationFrame(() => {
@@ -395,22 +246,19 @@ export function Motion2Runtime() {
     }
 
     prepararTudo(pathname)
-
     const main = document.querySelector("main")
     if (main instanceof HTMLElement) retrigger(main, "motion2-page-enter")
-
-    const logo = document.querySelector("img[alt='Santa Luzia']")?.parentElement
-    retrigger(logo, "motion2-logo-enter")
+    retrigger(document.querySelector("img[alt='Santa Luzia']")?.parentElement, "motion2-logo-enter")
 
     observerRef.current?.disconnect()
     observerRef.current = new MutationObserver(agendarScan)
-    observerRef.current.observe(document.body, { childList: true, subtree: true })
+    observerRef.current.observe(document.body, { childList:true, subtree:true })
 
     const sincronizou = () => {
       retrigger(document.querySelector("img[alt='Santa Luzia']")?.parentElement, "motion2-logo-refresh")
       document.querySelectorAll(".motion2-avatar-orbit").forEach((avatar) => retrigger(avatar, "motion2-avatar-orbit"))
       const pontos = Array.from(document.querySelectorAll("strong")).filter((el) => /^\d+$/.test(texto(el)))
-      pontos.slice(0, 16).forEach((el) => retrigger(el, "motion2-score-pop"))
+      pontos.slice(0,16).forEach((el) => retrigger(el, "motion2-score-pop"))
       agendarScan()
     }
 
@@ -423,7 +271,7 @@ export function Motion2Runtime() {
 
     window.addEventListener("santa-luzia:manual-sync", sincronizou)
     window.addEventListener("santa-luzia:server-sync", sincronizou)
-    document.addEventListener("pointerup", toque, { passive: true })
+    document.addEventListener("pointerup", toque, { passive:true })
 
     return () => {
       observerRef.current?.disconnect()
