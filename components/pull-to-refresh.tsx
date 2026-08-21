@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { mutate } from "swr"
@@ -117,9 +116,6 @@ export function PullToRefresh() {
 
   const progresso = Math.min(1, distancia / LIMIAR_ATUALIZAR)
   const visivel = atualizando || distancia > 2
-  const escalaLogo = 0.92 + progresso * 0.08
-  const inclinacaoLogo = (progresso - 0.5) * 6
-  const estiloLogo = atualizando ? undefined : { transform: `scale(${escalaLogo.toFixed(3)}) rotate(${inclinacaoLogo.toFixed(1)}deg)` }
 
   return (
     <div
@@ -134,42 +130,18 @@ export function PullToRefresh() {
         transition: atualizando || distancia === 0 ? "transform 150ms ease, opacity 150ms ease, visibility 150ms" : "none",
       }}
     >
-      <div className="motion2-pull-shell flex h-10 items-center gap-2 rounded-full border border-[#d4af37]/60 bg-white/95 px-3 text-[11px] font-semibold text-[#7b1326] shadow-lg backdrop-blur-md">
-        <span className="motion2-pull-default">
-          {atualizando ? (
-            <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <ChevronDown
-              className="size-4 transition-transform"
-              style={{ transform: `rotate(${progresso >= 1 ? 180 : 0}deg)` }}
-              aria-hidden="true"
-            />
-          )}
-        </span>
-        <span
-          className={`motion2-pull-logo relative hidden size-7 overflow-hidden rounded-full border border-[#d4af37]/70 shadow-sm ${atualizando ? "motion2-pull-syncing" : ""}`}
-          style={estiloLogo}
-          aria-hidden="true"
-        >
-          <Image src="/images/santa-luzia-logo.jpg" alt="" fill className="object-cover" sizes="28px" />
-        </span>
-        <span>{atualizando ? "Atualizando Santa Luzia…" : progresso >= 1 ? "Solte para atualizar" : "Puxe para atualizar"}</span>
+      <div className="flex h-9 items-center gap-2 rounded-full border border-[#d4af37]/60 bg-white px-3 text-[11px] font-semibold text-[#7b1326] shadow-lg">
+        {atualizando ? (
+          <RefreshCw className="size-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <ChevronDown
+            className="size-4 transition-transform"
+            style={{ transform: `rotate(${progresso >= 1 ? 180 : 0}deg)` }}
+            aria-hidden="true"
+          />
+        )}
+        <span>{atualizando ? "Atualizando…" : progresso >= 1 ? "Solte para atualizar" : "Puxe para atualizar"}</span>
       </div>
-      <style>{`
-        .motion2-enabled .motion2-pull-default { display: none; }
-        .motion2-enabled .motion2-pull-logo { display: grid; transition: transform 80ms linear, box-shadow 160ms ease; }
-        .motion2-enabled .motion2-pull-shell { box-shadow: 0 10px 26px rgba(79, 42, 24, .14), 0 0 0 1px rgba(212, 175, 55, .07); }
-        .motion2-enabled .motion2-pull-syncing {
-          animation: motion2PullLogo 1120ms cubic-bezier(.2,.72,.22,1) infinite;
-          box-shadow: 0 0 0 3px rgba(212,175,55,.12), 0 4px 12px rgba(116,73,14,.16);
-        }
-        @keyframes motion2PullLogo {
-          0%, 100% { transform: scale(1) rotate(0deg); }
-          35% { transform: scale(1.055) rotate(3deg); }
-          68% { transform: scale(1.025) rotate(-2deg); }
-        }
-        @media (prefers-reduced-motion: reduce) { .motion2-enabled .motion2-pull-syncing { animation: none; } }
-      `}</style>
     </div>
   )
 }
