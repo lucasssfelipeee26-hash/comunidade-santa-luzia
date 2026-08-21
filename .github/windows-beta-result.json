@@ -1,0 +1,13 @@
+{
+  "publishedAt": "2026-08-21T23:08:51.5946804Z",
+  "channel": "windows-beta",
+  "versionName": "0.1.0-beta.1",
+  "buildNumber": 1,
+  "artifact": "Santa-Luzia-Beta-Windows-0.1.0-beta.1-x64.exe",
+  "artifactSize": 123781693,
+  "artifactSha256": "7e9c1b1ef7bdf1321b7985d4475de70d12c08727c6a1e49c83667783814f7f3e",
+  "releaseTag": "windows-beta-v0.1.0-beta.1",
+  "prerelease": true,
+  "androidStableVersionName": "1.0.6",
+  "androidStableVersionCode": 18
+}
