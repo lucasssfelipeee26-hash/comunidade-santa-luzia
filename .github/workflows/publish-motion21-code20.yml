@@ -9,9 +9,10 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: android-release
+  group: publish-motion21-code20
   cancel-in-progress: false
 
 env:
@@ -25,7 +26,7 @@ env:
 jobs:
   assinar-publicar:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,9 +39,35 @@ jobs:
           test "$(node -p 'require("./config/android-build.json").versionCode')" = "20"
           test "$(node -p 'require("./config/android-build.json").versionName')" = "2.1.0"
 
+      - name: Aguardar workflow Android genérico
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Aguardando o workflow android-release.yml concluir para o mesmo commit..."
+          concluido=0
+          for tentativa in $(seq 1 180); do
+            STATUS="$(gh run list --workflow android-release.yml --commit "$GITHUB_SHA" --limit 1 --json status --jq '.[0].status // empty' 2>/dev/null || true)"
+            if [ "$STATUS" = "completed" ]; then
+              concluido=1
+              break
+            fi
+            sleep 15
+          done
+          test "$concluido" = "1"
+          git fetch origin main
+          git reset --hard origin/main
+          test "$(node -p 'require("./config/android-build.json").versionCode')" = "20"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          node-version: "21"
+        continue-on-error: true
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -154,6 +181,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git pull --rebase origin main
           node <<'NODE'
           const fs=require('fs')
           const path='config/android-release.json'
@@ -181,7 +209,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add config/android-release.json .github/motion21-code20-result.json
           git commit -m 'Publica Santa Luzia Motion 2.1 code 20'
-          git pull --rebase origin main
           git push origin HEAD:main
 
       - name: Limpar runner
