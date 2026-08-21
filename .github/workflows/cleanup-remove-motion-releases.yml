@@ -1,0 +1,42 @@
+name: TEMP — retirar releases Motion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cleanup-remove-motion-releases.yml
+
+permissions:
+  contents: write
+
+jobs:
+  limpar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remover releases Motion e restaurar code 18 como latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view android-v2.1.0 >/dev/null 2>&1; then
+            gh release delete android-v2.1.0 --yes --cleanup-tag
+          fi
+          if gh release view android-v2.0.0 >/dev/null 2>&1; then
+            gh release delete android-v2.0.0 --yes --cleanup-tag
+          fi
+          gh release view android-v1.0.6 >/dev/null
+          gh release edit android-v1.0.6 --latest --title "Santa Luzia Android 1.0.6 — code 18 corrigido"
+      - name: Remover este workflow temporário
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/cleanup-remove-motion-releases.yml
+          git commit -m 'Remove workflow temporário de limpeza Motion'
+          git pull --rebase origin main
+          git push origin HEAD:main
