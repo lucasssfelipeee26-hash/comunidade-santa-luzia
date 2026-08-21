@@ -13,6 +13,7 @@ module.exports = {
   files: [
     "electron/**/*",
     "config/windows-beta.json",
+    "public/icon-512x512.png",
     "package.json",
   ],
   win: {
