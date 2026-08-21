@@ -1,13 +1,12 @@
 {
-  "id": "motion-2-1-2026-08-20",
-  "title": "Santa Luzia Motion 2.1",
-  "message": "A experiência visual foi refinada para ficar mais elegante, proporcional e estável, mantendo o funcionamento local-first do aplicativo.",
+  "id": "profissionalizacao-2026-08-15-b",
+  "title": "Novidades importantes no Santa Luzia",
+  "message": "Ajustamos o aplicativo para ficar mais moderno, privado e preparado para funcionar melhor mesmo quando a internet falhar.",
   "highlights": [
-    "Pódio redesenhado com troféu 3D e luzes mais marcantes em ouro, prata e bronze",
-    "Avatares do Top 3 fazem um giro único e mais suave ao entrar ou atualizar o ranking",
-    "Transições entre telas foram simplificadas para eliminar saltos, escalas e efeitos desproporcionais",
-    "Movimentações importantes do ranking aparecem em um banner animado para quem estiver acompanhando",
-    "A animação de Santa Luzia foi substituída por um movimento curto e discreto, sem giro exagerado"
+    "Agora você pode visitar os perfis da equipe e ver foto, bio e posição na Jornada",
+    "Faltas, advertências, justificativas e observações ficam protegidas e reservadas aos moderadores",
+    "Botões, campos, copiar e colar e o som padrão foram ajustados para celulares Android",
+    "Perfil, Formação, Escalas, Jornada, Biblioteca e Atrasos receberam uma base offline mais segura"
   ],
-  "publishedAt": "2026-08-20"
+  "publishedAt": "2026-08-15"
 }

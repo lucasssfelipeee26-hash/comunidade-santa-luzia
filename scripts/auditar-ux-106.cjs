@@ -9,7 +9,7 @@ function exigir(condicao, titulo) {
   else { falhas += 1; console.error(`✗ ${titulo}`) }
 }
 
-console.log("\nAUDITORIA UX/NATIVA — SANTA LUZIA\n")
+console.log("\nAUDITORIA UX/NATIVA — SANTA LUZIA 1.0.6\n")
 
 const bottom = ler("components/mobile-bottom-nav.tsx")
 const header = ler("components/site-header.tsx")
@@ -43,7 +43,7 @@ exigir(splash.includes("windowSplashScreenBackground\">@color/santa_luzia_surfac
 exigir(!splash.includes("@drawable/splash") && !splash.includes("windowSplashScreenBackground\">@color/colorPrimaryDark"), "Splash antiga vermelha foi removida")
 exigir(launcher.includes("#FFF8EE"), "Fundo do ícone adaptativo segue a identidade marfim")
 exigir(progresso.includes("top-[max(8px,env(safe-area-inset-top))]") && progresso.includes("h-1"), "Barra de progresso foi deslocada e ampliada")
-exigir(/^\d+\.\d+\.\d+$/.test(String(build.versionName)) && Number.isInteger(build.versionCode) && build.versionCode >= 17, "Build usa versão pública semântica e código interno válido")
+exigir(build.versionName === "1.0.6" && build.versionCode >= 17, "Build mantém 1.0.6 e usa código interno novo")
 
 // A base React/Capacitor continua independente da linguagem usada nas classes Android.
 // Kotlin pode ser acrescentado gradualmente sem reescrever a camada web; a compilação

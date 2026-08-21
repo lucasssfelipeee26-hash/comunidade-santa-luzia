@@ -1,0 +1,13 @@
+{
+  "versionCode": 18,
+  "versionName": "1.0.6",
+  "publishedAt": "2026-08-20",
+  "required": true,
+  "apkSize": 23524382,
+  "apkSha256": "65989c89dd8f36f88b25d10a641ffc6ee6808c346a8d8173f4e85da1b15ed58a",
+  "highlights": [
+    "Atualização técnica obrigatória para preparar o novo sistema de atualizações",
+    "Instala o atualizador compatível com GitHub Releases",
+    "Mantém validação de tamanho, SHA-256, pacote e assinatura oficial"
+  ]
+}
