@@ -8,6 +8,7 @@ import { AndroidUpdateRouterRuntime } from "@/components/android-update-router-r
 import { AndroidUpdateTransitionGuard } from "@/components/android-update-transition-guard"
 import { NativePlatformRuntime } from "@/components/native-platform-runtime"
 import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-runtime"
+import { RankingMotionRuntime } from "@/components/ranking-motion-runtime"
 import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
 import { MobilePolishRuntime } from "@/components/mobile-polish-runtime"
 import { Motion2Runtime } from "@/components/motion-2-runtime"
@@ -22,6 +23,7 @@ export function AppRuntime({ children }: { children: React.ReactNode }) {
       <NativePlatformRuntime />
       <NativeNotificationRuntime />
       <GameRankingRefreshRuntime />
+      <RankingMotionRuntime />
       <AndroidOfflineSnapshotRuntime />
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />

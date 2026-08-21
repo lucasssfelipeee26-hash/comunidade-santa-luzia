@@ -1,23 +1,24 @@
-name: Publicar Santa Luzia Motion 2.0 code 19
+name: Publicar Santa Luzia Motion 2.1 code 20
 
 on:
   push:
     branches: [main]
     paths:
       - config/android-build.json
-      - .github/workflows/publish-motion2-code19.yml
+      - .github/workflows/publish-motion21-code20.yml
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: publish-motion2-code19
+  group: publish-motion21-code20
   cancel-in-progress: false
 
 env:
-  APP_VERSION_CODE: "19"
-  APP_VERSION_NAME: "2.0.0"
-  AUTH_SECRET: ci-motion2-code19-12345678901234567890
+  APP_VERSION_CODE: "20"
+  APP_VERSION_NAME: "2.1.0"
+  AUTH_SECRET: ci-motion21-code20-12345678901234567890
   CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
   EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
   BRIDGE_PRIVATE: .github/.temp-signing-bridge-private.pem
@@ -25,17 +26,40 @@ env:
 jobs:
   assinar-publicar:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Confirmar build Motion 2.0
+
+      - name: Confirmar build Motion 2.1
         shell: bash
         run: |
           set -euo pipefail
-          test "$(node -p 'require("./config/android-build.json").versionCode')" = "19"
-          test "$(node -p 'require("./config/android-build.json").versionName')" = "2.0.0"
+          test "$(node -p 'require("./config/android-build.json").versionCode')" = "20"
+          test "$(node -p 'require("./config/android-build.json").versionName')" = "2.1.0"
+
+      - name: Aguardar workflow Android genérico
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Aguardando android-release.yml concluir para o mesmo commit..."
+          concluido=0
+          for tentativa in $(seq 1 180); do
+            STATUS="$(gh run list --workflow android-release.yml --commit "$GITHUB_SHA" --limit 1 --json status --jq '.[0].status // empty' 2>/dev/null || true)"
+            if [ "$STATUS" = "completed" ]; then
+              concluido=1
+              break
+            fi
+            sleep 15
+          done
+          test "$concluido" = "1"
+          git fetch origin main
+          git reset --hard origin/main
+          test "$(node -p 'require("./config/android-build.json").versionCode')" = "20"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -43,12 +67,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+
       - name: Restaurar chave efêmera da ponte
         uses: actions/cache/restore@v4
         with:
           path: .github/.temp-signing-bridge-private.pem
           key: santa-luzia-signing-bridge-421bc125ce9be08617705100254c469097e1238e
           fail-on-cache-miss: true
+
       - name: Recuperar chave histórica de assinatura
         shell: bash
         run: |
@@ -66,6 +92,7 @@ jobs:
           echo "::add-mask::$STORE_PASS"
           echo "::add-mask::$KEY_ALIAS"
           printf 'ANDROID_KEYSTORE_PATH=%s\nANDROID_KEYSTORE_PASSWORD=%s\nANDROID_KEY_ALIAS=%s\nANDROID_KEY_PASSWORD=%s\n' "$RUNNER_TEMP/signing/santa-luzia-release.jks" "$STORE_PASS" "$KEY_ALIAS" "$STORE_PASS" >> "$GITHUB_ENV"
+
       - name: Validar certificado oficial
         shell: bash
         run: |
@@ -73,7 +100,8 @@ jobs:
           keytool -list -v -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" > "$RUNNER_TEMP/key.txt"
           CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/key.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test "$CERT" = "$EXPECTED_CERT"
-      - name: Validar Motion 2.0 e preparar Android
+
+      - name: Validar Motion 2.1 e preparar Android
         shell: bash
         run: |
           set -euo pipefail
@@ -84,16 +112,18 @@ jobs:
           npx cap add android
           npx cap sync android
           node scripts/prepare-android.cjs
-          grep -Eq 'versionCode[[:space:]]+19' android/app/build.gradle
-          grep -Eq 'versionName[[:space:]]+"2\.0\.0"' android/app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+20' android/app/build.gradle
+          grep -Eq 'versionName[[:space:]]+"2\.1\.0"' android/app/build.gradle
           test -f components/motion-2-runtime.tsx
-          test -f components/motion-2-update-banner.tsx
+          test -f components/ranking-motion-runtime.tsx
           test -f components/android-update-router-runtime.tsx
-          grep -Fq 'BUILD_MOTION_2 = 19' components/motion-2-runtime.tsx
-          grep -Fq 'build === 18' components/android-update-router-runtime.tsx
+          grep -Fq 'motion2-trophy-model' components/motion-2-runtime.tsx
+          grep -Fq 'motion2-avatar-orbit' components/motion-2-runtime.tsx
+          grep -Fq 'MIN_CONSOLIDATED_VERSION_CODE = 20' app/api/app/android/transition/route.ts
           grep -Fq 'release-assets.githubusercontent.com' android/app/src/main/java/br/com/comunidadesantaluzia/app/AppUpdaterPlugin.java
           node scripts/configure-android-signing.cjs
-      - name: Gerar e validar APK Motion 2.0
+
+      - name: Gerar e validar APK Motion 2.1
         shell: bash
         run: |
           set -euo pipefail
@@ -106,71 +136,76 @@ jobs:
           test "$CERT" = "$EXPECTED_CERT"
           mkdir -p dist
           cp "$APK" dist/santa-luzia.apk
-          cp "$APK" dist/Santa-Luzia-Motion-2.0.apk
-          cp "$APK" dist/Santa-Luzia-2.0.0-code19.apk
+          cp "$APK" dist/Santa-Luzia-Motion-2.1.apk
+          cp "$APK" dist/Santa-Luzia-2.1.0-code20.apk
           SHA="$(sha256sum dist/santa-luzia.apk | awk '{print $1}')"
           SIZE="$(stat -c '%s' dist/santa-luzia.apk)"
           printf '%s  santa-luzia.apk\n' "$SHA" > dist/santa-luzia.apk.sha256
           printf 'SIGNED_APK_SHA=%s\nSIGNED_APK_SIZE=%s\nSIGNED_APK_CERT=%s\n' "$SHA" "$SIZE" "$CERT" >> "$GITHUB_ENV"
-      - name: Publicar GitHub Release Motion 2.0
+
+      - name: Publicar GitHub Release Motion 2.1
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG=android-v2.0.0
+          TAG=android-v2.1.0
           cat > "$RUNNER_TEMP/notes.md" <<'EOF'
-          Santa Luzia Motion 2.0 — code 19.
+          Santa Luzia Motion 2.1 — code 20.
 
-          Nova experiência visual:
-          - transições suaves entre telas;
-          - microanimações nos botões e navegação inferior;
-          - pódio com troféu, avatares e bordas ouro/prata/bronze animados;
-          - Santa Luzia animada na entrada e no gesto de atualizar;
-          - formações, modais, notificações e carregamentos mais fluidos;
-          - feedback tátil discreto e respeito ao modo de movimento reduzido.
+          Atualização consolidada e refinada:
+          - transições entre telas mais curtas e estáveis;
+          - pódio proporcional com destaque correto para 1º, 2º e 3º lugares;
+          - troféu metálico com profundidade e animação 3D;
+          - avatares do Top 3 com giro único e suave ao entrar ou atualizar;
+          - luzes animadas mais marcantes em ouro, prata e bronze;
+          - banner animado para ultrapassagens, novo líder e entrada no Top 3;
+          - animação de Santa Luzia refinada, sem giro exagerado;
+          - atualizador GitHub e funcionamento local-first preservados.
 
-          O code 19 exige que o aparelho tenha passado primeiro pela atualização técnica code 18.
+          Builds legadas podem receber esta versão em uma única etapa pela ponte oficial do Railway. A partir desta versão, as próximas atualizações usam GitHub Releases diretamente.
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-Motion-2.0.apk dist/Santa-Luzia-2.0.0-code19.apk dist/santa-luzia.apk.sha256 --clobber
-            gh release edit "$TAG" --latest --title "Santa Luzia Motion 2.0 — code 19" --notes-file "$RUNNER_TEMP/notes.md"
+            gh release upload "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-Motion-2.1.apk dist/Santa-Luzia-2.1.0-code20.apk dist/santa-luzia.apk.sha256 --clobber
+            gh release edit "$TAG" --latest --title "Santa Luzia Motion 2.1 — code 20" --notes-file "$RUNNER_TEMP/notes.md"
           else
-            gh release create "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-Motion-2.0.apk dist/Santa-Luzia-2.0.0-code19.apk dist/santa-luzia.apk.sha256 --latest --title "Santa Luzia Motion 2.0 — code 19" --notes-file "$RUNNER_TEMP/notes.md"
+            gh release create "$TAG" dist/santa-luzia.apk dist/Santa-Luzia-Motion-2.1.apk dist/Santa-Luzia-2.1.0-code20.apk dist/santa-luzia.apk.sha256 --latest --title "Santa Luzia Motion 2.1 — code 20" --notes-file "$RUNNER_TEMP/notes.md"
           fi
-      - name: Publicar manifesto Motion 2.0
+
+      - name: Publicar manifesto Motion 2.1
         shell: bash
         run: |
           set -euo pipefail
+          git pull --rebase origin main
           node <<'NODE'
           const fs=require('fs')
           const path='config/android-release.json'
           const release=JSON.parse(fs.readFileSync(path,'utf8'))
           Object.assign(release,{
-            versionCode:19,
-            versionName:'2.0.0',
+            versionCode:20,
+            versionName:'2.1.0',
             publishedAt:'2026-08-20',
             required:false,
             apkSize:Number(process.env.SIGNED_APK_SIZE),
             apkSha256:process.env.SIGNED_APK_SHA,
             highlights:[
-              'Transições suaves e microanimações em toda a navegação',
-              'Ranking com pódio, troféu, avatares e bordas animadas em ouro, prata e bronze',
-              'Santa Luzia gira suavemente na entrada e durante a atualização da tela',
-              'Formações, modais, notificações e carregamentos receberam movimento e profundidade',
-              'Feedback tátil discreto e suporte a movimento reduzido preservam conforto e acessibilidade'
+              'Pódio redesenhado com troféu 3D e luzes mais marcantes em ouro, prata e bronze',
+              'Avatares do Top 3 fazem um giro único e mais suave ao entrar ou atualizar o ranking',
+              'Transições entre telas foram simplificadas para eliminar saltos, escalas e efeitos desproporcionais',
+              'Movimentações importantes do ranking aparecem em um banner animado para quem estiver acompanhando',
+              'A animação de Santa Luzia foi refinada para um movimento curto e discreto, sem giro exagerado'
             ]
           })
           fs.writeFileSync(path,JSON.stringify(release,null,2)+'\n')
-          const result={publishedAt:new Date().toISOString(),versionName:'2.0.0',versionCode:19,apkSize:Number(process.env.SIGNED_APK_SIZE),apkSha256:process.env.SIGNED_APK_SHA,certificateSha256:process.env.SIGNED_APK_CERT,expectedCertificateSha256:process.env.EXPECTED_CERT,certificateMatches:process.env.SIGNED_APK_CERT===process.env.EXPECTED_CERT,releaseTag:'android-v2.0.0',asset:'santa-luzia.apk',motion2:true}
-          fs.writeFileSync('.github/motion2-code19-result.json',JSON.stringify(result,null,2)+'\n')
+          const result={publishedAt:new Date().toISOString(),versionName:'2.1.0',versionCode:20,apkSize:Number(process.env.SIGNED_APK_SIZE),apkSha256:process.env.SIGNED_APK_SHA,certificateSha256:process.env.SIGNED_APK_CERT,expectedCertificateSha256:process.env.EXPECTED_CERT,certificateMatches:process.env.SIGNED_APK_CERT===process.env.EXPECTED_CERT,releaseTag:'android-v2.1.0',asset:'santa-luzia.apk',motion21:true,consolidated:true}
+          fs.writeFileSync('.github/motion21-code20-result.json',JSON.stringify(result,null,2)+'\n')
           NODE
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add config/android-release.json .github/motion2-code19-result.json
-          git commit -m 'Publica Santa Luzia Motion 2.0 code 19'
-          git pull --rebase origin main
+          git add config/android-release.json .github/motion21-code20-result.json
+          git commit -m 'Publica Santa Luzia Motion 2.1 code 20'
           git push origin HEAD:main
+
       - name: Limpar runner
         if: always()
         shell: bash

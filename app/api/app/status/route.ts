@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic"
 
 // A revisão do tema já é observada pelas builds Android anteriores e provoca
 // uma única recarga segura quando muda. O sufixo abaixo força quem está com o
-// bundle antigo em memória a buscar o runtime corrigido do banner de atualização.
-const REVISAO_INTERFACE = "ui-20260818-update-banner-v2"
+// bundle antigo em memória a buscar a interface Motion refinada.
+const REVISAO_INTERFACE = "ui-20260820-motion-2-1"
 
 export async function GET() {
   return NextResponse.json(
