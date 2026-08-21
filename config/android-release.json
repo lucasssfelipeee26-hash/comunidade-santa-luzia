@@ -1,15 +1,13 @@
 {
-  "versionCode": 19,
-  "versionName": "2.0.0",
+  "versionCode": 18,
+  "versionName": "1.0.6",
   "publishedAt": "2026-08-20",
   "required": false,
   "apkSize": 23524382,
-  "apkSha256": "70fdc02a8002f660fe14d4a375c6d3eaa6a2f03a721b956dd5d77d8cc0d870a9",
+  "apkSha256": "65989c89dd8f36f88b25d10a641ffc6ee6808c346a8d8173f4e85da1b15ed58a",
   "highlights": [
-    "Transições suaves e microanimações em toda a navegação",
-    "Ranking com pódio, troféu, avatares e bordas animadas em ouro, prata e bronze",
-    "Santa Luzia gira suavemente na entrada e durante a atualização da tela",
-    "Formações, modais, notificações e carregamentos receberam movimento e profundidade",
-    "Feedback tátil discreto e suporte a movimento reduzido preservam conforto e acessibilidade"
+    "Atualizador Android compatível com GitHub Releases",
+    "Validação de tamanho, SHA-256, pacote e assinatura oficial",
+    "A próxima atualização visual será oferecida somente após a publicação do Motion 2.1 corrigido"
   ]
 }
