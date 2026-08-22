@@ -37,8 +37,11 @@ function dataPorExtenso(dataIso: string) {
   }).format(new Date(Date.UTC(ano, mes - 1, dia, 12, 0, 0)))
 }
 
-export async function GET() {
-  const dataIso = dataCuiabaIso()
+export async function GET(request: Request) {
+  const url = new URL(request.url)
+  const solicitada = url.searchParams.get("data") || ""
+  const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
+  const dataIso = windowsBeta && /^\d{4}-\d{2}-\d{2}$/.test(solicitada) ? solicitada : dataCuiabaIso()
   const local = obterLiturgiaLocal(dataIso) || obterLiturgiaCompletaOffline(dataIso)
   if (!local) {
     return NextResponse.json({

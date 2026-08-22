@@ -50,19 +50,41 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ erro: "Não é possível registrar presença em uma formação cancelada." }, { status: 409 })
   }
 
-  const hoje = hojeEmCuiaba()
-  if (formacao.data !== hoje) {
-    const mensagem = formacao.data > hoje
-      ? "A presença só poderá ser marcada no dia da formação."
-      : "O período para marcar presença nesta formação já terminou."
-    return NextResponse.json({ erro: mensagem, dataFormacao: formacao.data, hoje }, { status: 409 })
-  }
-
   const body = await request.json().catch(() => null) as {
     situacao?: unknown
     justificativa?: unknown
   } | null
   const situacao = String(body?.situacao ?? "") as FormacaoPresencaStatus
+  const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
+
+  if (windowsBeta && situacao === "falta") {
+    return NextResponse.json({ erro: "A falta é registrada somente pela moderação." }, { status: 403 })
+  }
+
+  const anterior = listarHistoricoFormacaoUsuario(sessao.sub).find((item) => item.formacao_id === id)
+  if (windowsBeta && anterior?.status === "justificada") {
+    return NextResponse.json({ erro: "A falta já foi justificada e este registro não pode mais ser alterado." }, { status: 409 })
+  }
+
+  const hoje = hojeEmCuiaba()
+  if (formacao.data !== hoje) {
+    if (windowsBeta && formacao.data > hoje && situacao === "justificada") {
+      // A Beta Windows permite justificar desde a publicação da formação.
+    } else {
+    const mensagem = formacao.data > hoje
+      ? "A presença só poderá ser marcada no dia da formação."
+      : "O período para marcar presença nesta formação já terminou."
+    return NextResponse.json({ erro: mensagem, dataFormacao: formacao.data, hoje }, { status: 409 })
+    }
+  }
+
+  if (windowsBeta && situacao === "presente" && formacao.horario) {
+    const inicio = Date.parse(`${formacao.data}T${formacao.horario}:00-04:00`)
+    if (Number.isFinite(inicio) && Date.now() < inicio) {
+      return NextResponse.json({ erro: `A presença será liberada às ${formacao.horario}.` }, { status: 425 })
+    }
+  }
+
   if (!["presente", "falta", "justificada"].includes(situacao)) {
     return NextResponse.json({ erro: "Situação de presença inválida." }, { status: 400 })
   }
