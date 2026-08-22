@@ -19,6 +19,8 @@ export function GerenciadorFormacoes() {
   const [windowsBeta, setWindowsBeta] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState<"agendada" | "concluida" | "cancelada">("agendada")
   const [filtroData, setFiltroData] = useState("")
+  const [editando, setEditando] = useState<string | null>(null)
+  const [edicao, setEdicao] = useState({ titulo: "", tema: "", data: "", horario: "", descricao: "" })
 
   async function carregar() {
     setLoading(true)
@@ -73,22 +75,28 @@ export function GerenciadorFormacoes() {
     await carregar()
   }
 
-  async function editar(item: FormacaoRow) {
-    const titulo = window.prompt("Título da formação:", item.titulo)?.trim()
-    if (!titulo) return
-    const tema = window.prompt("Tema da formação:", item.tema)?.trim()
-    if (!tema) return
-    const data = window.prompt("Data (AAAA-MM-DD):", item.data)?.trim()
-    if (!data) return
-    const horario = window.prompt("Horário (HH:MM):", item.horario || "")?.trim() ?? ""
-    const response = await fetch(`/api/formacoes/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "X-Santa-Luzia-Windows-Beta": "1" }, body: JSON.stringify({ titulo, tema, data, horario, descricao: item.descricao }) })
+  async function concluir(item: FormacaoRow) {
+    const response = await fetch(`/api/formacoes/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "X-Santa-Luzia-Windows-Beta": "1" }, body: JSON.stringify({ status: "concluida" }) })
+    if (!response.ok) { const json = await response.json().catch(() => null); setErro(json?.erro || "Não foi possível concluir a formação."); return }
+    await carregar()
+  }
+
+  function iniciarEdicao(item: FormacaoRow) {
+    setEditando(item.id)
+    setEdicao({ titulo: item.titulo, tema: item.tema, data: item.data, horario: item.horario || "", descricao: item.descricao })
+  }
+
+  async function salvarEdicao(item: FormacaoRow) {
+    const response = await fetch(`/api/formacoes/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", "X-Santa-Luzia-Windows-Beta": "1" }, body: JSON.stringify(edicao) })
     const json = await response.json().catch(() => null)
     if (!response.ok) { setErro(json?.erro || "Não foi possível editar a formação."); return }
+    setEditando(null)
     await carregar()
   }
 
   const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba" }).format(new Date())
-  const estado = (item: FormacaoRow) => item.status === "cancelada" ? "cancelada" : item.data < hoje ? "concluida" : "agendada"
+  const horaAtual = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Cuiaba", hour: "2-digit", hourCycle: "h23" }).format(new Date()))
+  const estado = (item: FormacaoRow) => item.status === "cancelada" ? "cancelada" : item.status === "concluida" || item.data < hoje || (item.data === hoje && horaAtual >= 22) ? "concluida" : "agendada"
   const itensVisiveis = windowsBeta ? itens.filter((item) => estado(item) === filtroStatus && (!filtroData || item.data === filtroData)) : itens
 
   return <section className="mt-10 overflow-hidden rounded-xl border border-[#d4af37]/45 bg-card" data-windows-beta-formation-manager={windowsBeta ? "true" : undefined}>
@@ -110,7 +118,8 @@ export function GerenciadorFormacoes() {
       <h3 className="mb-3 font-semibold">Formações publicadas</h3>
       {windowsBeta && <div className="mb-4 grid gap-2 rounded-2xl border bg-[#fffaf7] p-3 sm:grid-cols-[1fr_auto]"><div className="grid grid-cols-3 gap-2">{(["agendada", "concluida", "cancelada"] as const).map((status) => <button key={status} type="button" onClick={() => setFiltroStatus(status)} className={`min-h-10 rounded-xl px-2 text-xs font-bold ${filtroStatus === status ? "bg-primary text-white" : "border bg-white"}`}>{status === "agendada" ? "Agendadas" : status === "concluida" ? "Concluídas" : "Canceladas"}</button>)}</div><label className="flex items-center gap-2 rounded-xl border bg-white px-3"><Search className="size-4 text-muted-foreground" /><input type="date" aria-label="Pesquisar formação por data" value={filtroData} onChange={(event) => setFiltroData(event.target.value)} className="min-h-10 bg-transparent text-sm outline-none" /></label></div>}
       {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : itensVisiveis.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma formação encontrada nesta data e situação.</p> : <div className="space-y-3">{itensVisiveis.map(item => <article key={item.id} className="rounded-lg border border-border p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><strong>{item.titulo}</strong><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${estado(item) === "cancelada" ? "bg-destructive/10 text-destructive" : estado(item) === "concluida" ? "bg-slate-100 text-slate-700" : "bg-emerald-100 text-emerald-800"}`}>{estado(item) === "cancelada" ? "Cancelada" : estado(item) === "concluida" ? "Concluída" : "Agendada"}</span></div><p className="mt-1 text-sm font-medium text-primary">Tema: {item.tema}</p><p className="text-sm text-muted-foreground">{formatarData(item.data)}{item.horario ? ` às ${item.horario}` : ""}</p></div><div className="flex flex-wrap gap-2">{windowsBeta && <Button type="button" size="sm" variant="outline" onClick={() => editar(item)} className="gap-1"><FilePenLine className="size-4" /> Editar</Button>}{(!windowsBeta || estado(item) === "agendada") && <Button type="button" size="sm" variant="outline" onClick={() => mudarStatus(item)} className="gap-1">{item.status === "cancelada" ? <CheckCircle2 className="size-4" /> : <CalendarX className="size-4" />}{item.status === "cancelada" ? "Reativar" : "Cancelar"}</Button>}<Button type="button" size="sm" variant="outline" onClick={() => excluir(item.id)} className="gap-1 text-destructive"><Trash2 className="size-4" /> Excluir</Button></div></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><strong>{item.titulo}</strong><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${estado(item) === "cancelada" ? "bg-destructive/10 text-destructive" : estado(item) === "concluida" ? "bg-slate-100 text-slate-700" : "bg-emerald-100 text-emerald-800"}`}>{estado(item) === "cancelada" ? "Cancelada" : estado(item) === "concluida" ? "Concluída" : "Agendada"}</span></div><p className="mt-1 text-sm font-medium text-primary">Tema: {item.tema}</p><p className="text-sm text-muted-foreground">{formatarData(item.data)}{item.horario ? ` às ${item.horario}` : ""}</p></div><div className="flex flex-wrap gap-2">{windowsBeta && <Button type="button" size="sm" variant="outline" onClick={() => iniciarEdicao(item)} className="gap-1"><FilePenLine className="size-4" /> Editar</Button>}{windowsBeta && estado(item) === "agendada" && <Button type="button" size="sm" variant="outline" onClick={() => void concluir(item)} className="gap-1"><CheckCircle2 className="size-4" /> Concluir</Button>}{(!windowsBeta || estado(item) === "agendada") && <Button type="button" size="sm" variant="outline" onClick={() => mudarStatus(item)} className="gap-1">{item.status === "cancelada" ? <CheckCircle2 className="size-4" /> : <CalendarX className="size-4" />}{item.status === "cancelada" ? "Reativar" : "Cancelar"}</Button>}<Button type="button" size="sm" variant="outline" onClick={() => excluir(item.id)} className="gap-1 text-destructive"><Trash2 className="size-4" /> Excluir</Button></div></div>
+        {windowsBeta && editando === item.id && <div className="mt-4 grid gap-2 rounded-2xl border bg-[#fffaf7] p-3 sm:grid-cols-2"><Input aria-label="Editar título" value={edicao.titulo} onChange={(event) => setEdicao((old) => ({ ...old, titulo: event.target.value }))} /><Input aria-label="Editar tema" value={edicao.tema} onChange={(event) => setEdicao((old) => ({ ...old, tema: event.target.value }))} /><Input aria-label="Editar data" type="date" value={edicao.data} onChange={(event) => setEdicao((old) => ({ ...old, data: event.target.value }))} /><Input aria-label="Editar horário" type="time" value={edicao.horario} onChange={(event) => setEdicao((old) => ({ ...old, horario: event.target.value }))} /><textarea aria-label="Editar descrição" value={edicao.descricao} onChange={(event) => setEdicao((old) => ({ ...old, descricao: event.target.value }))} className="min-h-20 rounded-xl border bg-white p-3 text-sm sm:col-span-2" /><div className="flex gap-2 sm:col-span-2"><Button type="button" size="sm" onClick={() => void salvarEdicao(item)}>Salvar alterações</Button><Button type="button" size="sm" variant="outline" onClick={() => setEditando(null)}>Fechar</Button></div></div>}
         {item.motivo_cancelamento && <p className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive"><XCircle className="mr-1 inline size-4" /> {item.motivo_cancelamento}</p>}
         {item.arquivo && <a className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline" href={`/api/formacoes/${item.id}/download`}><Download className="size-4" /> {item.arquivo.nome_original} ({tamanho(item.arquivo.tamanho)})</a>}
         {item.status !== "cancelada" && <FormacaoPresencasEditor formacaoId={item.id} />}

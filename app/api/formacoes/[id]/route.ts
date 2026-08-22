@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const editada = atualizarFormacao(id, { titulo, tema, data, horario: horario || null, descricao: String(body.descricao || "").trim() })
     return editada ? NextResponse.json({ formacao: editada }, { headers: { "Cache-Control": "no-store" } }) : NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
   }
-  if (body.status !== "agendada" && body.status !== "cancelada") {
+  if (body.status !== "agendada" && body.status !== "concluida" && body.status !== "cancelada") {
     return NextResponse.json({ erro: "Status da formação inválido." }, { status: 400 })
   }
 

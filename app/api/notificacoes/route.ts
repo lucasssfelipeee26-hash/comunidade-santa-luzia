@@ -49,7 +49,7 @@ function garantirAvisosDiarios(usuarioId: string) {
   })
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const usuario = await contexto()
   if (!usuario) return NextResponse.json({ autenticado: false }, { status: 401 })
 
@@ -60,7 +60,8 @@ export async function GET() {
     .filter((e) => e.data >= hoje && e.pessoas.some((p) => p.id === usuario.id || p.nome === usuario.nome))
     .slice(0, 20)
   const quizzesPendentes = listarQuizzes(false).filter((q) => !q.data_referencia || q.data_referencia >= hoje).length
-  const notificacoes = listarNotificacoes(usuario.id)
+  const windowsBeta = request.headers.get("user-agent")?.includes("SantaLuziaWindowsBeta/") || request.headers.get("x-santa-luzia-windows-beta") === "1"
+  const notificacoes = listarNotificacoes(usuario.id).filter((notificacao) => !windowsBeta || Date.now() - notificacao.criado_em < 6 * 60 * 1000)
 
   return NextResponse.json({
     autenticado: true,

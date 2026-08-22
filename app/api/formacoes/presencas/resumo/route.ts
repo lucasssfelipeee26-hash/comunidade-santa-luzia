@@ -4,6 +4,7 @@ import {
   listarEquipeAprovada,
   listarFormacoes,
   listarTodasPresencasFormacao,
+  listarPontualidadeOcorrencias,
   db,
   type RegistroRow,
 } from "@/lib/db"
@@ -23,6 +24,8 @@ export async function GET(request: NextRequest) {
   const formacoesPorId = new Map(formacoes.map((formacao) => [formacao.id, formacao]))
   const registros = listarTodasPresencasFormacao()
     .filter((registro) => usuariosPorId.has(registro.usuario_id) && formacoesPorId.has(registro.formacao_id))
+  const registrosAdministrativos = windowsBeta ? db.prepare("SELECT * FROM registros").all() as RegistroRow[] : []
+  const atrasos = windowsBeta ? listarPontualidadeOcorrencias(false) : []
 
   const contar = (itens: typeof registros) => ({
     presencas: itens.filter((item) => item.status === "presente").length,
@@ -38,6 +41,8 @@ export async function GET(request: NextRequest) {
       nome: usuario.nome,
       funcao: usuario.funcao,
       tipo: usuario.tipo,
+      advertencias: registrosAdministrativos.filter((registro) => registro.usuario_id === usuario.id && registro.tipo === "advertencias").length,
+      atrasos: atrasos.filter((atraso) => atraso.usuario_id === usuario.id).length,
       ...contar(itens),
     }
   }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
@@ -74,7 +79,7 @@ export async function GET(request: NextRequest) {
     }
   })
   const recentesAdministrativos = windowsBeta
-    ? (db.prepare("SELECT * FROM registros").all() as RegistroRow[])
+    ? registrosAdministrativos
       .filter((registro) => usuariosPorId.has(registro.usuario_id))
       .map((registro) => {
         const usuario = usuariosPorId.get(registro.usuario_id)!
@@ -93,7 +98,23 @@ export async function GET(request: NextRequest) {
         }
       })
     : []
-  const recentes = [...recentesPresenca, ...recentesAdministrativos]
+  const recentesAtrasos = windowsBeta ? atrasos.map((atraso) => {
+    const usuario = usuariosPorId.get(atraso.usuario_id)
+    return usuario ? {
+      id: `atraso-${atraso.id}`,
+      usuarioId: usuario.id,
+      usuarioNome: usuario.nome,
+      usuarioFuncao: usuario.funcao,
+      usuarioTipo: usuario.tipo,
+      formacaoId: null,
+      formacaoTitulo: `Atraso · Missa às ${atraso.horario_missa}`,
+      formacaoData: atraso.data_missa,
+      status: "atraso",
+      justificativa: atraso.observacao || `Limite de chegada: ${atraso.limite_chegada}`,
+      atualizadoEm: atraso.moderado_em || atraso.criado_em,
+    } : null
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item)) : []
+  const recentes = [...recentesPresenca, ...recentesAdministrativos, ...recentesAtrasos]
     .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
     .slice(0, 500)
 

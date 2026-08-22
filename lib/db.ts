@@ -58,7 +58,7 @@ export type FormacaoRow = {
   data: string
   horario: string | null
   descricao: string
-  status: "agendada" | "cancelada"
+  status: "agendada" | "concluida" | "cancelada"
   motivo_cancelamento: string | null
   arquivo: FormacaoArquivo | null
   criado_em: number

@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import fs from "node:fs"
 import path from "node:path"
 import { lerSessao } from "@/lib/auth"
-import { listarFormacoes, listarHistoricoFormacaoUsuario, salvarFormacao, type FormacaoArquivo, DATA_DIR } from "@/lib/db"
+import { atualizarFormacao, listarEquipeAprovada, listarFormacoes, listarHistoricoFormacaoUsuario, listarPresencasFormacao, salvarFormacao, type FormacaoArquivo, DATA_DIR } from "@/lib/db"
+import { salvarNotificacao } from "@/lib/notificacoes"
 import { dataCivilIsoValida, horario24hValido } from "@/lib/validation"
 
 export const runtime = "nodejs"
@@ -13,10 +14,24 @@ const EXTENSOES = new Set([".pdf", ".ppt", ".pptx", ".doc", ".docx", ".odt", ".o
 
 function sanitizar(nome: string) { return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").slice(-180) || "arquivo" }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const sessao = await lerSessao()
   if (!sessao) return NextResponse.json({ erro: "Faça login para acessar as formações." }, { status: 401 })
 
+  const windowsBeta = request.headers.get("user-agent")?.includes("SantaLuziaWindowsBeta/") || request.headers.get("x-santa-luzia-windows-beta") === "1"
+  if (windowsBeta && sessao.tipo === "moderador") {
+    const agora = new Date()
+    const hoje = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba" }).format(agora)
+    const hora = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Cuiaba", hour: "2-digit", hourCycle: "h23" }).format(agora))
+    const totalEquipe = listarEquipeAprovada().length
+    for (const formacao of listarFormacoes().filter((item) => item.status === "agendada")) {
+      const registros = listarPresencasFormacao(formacao.id)
+      const completa = totalEquipe > 0 && registros.length >= totalEquipe
+      const prazoEncerrado = formacao.data < hoje || (formacao.data === hoje && hora >= 22)
+      if (!completa && prazoEncerrado) salvarNotificacao({ usuario_id: sessao.sub, chave: `formacao-pendente:${formacao.id}`, tipo: "sistema", titulo: "Formação encerrada com registros pendentes", mensagem: `${formacao.titulo}: confira quem ficou sem presença, falta ou justificativa.`, href: "/area-restrita/moderador/formacao" })
+      if (completa || prazoEncerrado) atualizarFormacao(formacao.id, { status: "concluida" })
+    }
+  }
   const historico = new Map(
     listarHistoricoFormacaoUsuario(sessao.sub).map((presenca) => [presenca.formacao_id, presenca]),
   )

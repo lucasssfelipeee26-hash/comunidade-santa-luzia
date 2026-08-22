@@ -25,6 +25,7 @@ type Escala = {
 
 type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
 type EscalasCache = { atualizadoEm: number; dados: EscalasResponse }
+type LiturgiaDaEscala = { liturgia: string; tempoLiturgicoAtual: string; cor: string; cicloDominical?: string; dataIso: string }
 
 async function fetcher(url: string): Promise<EscalasResponse> {
   const response = await fetch(url, { cache: "no-store" })
@@ -59,12 +60,15 @@ function formatarData(data: string) {
 export function EscalaPublica() {
   const [cacheLocal, setCacheLocal] = useState<EscalasCache | null>(null)
   const [online, setOnline] = useState(true)
+  const [windowsBeta, setWindowsBeta] = useState(false)
+  const [liturgias, setLiturgias] = useState<Record<string, LiturgiaDaEscala>>({})
   const { data, error, isLoading, mutate } = useSWR<EscalasResponse>("/api/escalas", fetcher, {
     refreshInterval: 60_000,
     revalidateOnFocus: true,
   })
 
   useEffect(() => {
+    setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
     setCacheLocal(carregarCacheEscalas<EscalasResponse>())
     const atualizarRede = () => setOnline(navigator.onLine)
     atualizarRede()
@@ -81,6 +85,21 @@ export function EscalaPublica() {
     salvarCacheEscalas(data)
     setCacheLocal({ atualizadoEm: Date.now(), dados: data })
   }, [data])
+
+  useEffect(() => {
+    if (!windowsBeta) return
+    const escalas = data?.escalas ?? cacheLocal?.dados?.escalas ?? []
+    void Promise.all(escalas.map(async (escala) => {
+      const [ano, mes, dia] = escala.data.split("-").map(Number)
+      const dataLiturgica = new Date(Date.UTC(ano, mes - 1, dia))
+      if (dataLiturgica.getUTCDay() === 6) dataLiturgica.setUTCDate(dataLiturgica.getUTCDate() + 1)
+      const dataIso = dataLiturgica.toISOString().slice(0, 10)
+      const response = await fetch(`/api/liturgia?data=${dataIso}`, { cache: "force-cache", headers: { "X-Santa-Luzia-Windows-Beta": "1" } })
+      if (!response.ok) return null
+      const liturgia = await response.json() as LiturgiaDaEscala
+      return [escala.id, liturgia] as const
+    })).then((itens) => setLiturgias(Object.fromEntries(itens.filter((item): item is readonly [string, LiturgiaDaEscala] => Boolean(item)))))
+  }, [windowsBeta, data, cacheLocal])
 
   const dadosExibidos = data?.ok ? data : cacheLocal?.dados
   const usandoCache = Boolean(dadosExibidos && (error || !online))
@@ -128,7 +147,8 @@ export function EscalaPublica() {
         </span>
       </div>
       {proximas.map((escala) => (
-        <article key={escala.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <article key={escala.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm" data-windows-beta-scale={windowsBeta ? escala.id : undefined}>
+          {windowsBeta && liturgias[escala.id] && <div className="mb-4 rounded-2xl border border-primary/10 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Celebração litúrgica</p><h2 className="mt-1 font-serif text-xl font-semibold text-primary">{liturgias[escala.id].liturgia}</h2><p className="mt-1 text-xs text-muted-foreground">{liturgias[escala.id].tempoLiturgicoAtual} · Ano {liturgias[escala.id].cicloDominical || "—"} · Cor {liturgias[escala.id].cor}</p></div>}
           <div className="mb-4 flex flex-wrap items-center gap-4">
             <span className="flex items-center gap-2 font-semibold capitalize text-primary">
               <CalendarDays className="size-4" /> {formatarData(escala.data)}
@@ -138,7 +158,7 @@ export function EscalaPublica() {
             </span>
           </div>
 
-          <div className="mb-4 rounded-lg bg-primary/5 p-4">
+          <div className="mb-4 rounded-xl border border-primary/10 bg-primary/5 p-4">
             <p className="flex items-center gap-2 font-medium">
               <Cross className="size-4" /> Celebrante: {escala.celebrante}
             </p>

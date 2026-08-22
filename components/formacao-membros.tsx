@@ -206,8 +206,8 @@ function CardProxima({ item, hoje, usuarioId, onAtualizada }: { item: FormacaoCo
   return (
     <article className={`rounded-xl border bg-white p-5 shadow-sm ${item.status === "cancelada" ? "border-destructive/40" : "border-[#d4af37]/35"}`}>
       <CabecalhoFormacao item={item} />
-      {item.status !== "cancelada" && ehHoje && <MinhaPresencaControle formacaoId={item.id} dataFormacao={item.data} usuarioId={usuarioId} presenca={item.minha_presenca} onAtualizada={onAtualizada} />}
-      {item.status !== "cancelada" && !ehHoje && (
+      {item.status === "agendada" && ehHoje && <MinhaPresencaControle formacaoId={item.id} dataFormacao={item.data} usuarioId={usuarioId} presenca={item.minha_presenca} onAtualizada={onAtualizada} />}
+      {item.status === "agendada" && !ehHoje && (
         <div className="mt-4 flex items-start gap-2 rounded-2xl border border-[#d4af37]/35 bg-[#fff8e6] p-3 text-sm leading-5 text-[#6f541a]"><LockKeyhole className="mt-0.5 size-4 shrink-0" /><span><strong>Presença bloqueada por enquanto.</strong> Os botões serão liberados somente no dia {formatarData(item.data)}.</span></div>
       )}
       <MaterialFormacao item={item} />
