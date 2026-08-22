@@ -9,6 +9,7 @@ import {
   History,
   Loader2,
   RefreshCw,
+  Search,
   ShieldCheck,
   Users,
   XCircle,
@@ -45,7 +46,7 @@ type Registro = {
   usuarioTipo: "moderador" | "membro"
   formacaoTitulo: string
   formacaoData: string
-  status: "presente" | "falta" | "justificada"
+  status: "presente" | "falta" | "justificada" | "advertencia" | "observacao"
   justificativa: string | null
   atualizadoEm: number
 }
@@ -73,7 +74,11 @@ function Situacao({ status }: { status: Registro["status"] }) {
     ? { texto: "Presente", classe: "bg-emerald-100 text-emerald-800", icone: <CheckCircle2 className="size-4" /> }
     : status === "justificada"
       ? { texto: "Justificada", classe: "bg-amber-100 text-amber-900", icone: <ShieldCheck className="size-4" /> }
-      : { texto: "Falta", classe: "bg-red-100 text-red-800", icone: <XCircle className="size-4" /> }
+      : status === "advertencia"
+        ? { texto: "Advertência", classe: "bg-rose-100 text-rose-900", icone: <AlertCircle className="size-4" /> }
+        : status === "observacao"
+          ? { texto: "Observação", classe: "bg-slate-100 text-slate-800", icone: <History className="size-4" /> }
+          : { texto: "Falta", classe: "bg-red-100 text-red-800", icone: <XCircle className="size-4" /> }
 
   return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${dados.classe}`}>{dados.icone}{dados.texto}</span>
 }
@@ -92,6 +97,10 @@ export function ControlePresencasFormacao() {
   const [erro, setErro] = useState("")
   const [carregando, setCarregando] = useState(true)
   const [aba, setAba] = useState<Aba>("pessoas")
+  const [windowsBeta, setWindowsBeta] = useState(false)
+  const [busca, setBusca] = useState("")
+  const [situacao, setSituacao] = useState("todas")
+  const [data, setData] = useState("")
 
   async function carregar() {
     setCarregando(true)
@@ -99,6 +108,7 @@ export function ControlePresencasFormacao() {
       const response = await fetch("/api/formacoes/presencas/resumo", {
         cache: "no-store",
         credentials: "same-origin",
+        headers: navigator.userAgent.includes("SantaLuziaWindowsBeta/") ? { "X-Santa-Luzia-Windows-Beta": "1" } : {},
       })
       const json = await response.json().catch(() => null)
       if (!response.ok || !json?.resumo) {
@@ -114,6 +124,7 @@ export function ControlePresencasFormacao() {
   }
 
   useEffect(() => {
+    setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
     void carregar()
     const sincronizar = () => void carregar()
     window.addEventListener("santa-luzia:server-sync", sincronizar)
@@ -137,21 +148,29 @@ export function ControlePresencasFormacao() {
 
   if (!dados) return null
 
+  const termo = busca.trim().toLocaleLowerCase("pt-BR")
+  const pessoasFiltradas = dados.pessoas.filter((pessoa) => !termo || `${pessoa.nome} ${pessoa.funcao}`.toLocaleLowerCase("pt-BR").includes(termo))
+  const historicoFiltrado = dados.recentes.filter((registro) => {
+    const combinaTexto = !termo || `${registro.usuarioNome} ${registro.usuarioFuncao} ${registro.formacaoTitulo} ${registro.justificativa || ""}`.toLocaleLowerCase("pt-BR").includes(termo)
+    return combinaTexto && (!data || registro.formacaoData === data) && (situacao === "todas" || registro.status === situacao)
+  })
+  const formacoesFiltradas = dados.formacoes.filter((formacao) => (!data || formacao.data === data) && (!termo || `${formacao.titulo} ${formacao.tema}`.toLocaleLowerCase("pt-BR").includes(termo)))
+
   return (
-    <div className="space-y-5">
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="space-y-5" data-windows-beta-presence-center={windowsBeta ? "true" : undefined}>
+      {!windowsBeta && <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Numero rotulo="Presenças" valor={dados.resumo.presencas} cor="text-emerald-700" />
         <Numero rotulo="Faltas" valor={dados.resumo.faltas} cor="text-red-700" />
         <Numero rotulo="Justificadas" valor={dados.resumo.justificadas} cor="text-amber-700" />
         <Numero rotulo="Não marcadas" valor={dados.resumo.naoRegistrados} cor="text-slate-700" />
-      </dl>
+      </dl>}
 
-      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[#e1d7d1] bg-[#fffaf7] p-2" role="tablist" aria-label="Controle de presença">
+      <div className={`grid ${windowsBeta ? "grid-cols-2" : "grid-cols-3"} gap-2 rounded-2xl border border-[#e1d7d1] bg-[#fffaf7] p-2`} role="tablist" aria-label="Controle de presença">
         {([
           ["pessoas", "Equipe", Users],
           ["formacoes", "Formações", CalendarDays],
           ["historico", "Histórico", History],
-        ] as const).map(([id, rotulo, Icone]) => (
+        ] as const).filter(([id]) => !windowsBeta || id !== "formacoes").map(([id, rotulo, Icone]) => (
           <button
             key={id}
             type="button"
@@ -166,8 +185,10 @@ export function ControlePresencasFormacao() {
       </div>
 
       {aba === "pessoas" && (
-        <section role="tabpanel" className="grid gap-3 md:grid-cols-2">
-          {dados.pessoas.map((pessoa) => (
+        <section role="tabpanel">
+          {windowsBeta && <label className="mb-3 flex items-center gap-2 rounded-2xl border bg-white px-3"><Search className="size-4 text-muted-foreground" /><input value={busca} onChange={(event) => setBusca(event.target.value)} className="min-h-11 w-full bg-transparent text-sm outline-none" placeholder="Pesquisar acólito ou coroinha" /></label>}
+          <div className="grid gap-3 md:grid-cols-2">
+          {pessoasFiltradas.map((pessoa) => (
             <article key={pessoa.id} className="rounded-2xl border border-[#e1d7d1] bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -183,7 +204,8 @@ export function ControlePresencasFormacao() {
               </dl>
             </article>
           ))}
-          {dados.pessoas.length === 0 && <p className="rounded-2xl border border-dashed bg-white p-5 text-muted-foreground">Nenhum acólito ou coroinha aprovado.</p>}
+          {pessoasFiltradas.length === 0 && <p className="rounded-2xl border border-dashed bg-white p-5 text-muted-foreground">Nenhum resultado encontrado.</p>}
+          </div>
         </section>
       )}
 
@@ -212,7 +234,9 @@ export function ControlePresencasFormacao() {
 
       {aba === "historico" && (
         <section role="tabpanel" className="space-y-3">
-          {dados.recentes.map((registro) => (
+          {windowsBeta && <div className="grid gap-2 rounded-2xl border bg-[#fffaf7] p-3 sm:grid-cols-[1fr_auto_auto]"><label className="flex items-center gap-2 rounded-xl border bg-white px-3"><Search className="size-4 text-muted-foreground" /><input value={busca} onChange={(event) => setBusca(event.target.value)} className="min-h-10 w-full bg-transparent text-sm outline-none" placeholder="Nome, formação ou registro" /></label><input type="date" aria-label="Filtrar por data" value={data} onChange={(event) => setData(event.target.value)} className="min-h-10 rounded-xl border bg-white px-3 text-sm" /><select aria-label="Filtrar por situação" value={situacao} onChange={(event) => setSituacao(event.target.value)} className="min-h-10 rounded-xl border bg-white px-3 text-sm"><option value="todas">Todos os registros</option><option value="presente">Presenças</option><option value="falta">Faltas</option><option value="justificada">Justificativas</option><option value="advertencia">Advertências</option><option value="observacao">Observações</option></select></div>}
+          {windowsBeta && situacao === "todas" && formacoesFiltradas.map((formacao) => <article key={`formacao-${formacao.id}`} className="rounded-2xl border border-[#e1d7d1] bg-white p-4 shadow-sm"><p className="text-xs font-bold uppercase tracking-[.08em] text-[#9a731d]">Formação · {formatarData(formacao.data)}{formacao.horario ? ` · ${formacao.horario}` : ""}</p><h2 className="mt-1 font-serif text-lg text-[#123f2e]">{formacao.titulo}</h2><p className="text-sm text-[#6d6255]">{formacao.tema}</p><div className="mt-3 flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-800">{formacao.presencas} presentes</span><span className="rounded-full bg-red-100 px-2.5 py-1 text-red-800">{formacao.faltas} faltas</span><span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-900">{formacao.justificadas} justificadas</span></div></article>)}
+          {historicoFiltrado.map((registro) => (
             <article key={registro.id} className="rounded-2xl border border-[#e1d7d1] bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -222,15 +246,15 @@ export function ControlePresencasFormacao() {
                 </div>
                 <Situacao status={registro.status} />
               </div>
-              {registro.status === "justificada" && registro.justificativa && (
+              {registro.justificativa && (
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  <strong>Justificativa:</strong> {registro.justificativa}
+                  <strong>{registro.status === "justificada" ? "Justificativa" : registro.status === "advertencia" ? "Advertência" : "Detalhes"}:</strong> {registro.justificativa}
                 </p>
               )}
               <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#756d6f]"><Clock3 className="size-3.5" /> Atualizado em {new Date(registro.atualizadoEm).toLocaleString("pt-BR")}</p>
             </article>
           ))}
-          {dados.recentes.length === 0 && <p className="rounded-2xl border border-dashed bg-white p-5 text-muted-foreground">Nenhuma presença registrada ainda.</p>}
+          {historicoFiltrado.length === 0 && formacoesFiltradas.length === 0 && <p className="rounded-2xl border border-dashed bg-white p-5 text-muted-foreground">Nenhum registro encontrado para os filtros escolhidos.</p>}
         </section>
       )}
     </div>

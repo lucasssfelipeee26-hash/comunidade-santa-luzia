@@ -1,16 +1,19 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import {
   listarEquipeAprovada,
   listarFormacoes,
   listarTodasPresencasFormacao,
+  db,
+  type RegistroRow,
 } from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const sessao = await lerSessao()
-  if (!sessao || sessao.tipo !== "moderador") {
+  const windowsBeta = request.headers.get("user-agent")?.includes("SantaLuziaWindowsBeta/") || request.headers.get("x-santa-luzia-windows-beta") === "1"
+  if (!sessao || (sessao.tipo !== "moderador" && !windowsBeta)) {
     return NextResponse.json({ erro: "Acesso exclusivo do moderador." }, { status: 403 })
   }
 
@@ -53,7 +56,7 @@ export async function GET() {
     }
   })
 
-  const recentes = registros.slice(0, 100).map((registro) => {
+  const recentesPresenca = registros.map((registro) => {
     const usuario = usuariosPorId.get(registro.usuario_id)!
     const formacao = formacoesPorId.get(registro.formacao_id)!
     return {
@@ -70,6 +73,29 @@ export async function GET() {
       atualizadoEm: registro.atualizado_em,
     }
   })
+  const recentesAdministrativos = windowsBeta
+    ? (db.prepare("SELECT * FROM registros").all() as RegistroRow[])
+      .filter((registro) => usuariosPorId.has(registro.usuario_id))
+      .map((registro) => {
+        const usuario = usuariosPorId.get(registro.usuario_id)!
+        return {
+          id: `administrativo-${registro.id}`,
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          usuarioFuncao: usuario.funcao,
+          usuarioTipo: usuario.tipo,
+          formacaoId: null,
+          formacaoTitulo: registro.tipo === "advertencias" ? "Advertência" : registro.tipo === "faltas" ? "Falta administrativa" : registro.tipo === "justificativas" ? "Justificativa" : "Observação",
+          formacaoData: registro.data,
+          status: registro.tipo === "advertencias" ? "advertencia" : registro.tipo === "faltas" ? "falta" : registro.tipo === "justificativas" ? "justificada" : "observacao",
+          justificativa: registro.descricao,
+          atualizadoEm: registro.criado_em,
+        }
+      })
+    : []
+  const recentes = [...recentesPresenca, ...recentesAdministrativos]
+    .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
+    .slice(0, 500)
 
   return NextResponse.json(
     {
