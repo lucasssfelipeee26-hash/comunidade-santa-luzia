@@ -27,6 +27,9 @@ if (!/^[a-f0-9]{40}$/i.test(beta.windowsBeta?.commit || "")) throw new Error("Co
 const capacitor = read("capacitor.config.ts")
 requireText(capacitor, "SANTA_LUZIA_MOTION_BETA", "Capacitor")
 requireText(capacitor, "SantaLuziaMotionBeta/", "Capacitor")
+requireText(capacitor, "if (!motionBeta && valorServidor)", "Capacitor local-first da Motion")
+requireText(capacitor, "nunca como server.url do Capacitor", "Capacitor local-first da Motion")
+if (/if \(valorServidor\) \{/.test(capacitor)) throw new Error("Capacitor ainda configura server.url mesmo na Motion Beta.")
 
 const mainActivity = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java")
 for (const marker of [
@@ -112,4 +115,4 @@ for (const marker of ["sincronizarRelatosAtrasoPendentes", "sincronizarPresencas
 console.log("[motion-beta] Auditoria de equivalência Windows→Android aprovada.")
 console.log(`[motion-beta] Android estável preservado: ${stable.versionName}/code${stable.versionCode}.`)
 console.log(`[motion-beta] Beta isolada: ${beta.versionName}/code${beta.versionCode} — ${beta.applicationId}.`)
-console.log("[motion-beta] Login semanal, perfil/painel, Quiz, ranking, animações, transições e stack Windows completa validados por marcadores.")
+console.log("[motion-beta] Login semanal, perfil/painel, Quiz, ranking, animações, transições, WebView local e stack Windows completa validados.")
