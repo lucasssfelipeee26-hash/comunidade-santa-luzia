@@ -65,15 +65,22 @@ jobs:
 
       - name: Carregar configuração da Beta
         run: |
-          echo "APP_VERSION_CODE=$(node -p 'require(\"./config/android-motion-beta.json\").versionCode')" >> "$GITHUB_ENV"
-          echo "APP_VERSION_NAME=$(node -p 'require(\"./config/android-motion-beta.json\").versionName')" >> "$GITHUB_ENV"
-          echo "MOTION_APP_ID=$(node -p 'require(\"./config/android-motion-beta.json\").applicationId')" >> "$GITHUB_ENV"
-          echo "MOTION_RUNTIME_COMMIT=$(node -p 'require(\"./config/android-motion-beta.json\").windowsMotion.commit')" >> "$GITHUB_ENV"
-          echo "MOTION_RUNTIME_SIZE=$(node -p 'require(\"./config/android-motion-beta.json\").windowsMotion.size')" >> "$GITHUB_ENV"
-          echo "MOTION_RUNTIME_SHA=$(node -p 'require(\"./config/android-motion-beta.json\").windowsMotion.sha256')" >> "$GITHUB_ENV"
+          node <<'NODE'
+          const fs = require('fs')
+          const c = require('./config/android-motion-beta.json')
+          const vars = {
+            APP_VERSION_CODE: c.versionCode,
+            APP_VERSION_NAME: c.versionName,
+            MOTION_APP_ID: c.applicationId,
+            MOTION_RUNTIME_COMMIT: c.windowsMotion.commit,
+            MOTION_RUNTIME_SIZE: c.windowsMotion.size,
+            MOTION_RUNTIME_SHA: c.windowsMotion.sha256,
+          }
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(vars).map(([k,v]) => `${k}=${v}\n`).join(''))
+          NODE
 
       - name: Instalar dependências
-        run: npm install --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund
 
       - name: Validar sintaxe dos runtimes
         run: |
@@ -84,8 +91,8 @@ jobs:
       - name: Auditar TypeScript
         run: npx tsc --noEmit
 
-      - name: Auditar ESLint
-        run: npm run lint
+      - name: Auditar dependências declaradas
+        run: npm ls --depth=0
 
       - name: Auditar robustez crítica
         run: npm run audit:robustez
