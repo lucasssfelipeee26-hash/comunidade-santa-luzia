@@ -130,7 +130,8 @@ jobs:
           test -f android/app/src/main/assets/public/motion/android-motion-beta.js
           grep -Fq "MOTION_BETA_PACKAGE" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
 
-      - name: Validar chave de assinatura para teste atualizável
+      - name: Validar chave oficial para build assinado persistente
+        if: github.event_name != 'pull_request'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -147,7 +148,8 @@ jobs:
           CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/motion-key-info.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test "$CERT" = "$EXPECTED_CERT"
 
-      - name: Configurar assinatura da Beta
+      - name: Configurar assinatura persistente da Beta
+        if: github.event_name != 'pull_request'
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/santa-luzia-motion-beta.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -155,7 +157,8 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: node scripts/configure-android-signing.cjs
 
-      - name: Compilar APK Motion Beta
+      - name: Compilar APK Motion Beta assinado
+        if: github.event_name != 'pull_request'
         working-directory: android
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/santa-luzia-motion-beta.jks
@@ -169,10 +172,25 @@ jobs:
           done
           exit 1
 
+      - name: Compilar APK Motion Beta de teste do PR
+        if: github.event_name == 'pull_request'
+        working-directory: android
+        run: |
+          # PRs não recebem os segredos da chave oficial. Para ainda validar em um
+          # aparelho real, gera-se um APK debug instalável do pacote isolado Motion Beta.
+          # Ele nunca substitui o Santa Luzia oficial e não é publicado como release.
+          ./gradlew assembleDebug --no-daemon
+
       - name: Auditar APK final
         run: |
           set -euo pipefail
-          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+            SIGNING_MODE="debug-test"
+          else
+            APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+            SIGNING_MODE="official-persistent"
+          fi
           test -n "$APK"
           test "$(stat -c%s "$APK")" -gt 20000000
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
@@ -181,7 +199,8 @@ jobs:
           grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/motion-badging.txt"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/motion-apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
-          test "$CERT" = "$EXPECTED_CERT"
+          test -n "$CERT"
+          if [ "$SIGNING_MODE" = "official-persistent" ]; then test "$CERT" = "$EXPECTED_CERT"; fi
           unzip -l "$APK" | grep -Fq "assets/public/motion/windows-beta-runtime.js"
           unzip -l "$APK" | grep -Fq "assets/public/motion/android-motion-beta.js"
           mkdir -p dist
@@ -195,6 +214,8 @@ jobs:
           ApplicationId: $MOTION_APP_ID
           Tamanho: $SIZE bytes
           SHA-256: $SHA
+          Certificado do APK: $CERT
+          Assinatura: $SIGNING_MODE
           Runtime Motion Windows fixado: $MOTION_RUNTIME_COMMIT
           Runtime Motion SHA-256: $MOTION_RUNTIME_SHA
           Android estável preservado: 1.0.6 / code18
@@ -202,6 +223,8 @@ jobs:
           EOF
           echo "MOTION_APK_SHA=$SHA" >> "$GITHUB_ENV"
           echo "MOTION_APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+          echo "MOTION_APK_CERT=$CERT" >> "$GITHUB_ENV"
+          echo "MOTION_SIGNING_MODE=$SIGNING_MODE" >> "$GITHUB_ENV"
 
       - name: Guardar APK de teste
         uses: actions/upload-artifact@v4
@@ -220,6 +243,8 @@ jobs:
           echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Assinatura: $MOTION_SIGNING_MODE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certificado: $MOTION_APK_CERT" >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Limpar chave
