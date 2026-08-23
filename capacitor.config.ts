@@ -3,13 +3,13 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.7").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.8").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-// A Motion Beta não troca para uma segunda experiência offline.
-// A origem HTTPS continua sendo usada para sincronização/bootstrap quando existe rede;
-// a Beta 7 injeta no APK a camada que persiste e reutiliza as mesmas rotas/telas localmente.
+// A Motion Beta usa a origem HTTPS como bootstrap/sincronização quando há rede.
+// A navegação já sincronizada, estado local, animações e operações elegíveis são
+// persistidos pelas camadas empacotadas da Beta 7 + Beta 8, sem interface offline paralela.
 if (valorServidor) {
   const url = new URL(valorServidor)
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
@@ -32,9 +32,6 @@ const config: CapacitorConfig = {
   loggingBehavior: "none",
   zoomEnabled: false,
   android: {
-    // Mantém a identidade própria da Motion Android e adiciona a identidade da
-    // Windows Beta 0.1.0-beta.19. As telas reais do app principal ativam os
-    // ajustes de Presenças, Escalas, Formação, Registros e Atrasos por esse UA.
     appendUserAgent: motionBeta
       ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaWindowsBeta/0.1.0-beta.19`
       : " SantaLuziaAndroid",
