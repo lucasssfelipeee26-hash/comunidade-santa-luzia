@@ -7,14 +7,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "android-web/motion/**"
-      - "config/android-motion-beta.json"
-      - "scripts/prepare-motion-beta.cjs"
-      - "scripts/auditar-motion-beta.cjs"
-      - "native-assets/android/**"
-      - "capacitor.config.ts"
-      - ".github/workflows/android-motion-beta.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,10 +22,8 @@ jobs:
     timeout-minutes: 55
     env:
       SANTA_LUZIA_MOTION_BETA: "1"
-      SANTA_LUZIA_MOTION_VERSION: "2.0.0-beta.1"
       CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
       AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
-      EXPECTED_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
 
     steps:
       - name: Checkout Motion Beta
@@ -72,9 +62,7 @@ jobs:
             APP_VERSION_CODE: c.versionCode,
             APP_VERSION_NAME: c.versionName,
             MOTION_APP_ID: c.applicationId,
-            MOTION_RUNTIME_COMMIT: c.windowsMotion.commit,
-            MOTION_RUNTIME_SIZE: c.windowsMotion.size,
-            MOTION_RUNTIME_SHA: c.windowsMotion.sha256,
+            WINDOWS_BETA_COMMIT: c.windowsBeta.commit,
           }
           fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(vars).map(([k,v]) => `${k}=${v}\n`).join(''))
           NODE
@@ -82,11 +70,28 @@ jobs:
       - name: Instalar dependências
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Validar sintaxe dos runtimes
+      - name: Validar sintaxe da portabilidade
         run: |
           node --check android-web/motion/android-motion-beta.js
+          node --check scripts/fetch-windows-beta-stack.cjs
           node --check scripts/prepare-motion-beta.cjs
           node --check scripts/auditar-motion-beta.cjs
+
+      - name: Fixar stack completa da Beta Windows
+        run: node scripts/fetch-windows-beta-stack.cjs
+
+      - name: Confirmar cinco camadas Windows
+        run: |
+          test -s android-web/motion/windows-motion-fixes.css
+          test -s android-web/motion/windows-behavior-fixes.js
+          test -s android-web/motion/windows-beta7-polish.js
+          test -s android-web/motion/windows-preload-v5.js
+          test -s android-web/motion/windows-beta-runtime.js
+          grep -Fq 'weekly-presence-v3' android-web/motion/windows-beta7-polish.js
+          grep -Fq 'Constância de Luz' android-web/motion/windows-beta7-polish.js
+          grep -Fq 'Pódio da equipe' android-web/motion/windows-preload-v5.js
+          grep -Fq 'sl-r10-profile-icon' android-web/motion/windows-beta-runtime.js
+          grep -Fq 'sl-r12-quiz-visible' android-web/motion/windows-beta-runtime.js
 
       - name: Auditar TypeScript
         run: npx tsc --noEmit
@@ -106,16 +111,6 @@ jobs:
       - name: Validar aplicação web
         run: npm run build
 
-      - name: Fixar e validar Motion da Beta Windows
-        run: |
-          set -euo pipefail
-          mkdir -p android-web/motion
-          URL="https://raw.githubusercontent.com/lucasssfelipeee26-hash/santa-luzia-windows-beta/${MOTION_RUNTIME_COMMIT}/runtime/windows-beta-runtime.js"
-          curl --fail --location --retry 4 --retry-delay 2 "$URL" -o android-web/motion/windows-beta-runtime.js
-          test "$(wc -c < android-web/motion/windows-beta-runtime.js | tr -d ' ')" = "$MOTION_RUNTIME_SIZE"
-          echo "${MOTION_RUNTIME_SHA}  android-web/motion/windows-beta-runtime.js" | sha256sum -c -
-          node --check android-web/motion/windows-beta-runtime.js
-
       - name: Criar e sincronizar Capacitor Android
         run: |
           npx cap add android
@@ -126,71 +121,18 @@ jobs:
           grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
           grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
           grep -Fq "Santa Luzia Motion Beta" android/app/src/main/res/values/strings.xml
-          test -f android/app/src/main/assets/public/motion/windows-beta-runtime.js
-          test -f android/app/src/main/assets/public/motion/android-motion-beta.js
-          grep -Fq "MOTION_BETA_PACKAGE" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
+          grep -Fq "windows-beta7-polish.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq "windows-preload-v5.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
 
-      - name: Validar chave oficial para build assinado persistente
-        if: github.event_name != 'pull_request'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$ANDROID_KEYSTORE_BASE64"
-          test -n "$ANDROID_KEYSTORE_PASSWORD"
-          test -n "$ANDROID_KEY_ALIAS"
-          test -n "$ANDROID_KEY_PASSWORD"
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/santa-luzia-motion-beta.jks"
-          keytool -list -v -keystore "$RUNNER_TEMP/santa-luzia-motion-beta.jks" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" > "$RUNNER_TEMP/motion-key-info.txt"
-          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/motion-key-info.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
-          test "$CERT" = "$EXPECTED_CERT"
-
-      - name: Configurar assinatura persistente da Beta
-        if: github.event_name != 'pull_request'
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/santa-luzia-motion-beta.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: node scripts/configure-android-signing.cjs
-
-      - name: Compilar APK Motion Beta assinado
-        if: github.event_name != 'pull_request'
+      - name: Compilar APK Motion Beta de teste
         working-directory: android
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/santa-luzia-motion-beta.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          for tentativa in 1 2 3; do
-            if ./gradlew assembleRelease --no-daemon; then exit 0; fi
-            if [ "$tentativa" -lt 3 ]; then sleep $((tentativa * 25)); fi
-          done
-          exit 1
-
-      - name: Compilar APK Motion Beta de teste do PR
-        if: github.event_name == 'pull_request'
-        working-directory: android
-        run: |
-          # PRs não recebem os segredos da chave oficial. Para ainda validar em um
-          # aparelho real, gera-se um APK debug instalável do pacote isolado Motion Beta.
-          # Ele nunca substitui o Santa Luzia oficial e não é publicado como release.
-          ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Auditar APK final
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
-            SIGNING_MODE="debug-test"
-          else
-            APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
-            SIGNING_MODE="official-persistent"
-          fi
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
           test -n "$APK"
           test "$(stat -c%s "$APK")" -gt 20000000
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
@@ -200,53 +142,44 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/motion-apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test -n "$CERT"
-          if [ "$SIGNING_MODE" = "official-persistent" ]; then test "$CERT" = "$EXPECTED_CERT"; fi
-          unzip -l "$APK" | grep -Fq "assets/public/motion/windows-beta-runtime.js"
-          unzip -l "$APK" | grep -Fq "assets/public/motion/android-motion-beta.js"
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js; do unzip -l "$APK" | grep -Fq "assets/public/motion/$f"; done
           mkdir -p dist
-          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta1.apk"
-          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta1.apk | awk '{print $1}')"
-          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta1.apk)"
-          cat > dist/RELATORIO-MOTION-BETA.txt <<EOF
+          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta2.apk"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta2.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta2.apk)"
+          cat > dist/RELATORIO-MOTION-BETA2.txt <<EOF
           Santa Luzia Motion Beta Android
           Versão: $APP_VERSION_NAME
           VersionCode: $APP_VERSION_CODE
           ApplicationId: $MOTION_APP_ID
           Tamanho: $SIZE bytes
           SHA-256: $SHA
-          Certificado do APK: $CERT
-          Assinatura: $SIGNING_MODE
-          Runtime Motion Windows fixado: $MOTION_RUNTIME_COMMIT
-          Runtime Motion SHA-256: $MOTION_RUNTIME_SHA
-          Android estável preservado: 1.0.6 / code18
+          Certificado debug: $CERT
+          Windows Beta fixada: $WINDOWS_BETA_COMMIT
+          Camadas portadas: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android.
+          Login semanal: 7 dias / 2 pontos por dia / título Constância de Luz.
+          Android estável preservado: 1.0.6 / code18.
           Canal: artefato de teste; nenhuma release oficial publicada.
           EOF
           echo "MOTION_APK_SHA=$SHA" >> "$GITHUB_ENV"
           echo "MOTION_APK_SIZE=$SIZE" >> "$GITHUB_ENV"
-          echo "MOTION_APK_CERT=$CERT" >> "$GITHUB_ENV"
-          echo "MOTION_SIGNING_MODE=$SIGNING_MODE" >> "$GITHUB_ENV"
 
       - name: Guardar APK de teste
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-2.0-beta1
+          name: santa-luzia-motion-2.0-beta2
           path: |
-            dist/Santa-Luzia-Motion-2.0-beta1.apk
-            dist/RELATORIO-MOTION-BETA.txt
+            dist/Santa-Luzia-Motion-2.0-beta2.apk
+            dist/RELATORIO-MOTION-BETA2.txt
           if-no-files-found: error
           retention-days: 14
 
       - name: Resumo
         run: |
-          echo "### Santa Luzia Motion Beta" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Santa Luzia Motion Beta 2" >> "$GITHUB_STEP_SUMMARY"
           echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Assinatura: $MOTION_SIGNING_MODE" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certificado: $MOTION_APK_CERT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cinco camadas da Windows Beta + complemento Android validadas dentro do APK." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Limpar chave
-        if: always()
-        run: rm -f "$RUNNER_TEMP/santa-luzia-motion-beta.jks" "$RUNNER_TEMP/motion-key-info.txt" "$RUNNER_TEMP/motion-apksigner.txt" || true
