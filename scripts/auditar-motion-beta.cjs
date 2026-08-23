@@ -60,11 +60,13 @@ const app = all("android-web/app.js", [
   "renderPresencas",
   "renderRegistro",
   "openGame",
+  'name==="CaminhoDaLuz"',
+  "/api/jogo/caminho-da-luz/resultado",
 ], "Aplicativo SPA local")
 if (/window\.location\.assign\(|location\.href\s*=\s*["']https?:/.test(app)) throw new Error("Shell local não pode navegar para uma interface web remota.")
 
 all("android-web/quiz-local.js", ["local:quizzes", "local:quiz-liturgia", "/api/quizzes/liturgia/offline", "saveQueue"], "Quiz offline")
-all("android-web/game-local.js", ["CaminhoDaLuz", "Whatajong", "completedRound", "difficulty", "/api/jogo/whatajong/resultado", "/api/jogo/caminho-da-luz/resultado"], "Compatibilidade local dos jogos")
+all("android-web/game-local.js", ["Whatajong", "completedRound", "difficulty", "/api/jogo/whatajong/resultado", "OfflineStore"], "Compatibilidade local do Whatajong")
 
 const main = all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [
   beta.applicationId,
@@ -88,7 +90,7 @@ all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/SyncHtt
   "difficulty",
 ], "Ponte HTTPS de sincronização")
 
-all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java", [
+all("native-assets/android/src/main/java/br/com/unidadesantaluzia/app/OfflineStorePlugin.java".replace("unidades", "comunidades"), [
   "SQLiteOpenHelper",
   "santa_luzia_local.db",
   "saveDocument",
