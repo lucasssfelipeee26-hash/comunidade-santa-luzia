@@ -88,17 +88,24 @@ export function RankingInterativo() {
   async function carregarDados() {
     setErro("")
     try {
-      const r1 = await fetch("/api/ranking", { cache: "no-store" })
+      const r1 = await fetch("/api/ranking", { cache: "no-store", signal: AbortSignal.timeout(8_000) })
       const j1 = await r1.json()
       if (!r1.ok) throw new Error(j1.erro || "Erro ao carregar a Jornada Litúrgica.")
       setDados(j1); salvarCacheRanking(j1); setDadosOffline(false)
     } catch (e) {
       const cache = carregarCacheRanking<DadosRanking>()
       if (cache?.dados?.eu) { setDados(cache.dados); setDadosOffline(true) }
-      else setErro(e instanceof Error ? e.message : "Erro ao carregar.")
+      else {
+        try {
+          const auth = await fetch("/api/auth/me", { cache: "no-store", signal: AbortSignal.timeout(5_000) }).then((response) => response.json())
+          const usuario = auth?.sessao?.usuario
+          if (usuario?.id) { setDados({ eu: { id: usuario.id, nome: usuario.nome, tipo: auth.sessao.tipo }, ranking: [] }); setErro("A classificação está sendo sincronizada, mas o Quiz continua disponível.") }
+          else setErro(e instanceof Error ? e.message : "Erro ao carregar.")
+        } catch { setErro(e instanceof Error ? e.message : "Erro ao carregar.") }
+      }
     }
     try {
-      const r2 = await fetch("/api/quizzes", { cache: "no-store" })
+      const r2 = await fetch("/api/quizzes", { cache: "no-store", signal: AbortSignal.timeout(8_000) })
       const j2 = await r2.json()
       if (r2.ok) setQuizzes(j2.quizzes || [])
     } catch {}
@@ -107,7 +114,7 @@ export function RankingInterativo() {
   async function carregarQuizAutomatico(aviso?: string) {
     tentativaAtiva.current = false; setQuizAuto(null); setRespostasAuto([]); setErro("")
     try {
-      const r = await fetch("/api/quizzes/liturgia", { cache: "no-store" })
+      const r = await fetch("/api/quizzes/liturgia", { cache: "no-store", signal: AbortSignal.timeout(8_000) })
       const j = await r.json()
       if (!r.ok) throw new Error(j.erro || "Não foi possível gerar o quiz de hoje.")
       if (j.respondido) { setAutoConcluido(j.resultado); if (aviso) setMensagem(aviso); return }

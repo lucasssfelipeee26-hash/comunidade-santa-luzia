@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
-  FileDown,
   History,
   Loader2,
   RefreshCw,
@@ -52,6 +51,7 @@ type Registro = {
   status: "presente" | "falta" | "justificada" | "advertencia" | "observacao" | "atraso"
   justificativa: string | null
   atualizadoEm: number
+  formacaoHorario?: string | null
 }
 
 type Resposta = {
@@ -106,6 +106,7 @@ export function ControlePresencasFormacao() {
   const [busca, setBusca] = useState("")
   const [situacao, setSituacao] = useState("todas")
   const [data, setData] = useState("")
+  const [relatorioAberto, setRelatorioAberto] = useState(false)
 
   async function carregar() {
     setCarregando(true)
@@ -155,16 +156,11 @@ export function ControlePresencasFormacao() {
 
   const termo = busca.trim().toLocaleLowerCase("pt-BR")
   const pessoasFiltradas = dados.pessoas.filter((pessoa) => (!windowsBeta || Boolean(termo)) && (!termo || `${pessoa.nome} ${pessoa.funcao}`.toLocaleLowerCase("pt-BR").includes(termo)))
-  const historicoFiltrado = dados.recentes.filter((registro) => {
+  const historicoBase = dados.recentes.filter((registro) => {
     const combinaTexto = !termo || `${registro.usuarioNome} ${registro.usuarioFuncao} ${registro.formacaoTitulo} ${registro.justificativa || ""}`.toLocaleLowerCase("pt-BR").includes(termo)
     return combinaTexto && (!data || registro.formacaoData === data) && (situacao === "todas" || registro.status === situacao)
   })
-  function exportarRelatorio() {
-    const linhas = [["Nome", "Função", "Registro", "Data", "Descrição"], ...historicoFiltrado.map((registro) => [registro.usuarioNome, registro.usuarioFuncao, registro.status, formatarData(registro.formacaoData), registro.justificativa || registro.formacaoTitulo])]
-    const csv = linhas.map((linha) => linha.map((valor) => `"${String(valor ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n")
-    const url = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }))
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `relatorio-presencas-${data || "completo"}.csv`; anchor.click(); URL.revokeObjectURL(url)
-  }
+  const historicoFiltrado = windowsBeta && !termo ? [] : historicoBase
 
   return (
     <div className="space-y-5" data-windows-beta-presence-center={windowsBeta ? "true" : undefined}>
@@ -246,14 +242,15 @@ export function ControlePresencasFormacao() {
 
       {aba === "historico" && (
         <section role="tabpanel" className="space-y-3">
-          {windowsBeta && <div className="grid gap-2 rounded-2xl border bg-[#fffaf7] p-3 sm:grid-cols-[1fr_auto_auto_auto]"><label className="flex items-center gap-2 rounded-xl border bg-white px-3"><Search className="size-4 text-muted-foreground" /><input value={busca} onChange={(event) => setBusca(event.target.value)} className="min-h-10 w-full bg-transparent text-sm outline-none" placeholder="Nome ou tipo de registro" /></label><input type="date" aria-label="Filtrar por data" value={data} onChange={(event) => setData(event.target.value)} className="min-h-10 rounded-xl border bg-white px-3 text-sm" /><select aria-label="Filtrar por situação" value={situacao} onChange={(event) => setSituacao(event.target.value)} className="min-h-10 rounded-xl border bg-white px-3 text-sm"><option value="todas">Todos os registros</option><option value="presente">Presenças</option><option value="falta">Faltas</option><option value="justificada">Justificativas</option><option value="advertencia">Advertências</option><option value="atraso">Atrasos</option><option value="observacao">Observações</option></select><button type="button" onClick={exportarRelatorio} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-xs font-bold text-white"><FileDown className="size-4" /> Relatório</button></div>}
+          {windowsBeta && <div className="grid gap-2 rounded-2xl border bg-[#fffaf7] p-3 sm:grid-cols-[1fr_auto_auto_auto]"><label className="flex items-center gap-2 rounded-xl border bg-white px-3"><Search className="size-4 text-muted-foreground" /><input value={busca} onChange={(event) => setBusca(event.target.value)} className="min-h-10 w-full bg-transparent text-sm outline-none" placeholder="Nome ou tipo de registro" /></label><input type="date" aria-label="Filtrar por data" value={data} onChange={(event) => setData(event.target.value)} className="min-h-10 rounded-xl border bg-white px-3 text-sm" /><select aria-label="Filtrar por situação" value={situacao} onChange={(event) => setSituacao(event.target.value)} className="min-h-10 rounded-xl border bg-white px-3 text-sm"><option value="todas">Todos os registros</option><option value="presente">Presenças</option><option value="falta">Faltas</option><option value="justificada">Justificativas</option><option value="advertencia">Advertências</option><option value="atraso">Atrasos</option><option value="observacao">Observações</option></select><button type="button" onClick={() => setRelatorioAberto((valor) => !valor)} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 text-xs font-bold text-white">{relatorioAberto ? "Fechar relatório" : "Ver relatório"}</button></div>}
+          {windowsBeta && relatorioAberto && <section className="rounded-3xl border border-primary/15 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Relatório Santa Luzia</p><h2 className="mt-1 font-serif text-xl text-primary">Registros de presença e acompanhamento</h2><p className="mt-1 text-xs text-muted-foreground">{termo ? `Pesquisa: ${busca}` : "Relatório completo da equipe"}{data ? ` · ${formatarData(data)}` : ""}</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{historicoBase.length} registros</span></div><div className="mt-4 grid gap-2 sm:grid-cols-3">{(["presente", "falta", "justificada", "advertencia", "atraso", "observacao"] as const).map((tipo) => <div key={tipo} className="rounded-2xl border bg-white p-3 text-center"><b className="block text-2xl text-primary">{historicoBase.filter((registro) => registro.status === tipo).length}</b><span className="text-[10px] font-bold uppercase text-muted-foreground">{tipo === "presente" ? "Presenças" : tipo === "falta" ? "Faltas" : tipo === "justificada" ? "Justificativas" : tipo === "advertencia" ? "Advertências" : tipo === "atraso" ? "Atrasos" : "Observações"}</span></div>)}</div><div className="mt-4 space-y-2">{historicoBase.map((registro) => <article key={`relatorio-${registro.id}`} className="rounded-2xl border bg-white p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{registro.usuarioNome}</strong><Situacao status={registro.status} /></div><p className="mt-1 text-xs text-muted-foreground">{registro.formacaoTitulo} · {formatarData(registro.formacaoData)}{registro.formacaoHorario ? ` às ${registro.formacaoHorario}` : ""}</p>{registro.justificativa && <p className="mt-2 rounded-xl bg-[#fff8e8] p-2 text-xs text-[#6f541a]">{registro.justificativa}</p>}</article>)}</div></section>}
           {historicoFiltrado.map((registro) => (
             <article key={registro.id} className="rounded-2xl border border-[#e1d7d1] bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold text-[#2b2224]">{registro.usuarioNome}</h2>
                   <p className="text-xs text-[#756d6f]">{registro.usuarioFuncao}{registro.usuarioTipo === "moderador" ? " · Moderador" : ""}</p>
-                  <p className="mt-2 text-sm text-[#4f4749]">{registro.formacaoTitulo} · {formatarData(registro.formacaoData)}</p>
+                  <p className="mt-2 text-sm text-[#4f4749]">{registro.formacaoTitulo} · {formatarData(registro.formacaoData)}{registro.formacaoHorario ? ` às ${registro.formacaoHorario}` : ""}</p>
                 </div>
                 <Situacao status={registro.status} />
               </div>
@@ -265,7 +262,7 @@ export function ControlePresencasFormacao() {
               <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#756d6f]"><Clock3 className="size-3.5" /> Atualizado em {new Date(registro.atualizadoEm).toLocaleString("pt-BR")}</p>
             </article>
           ))}
-          {historicoFiltrado.length === 0 && <p className="rounded-2xl border border-dashed bg-white p-5 text-muted-foreground">Nenhum registro encontrado para os filtros escolhidos.</p>}
+          {historicoFiltrado.length === 0 && !relatorioAberto && <p className="rounded-2xl border border-dashed bg-white p-5 text-muted-foreground">{windowsBeta && !termo ? "Pesquise um nome para consultar o histórico individual ou abra o relatório completo." : "Nenhum registro encontrado para os filtros escolhidos."}</p>}
         </section>
       )}
     </div>

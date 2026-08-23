@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ erro: "Acesso exclusivo do moderador." }, { status: 403 })
   }
 
-  const equipe = listarEquipeAprovada()
+  const equipeCompleta = listarEquipeAprovada()
+  const equipe = sessao.tipo === "moderador" ? equipeCompleta : equipeCompleta.filter((usuario) => usuario.id === sessao.sub)
   const formacoes = listarFormacoes()
   const usuariosPorId = new Map(equipe.map((usuario) => [usuario.id, usuario]))
   const formacoesPorId = new Map(formacoes.map((formacao) => [formacao.id, formacao]))
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
       formacaoId: formacao.id,
       formacaoTitulo: formacao.titulo,
       formacaoData: formacao.data,
+      formacaoHorario: formacao.horario,
       status: registro.status,
       justificativa: registro.justificativa,
       atualizadoEm: registro.atualizado_em,
@@ -92,6 +94,7 @@ export async function GET(request: NextRequest) {
           formacaoId: null,
           formacaoTitulo: registro.tipo === "advertencias" ? "Advertência" : registro.tipo === "faltas" ? "Falta administrativa" : registro.tipo === "justificativas" ? "Justificativa" : "Observação",
           formacaoData: registro.data,
+          formacaoHorario: null,
           status: registro.tipo === "advertencias" ? "advertencia" : registro.tipo === "faltas" ? "falta" : registro.tipo === "justificativas" ? "justificada" : "observacao",
           justificativa: registro.descricao,
           atualizadoEm: registro.criado_em,
@@ -109,6 +112,7 @@ export async function GET(request: NextRequest) {
       formacaoId: null,
       formacaoTitulo: `Atraso · Missa às ${atraso.horario_missa}`,
       formacaoData: atraso.data_missa,
+      formacaoHorario: atraso.horario_missa,
       status: "atraso",
       justificativa: atraso.observacao || `Limite de chegada: ${atraso.limite_chegada}`,
       atualizadoEm: atraso.moderado_em || atraso.criado_em,

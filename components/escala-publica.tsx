@@ -25,7 +25,7 @@ type Escala = {
 
 type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
 type EscalasCache = { atualizadoEm: number; dados: EscalasResponse }
-type LiturgiaDaEscala = { liturgia: string; tempoLiturgicoAtual: string; cor: string; cicloDominical?: string; dataIso: string }
+type LiturgiaDaEscala = { liturgia: string; tempoLiturgicoAtual: string; tempoCategoria?: string; cor: string; cicloDominical?: string; dataIso: string }
 
 async function fetcher(url: string): Promise<EscalasResponse> {
   const response = await fetch(url, { cache: "no-store" })
@@ -91,12 +91,16 @@ export function EscalaPublica() {
     const escalas = data?.escalas ?? cacheLocal?.dados?.escalas ?? []
     void Promise.all(escalas.map(async (escala) => {
       const [ano, mes, dia] = escala.data.split("-").map(Number)
-      const dataLiturgica = new Date(Date.UTC(ano, mes - 1, dia))
-      if (dataLiturgica.getUTCDay() === 6) dataLiturgica.setUTCDate(dataLiturgica.getUTCDate() + 1)
-      const dataIso = dataLiturgica.toISOString().slice(0, 10)
-      const response = await fetch(`/api/liturgia?data=${dataIso}`, { cache: "force-cache", headers: { "X-Santa-Luzia-Windows-Beta": "1" } })
-      if (!response.ok) return null
-      const liturgia = await response.json() as LiturgiaDaEscala
+      const dataCivil = new Date(Date.UTC(ano, mes - 1, dia))
+      const proximoDia = new Date(dataCivil); proximoDia.setUTCDate(proximoDia.getUTCDate() + 1)
+      const buscar = async (dataIso: string) => { const response = await fetch(`/api/liturgia?data=${dataIso}`, { cache: "force-cache", headers: { "X-Santa-Luzia-Windows-Beta": "1" } }); return response.ok ? await response.json() as LiturgiaDaEscala : null }
+      let liturgia = await buscar(dataCivil.toISOString().slice(0, 10))
+      if (dataCivil.getUTCDay() === 6) liturgia = await buscar(proximoDia.toISOString().slice(0, 10)) || liturgia
+      else {
+        const vespera = await buscar(proximoDia.toISOString().slice(0, 10))
+        if (vespera && /solenidade/i.test(vespera.tempoCategoria || "") && !/natal/i.test(vespera.liturgia || "")) liturgia = vespera
+      }
+      if (!liturgia) return null
       return [escala.id, liturgia] as const
     })).then((itens) => setLiturgias(Object.fromEntries(itens.filter((item): item is readonly [string, LiturgiaDaEscala] => Boolean(item)))))
   }, [windowsBeta, data, cacheLocal])
@@ -165,8 +169,8 @@ export function EscalaPublica() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Grupo titulo="Acólitos" itens={escala.pessoas.filter((p) => p.categoria === "acolito").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
-            <Grupo titulo="Coroinhas" itens={escala.pessoas.filter((p) => p.categoria === "coroinha").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
+            <Grupo titulo="Acólitos" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "acolito").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
+            <Grupo titulo="Coroinhas" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "coroinha").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
           </div>
 
           {escala.observacoes && (
@@ -180,7 +184,7 @@ export function EscalaPublica() {
   )
 }
 
-function Grupo({ titulo, itens }: { titulo: string; itens: PessoaEscala[] }) {
+function Grupo({ titulo, itens, compacto = false }: { titulo: string; itens: PessoaEscala[]; compacto?: boolean }) {
   return (
     <div>
       <h3 className="mb-2 flex items-center gap-2 font-serif text-lg text-primary">
@@ -189,11 +193,11 @@ function Grupo({ titulo, itens }: { titulo: string; itens: PessoaEscala[] }) {
       {!itens.length ? (
         <p className="text-sm text-muted-foreground">Nenhum nome informado.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className={compacto ? "divide-y overflow-hidden rounded-2xl border bg-white" : "space-y-2"}>
           {itens.map((pessoa, index) => (
-            <li key={pessoa.id ?? index} className="rounded-md border px-3 py-2 text-sm">
-              <strong>{pessoa.nome}</strong>
-              <span className="text-muted-foreground"> · {pessoa.funcao}</span>
+            <li key={pessoa.id ?? index} className={compacto ? "flex items-center justify-between gap-3 px-3 py-2.5 text-sm" : "rounded-md border px-3 py-2 text-sm"}>
+              <strong>{compacto ? (() => { const partes = pessoa.nome.split(/\s+/).filter(Boolean); return partes.length > 1 ? `${partes[0]} ${partes.at(-1)}` : pessoa.nome })() : pessoa.nome}</strong>
+              <span className={compacto ? "rounded-full bg-primary/8 px-2.5 py-1 text-[10px] font-bold text-primary" : "text-muted-foreground"}>{compacto ? pessoa.funcao : ` · ${pessoa.funcao}`}</span>
             </li>
           ))}
         </ul>

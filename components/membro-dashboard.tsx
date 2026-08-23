@@ -13,6 +13,7 @@ import { AreaHeader } from "@/components/area-header"
 import { MembroMenu } from "@/components/area-menu"
 import { Badge } from "@/components/ui/badge"
 import { useStore, type Membro } from "@/lib/store"
+import { MeuRelatorioWindows } from "@/components/meu-relatorio-windows"
 
 function hojeISO() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba" }).format(new Date())
@@ -52,6 +53,7 @@ export function MembroDashboard({ membro }: { membro: Membro }) {
         </div>
 
         <EquipeNoPainel />
+        <MeuRelatorioWindows />
 
         <section className="mb-3 min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <header className="border-b border-border bg-primary/[.025] px-3 py-2.5">
