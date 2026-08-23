@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 6 de teste separada. Mantém a abertura funcional e a identidade SantaLuziaWindowsBeta/0.1.0-beta.19, agora com auditoria forte de paridade por tela para Presenças, Registros, Atrasos, Formação, Escala, Painel, Jornada/Quiz/Kiss, Ranking, offline e sincronização."
+  "notes": "Beta 6 de teste separada. Mantém a identidade SantaLuziaWindowsBeta/0.1.0-beta.19 e remove a queda normal para offline.html: online e offline devem usar a mesma interface/rotas, com Service Worker, cache privado, SQLite/snapshot e fila local; servidor apenas como sincronizador."
 }
