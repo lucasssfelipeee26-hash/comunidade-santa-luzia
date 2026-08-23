@@ -44,6 +44,7 @@ const motionDir = path.join(root, "android", "app", "src", "main", "assets", "pu
 const required = {
   motionCss: ["windows-motion-fixes.css", config.windowsBeta.files.motionCss],
   behavior: ["windows-behavior-fixes.js", config.windowsBeta.files.behavior],
+  polish: ["windows-beta7-polish.js", config.windowsBeta.files.polish],
   preload: ["windows-preload-v5.js", config.windowsBeta.files.preload],
   runtime: ["windows-beta-runtime.js", config.windowsBeta.files.runtime],
 }
