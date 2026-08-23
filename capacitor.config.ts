@@ -3,20 +3,18 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.5").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.6").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-// A Beta 3 confirmou que o android-web/index.html local era apenas uma tela
-// de abertura estática. Enquanto a interface completa ainda não for exportada
-// como shell local, a Motion Beta precisa abrir o app funcional pelo WebView
-// e aplicar a stack Motion empacotada sobre a interface carregada.
+// A Motion Beta não pode trocar para uma segunda experiência offline.
+// Mantém a abertura funcional pela origem do app e deixa o Service Worker/cache
+// responder às mesmas rotas quando o aparelho estiver sem internet.
 if (valorServidor) {
   const url = new URL(valorServidor)
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
   servidor = {
     url: url.origin,
-    errorPath: "offline.html",
     cleartext: false,
     androidScheme: "https",
     allowNavigation: [url.hostname],
