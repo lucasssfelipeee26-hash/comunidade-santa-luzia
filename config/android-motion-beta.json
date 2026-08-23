@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 7 de teste separada. Preserva a interface única da Beta 6 e adiciona uma camada offline-first empacotada no APK: aquece e persiste as rotas reais do membro/moderador, guarda leituras GET necessárias, força navegação HTML local quando não há rede e mantém o servidor somente como origem de sincronização/atualização de dados. Android estável 1.0.6/code18 permanece intocado."
+  "notes": "Beta 7 de teste separada. Preserva a interface única da Beta 6 e adiciona uma camada offline-first empacotada no APK: aquece e persiste as rotas reais do membro/moderador, guarda leituras GET necessárias, força navegação HTML local quando não há rede e mantém o servidor somente como origem de sincronização/atualização de dados. Teste de regressão obrigatório: online e offline devem abrir as mesmas telas, sem página alternativa. Android estável 1.0.6/code18 permanece intocado."
 }
