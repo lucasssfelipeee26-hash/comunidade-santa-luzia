@@ -3,14 +3,15 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.8").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.9").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-// A Motion Beta usa a origem HTTPS como bootstrap/sincronização quando há rede.
-// A navegação já sincronizada, estado local, animações e operações elegíveis são
-// persistidos pelas camadas empacotadas da Beta 7 + Beta 8, sem interface offline paralela.
-if (valorServidor) {
+// A partir da Motion Beta 9, o WebView Beta SEMPRE nasce do android-web empacotado
+// no APK. O Railway não é mais origem da interface; ele é acessado somente pela
+// ponte nativa SyncHttp para sincronizar dados. O app oficial mantém a configuração
+// anterior e não é alterado por este canal Beta.
+if (!motionBeta && valorServidor) {
   const url = new URL(valorServidor)
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
   servidor = {
@@ -22,9 +23,6 @@ if (valorServidor) {
 }
 
 const config: CapacitorConfig = {
-  // O namespace Java permanece igual para reaproveitar os plugins nativos testados.
-  // No build Motion Beta, o applicationId final é trocado depois do cap sync para
-  // br.com.comunidadesantaluzia.motionbeta, permitindo coexistir com o app oficial.
   appId: "br.com.comunidadesantaluzia.app",
   appName: motionBeta ? "Santa Luzia Motion Beta" : "Santa Luzia",
   webDir: "android-web",
@@ -33,7 +31,7 @@ const config: CapacitorConfig = {
   zoomEnabled: false,
   android: {
     appendUserAgent: motionBeta
-      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaWindowsBeta/0.1.0-beta.19`
+      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaLocalFirst/1`
       : " SantaLuziaAndroid",
     backgroundColor: "#fffaf0",
     allowMixedContent: false,
