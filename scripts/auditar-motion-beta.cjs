@@ -49,7 +49,7 @@ requireAll("components/editor-escala.tsx", ["editandoId", "iniciarEdicao", "canc
 requireAll("components/escala-publica.tsx", ["salvarCacheEscalas", "data-windows-beta-scale", "Celebração litúrgica", "JustificarAusenciaEscala", "minha_justificativa", "Falta justificada", "Justificar falta", "X-Santa-Luzia-Windows-Beta"], "Escala pública com liturgia e justificativa")
 requireAll("app/api/escalas/[id]/minha-justificativa/route.ts", ["windowsBeta", "salvarJustificativaEscala", "Sua falta já foi justificada", "Falta justificada na escala", "x-santa-luzia-windows-beta"], "API de justificativa da escala")
 requireAll("app/api/escalas/[id]/route.ts", ["PATCH", "celebracaoLiturgica", "tempoLiturgico", "corLiturgica", "cicloDominical"], "API de edição de escala")
-requireAll("app/api/formacoes/presencas/resumo/route.ts", ["advertencias", "atrasos", "observacao", "X-Santa-Luzia-Windows-Beta"], "API de relatório de presenças")
+requireAll("app/api/formacoes/presencas/resumo/route.ts", ["advertencias", "atrasos", "observacao", "x-santa-luzia-windows-beta"], "API de relatório de presenças")
 requireAll("components/ranking-interativo.tsx", ["Jornada Litúrgica", "Quiz", "Joias", "Ranking", "Avulsos", "carregarCacheRanking", "QuizCountdown", "CaminhoDaLuzEntry"], "Jornada/Quiz/Kiss/Ranking")
 requireAll("components/area-menu.tsx", ["motion?:", "presence", "record", "data-sl-nav-motion", "Presenças", "Registro"], "Menu/Painel com ícones e animações")
 requireAll("components/meu-relatorio-windows.tsx", ["Meu relatório", "Presenças", "Atrasos"], "Relatório individual Windows Beta")
