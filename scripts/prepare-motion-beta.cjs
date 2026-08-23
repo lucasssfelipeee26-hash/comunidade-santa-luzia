@@ -63,11 +63,34 @@ for (const [key, [name, meta]] of Object.entries(required)) {
 
 const androidPatch = path.join(motionDir, "android-motion-beta.js")
 if (!fs.existsSync(androidPatch)) fail("Complemento Motion Android não foi empacotado no APK.")
+
 const offlineFirst = path.join(motionDir, "android-offline-first-beta7.js")
-if (!fs.existsSync(offlineFirst)) fail("Camada offline-first da Beta 7 não foi empacotada no APK.")
+if (!fs.existsSync(offlineFirst)) fail("Camada de navegação offline-first da Beta 7 não foi empacotada no APK.")
 const offlineFirstText = read(offlineFirst)
 for (const marker of ["2.0.0-beta.7", "window.fetch", "warmEverything", "window.location.assign", "/area-restrita/moderador/presencas", "/api/formacoes/presencas/resumo"]) {
   if (!offlineFirstText.includes(marker)) fail(`Camada offline-first Beta 7 sem marcador: ${marker}`)
+}
+
+const localFirst = path.join(motionDir, "android-local-first-beta8.js")
+if (!fs.existsSync(localFirst)) fail("Camada transacional local-first da Beta 8 não foi empacotada no APK.")
+const localFirstText = read(localFirst)
+for (const marker of [
+  "2.0.0-beta.8",
+  "indexedDB",
+  "QUEUE_STORE",
+  "motionLocalFirstFetch",
+  "createQueuedMutation",
+  "optimisticMutation",
+  "replayQueue",
+  "/api/escalas",
+  "/api/formacoes",
+  "/presencas",
+  "/api/perfil",
+  "warmDiscoveredLinks",
+  "networkStatusChange",
+  "localPendingDownload",
+]) {
+  if (!localFirstText.includes(marker)) fail(`Camada local-first Beta 8 sem marcador: ${marker}`)
 }
 
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId da Beta não foi aplicado.")
@@ -75,4 +98,4 @@ if (!read(strings).includes(config.appName)) fail("Nome Santa Luzia Motion Beta 
 
 console.log(`[motion-beta] Pacote isolado pronto: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
 console.log(`[motion-beta] Stack Windows Beta completa empacotada no commit ${config.windowsBeta.commit}.`)
-console.log("[motion-beta] Camada Android offline-first Beta 7 empacotada e auditada.")
+console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado local otimista empacotados e auditados.")
