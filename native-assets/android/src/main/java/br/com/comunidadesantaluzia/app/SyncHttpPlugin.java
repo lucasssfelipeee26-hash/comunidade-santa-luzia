@@ -15,7 +15,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +27,12 @@ public class SyncHttpPlugin extends Plugin {
     private static final int CONNECT_TIMEOUT_MS = 12_000;
     private static final int READ_TIMEOUT_MS = 20_000;
     private static final int MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
+
+    private static class Corpo {
+        final String value;
+        final String contentType;
+        Corpo(String value, String contentType) { this.value = value; this.contentType = contentType; }
+    }
 
     private boolean caminhoSeguro(String path) {
         if (path == null || !path.startsWith("/") || path.startsWith("//")) return false;
@@ -63,6 +71,28 @@ public class SyncHttpPlugin extends Plugin {
             }
             manager.flush();
         } catch (Exception ignored) {}
+    }
+
+    private Corpo normalizarCorpo(String path, String method, String body, String contentType) {
+        String tipo = contentType == null || contentType.isEmpty() ? "application/json; charset=utf-8" : contentType;
+        if ("POST".equals(method) && "/api/formacoes".equals(path) && tipo.toLowerCase().contains("application/json")) {
+            try {
+                JSONObject json = new JSONObject(body == null || body.isEmpty() ? "{}" : body);
+                StringBuilder encoded = new StringBuilder();
+                Iterator<String> keys = json.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    Object value = json.opt(key);
+                    if (value == null || value == JSONObject.NULL) continue;
+                    if (encoded.length() > 0) encoded.append('&');
+                    encoded.append(URLEncoder.encode(key, "UTF-8"));
+                    encoded.append('=');
+                    encoded.append(URLEncoder.encode(String.valueOf(value), "UTF-8"));
+                }
+                return new Corpo(encoded.toString(), "application/x-www-form-urlencoded; charset=utf-8");
+            } catch (Exception ignored) {}
+        }
+        return new Corpo(body == null ? "" : body, tipo);
     }
 
     private void resolverNoUi(PluginCall call, JSObject resposta) {
@@ -106,10 +136,11 @@ public class SyncHttpPlugin extends Plugin {
                 conexao.setRequestProperty("X-Santa-Luzia-Windows-Beta", "1");
                 aplicarCookies(conexao);
 
-                if (!method.equals("GET") && body != null && !body.isEmpty()) {
+                Corpo corpo = normalizarCorpo(path, method, body, contentType);
+                if (!method.equals("GET") && corpo.value != null && !corpo.value.isEmpty()) {
                     conexao.setDoOutput(true);
-                    conexao.setRequestProperty("Content-Type", contentType == null || contentType.isEmpty() ? "application/json; charset=utf-8" : contentType);
-                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                    conexao.setRequestProperty("Content-Type", corpo.contentType);
+                    byte[] bytes = corpo.value.getBytes(StandardCharsets.UTF_8);
                     conexao.setFixedLengthStreamingMode(bytes.length);
                     try (OutputStream out = conexao.getOutputStream()) { out.write(bytes); }
                 }
