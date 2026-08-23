@@ -19,6 +19,10 @@ function write(file, content) {
   fs.writeFileSync(file, content)
 }
 
+function gitBlobSha(buffer) {
+  return crypto.createHash("sha1").update(Buffer.from(`blob ${buffer.length}\0`)).update(buffer).digest("hex")
+}
+
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório para impedir alteração acidental do app oficial.")
 
 const gradle = path.join(root, "android", "app", "build.gradle")
@@ -36,18 +40,31 @@ for (const key of ["app_name", "title_activity_main"]) {
 }
 write(strings, stringsText)
 
-const runtimeAsset = path.join(root, "android", "app", "src", "main", "assets", "public", "motion", "windows-beta-runtime.js")
-const androidPatch = path.join(root, "android", "app", "src", "main", "assets", "public", "motion", "android-motion-beta.js")
-if (!fs.existsSync(runtimeAsset)) fail("Runtime Motion da Beta Windows não foi empacotado no APK.")
-if (!fs.existsSync(androidPatch)) fail("Complemento Motion Android não foi empacotado no APK.")
+const motionDir = path.join(root, "android", "app", "src", "main", "assets", "public", "motion")
+const required = {
+  motionCss: ["windows-motion-fixes.css", config.windowsBeta.files.motionCss],
+  behavior: ["windows-behavior-fixes.js", config.windowsBeta.files.behavior],
+  preload: ["windows-preload-v5.js", config.windowsBeta.files.preload],
+  runtime: ["windows-beta-runtime.js", config.windowsBeta.files.runtime],
+}
+for (const [key, [name, meta]] of Object.entries(required)) {
+  const file = path.join(motionDir, name)
+  if (!fs.existsSync(file)) fail(`Camada ${key} da Windows Beta não foi empacotada no APK.`)
+  const bytes = fs.readFileSync(file)
+  const blob = gitBlobSha(bytes)
+  if (blob !== meta.blobSha) fail(`${key}: Git blob incorreto: ${blob}`)
+  if (meta.size && bytes.length !== meta.size) fail(`${key}: tamanho incorreto: ${bytes.length}`)
+  if (meta.sha256) {
+    const sha = crypto.createHash("sha256").update(bytes).digest("hex")
+    if (sha !== meta.sha256) fail(`${key}: SHA-256 incorreto: ${sha}`)
+  }
+}
 
-const bytes = fs.readFileSync(runtimeAsset)
-const sha = crypto.createHash("sha256").update(bytes).digest("hex")
-if (bytes.length !== config.windowsMotion.size) fail(`Runtime Motion com tamanho incorreto: ${bytes.length}.`)
-if (sha !== config.windowsMotion.sha256) fail(`Runtime Motion com SHA-256 incorreto: ${sha}.`)
+const androidPatch = path.join(motionDir, "android-motion-beta.js")
+if (!fs.existsSync(androidPatch)) fail("Complemento Motion Android não foi empacotado no APK.")
 
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId da Beta não foi aplicado.")
 if (!read(strings).includes(config.appName)) fail("Nome Santa Luzia Motion Beta não foi aplicado.")
 
 console.log(`[motion-beta] Pacote isolado pronto: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
-console.log(`[motion-beta] Runtime Motion empacotado e verificado: ${bytes.length} bytes / ${sha}.`)
+console.log(`[motion-beta] Stack Windows Beta completa empacotada no commit ${config.windowsBeta.commit}.`)
