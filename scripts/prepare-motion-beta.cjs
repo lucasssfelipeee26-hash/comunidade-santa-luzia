@@ -1,33 +1,16 @@
 const fs = require("node:fs")
 const path = require("node:path")
-const crypto = require("node:crypto")
 
 const root = path.resolve(__dirname, "..")
 const config = require(path.join(root, "config", "android-motion-beta.json"))
+function fail(message) { console.error(`[motion-beta] ${message}`); process.exit(1) }
+function read(file) { if (!fs.existsSync(file)) fail(`Arquivo ausente: ${path.relative(root, file)}`); return fs.readFileSync(file, "utf8") }
+function write(file, content) { fs.writeFileSync(file, content) }
+function requireMarkers(text, markers, label) { for (const marker of markers) if (!text.includes(marker)) fail(`${label}: marcador ausente: ${marker}`) }
+function assertJs(text, label) { try { new Function(text) } catch (error) { fail(`${label}: JavaScript inválido: ${error.message}`) } }
 
-function fail(message) {
-  console.error(`[motion-beta] ${message}`)
-  process.exit(1)
-}
-
-function read(file) {
-  if (!fs.existsSync(file)) fail(`Arquivo ausente: ${path.relative(root, file)}`)
-  return fs.readFileSync(file, "utf8")
-}
-
-function write(file, content) {
-  fs.writeFileSync(file, content)
-}
-
-function gitBlobSha(buffer) {
-  return crypto.createHash("sha1").update(Buffer.from(`blob ${buffer.length}\0`)).update(buffer).digest("hex")
-}
-
-function assertJavascript(content, label) {
-  try { new Function(content) } catch (error) { fail(`${label}: JavaScript inválido: ${error instanceof Error ? error.message : String(error)}`) }
-}
-
-if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório para impedir alteração acidental do app oficial.")
+if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
+if (config.versionName !== "2.0.0-beta.9" || config.versionCode !== 20009) fail("Configuração deve ser Beta 9/code20009.")
 
 const gradle = path.join(root, "android", "app", "build.gradle")
 let gradleText = read(gradle)
@@ -44,99 +27,37 @@ for (const key of ["app_name", "title_activity_main"]) {
 }
 write(strings, stringsText)
 
-const motionDir = path.join(root, "android", "app", "src", "main", "assets", "public", "motion")
-const required = {
-  motionCss: ["windows-motion-fixes.css", config.windowsBeta.files.motionCss],
-  behavior: ["windows-behavior-fixes.js", config.windowsBeta.files.behavior],
-  polish: ["windows-beta7-polish.js", config.windowsBeta.files.polish],
-  preload: ["windows-preload-v5.js", config.windowsBeta.files.preload],
-  runtime: ["windows-beta-runtime.js", config.windowsBeta.files.runtime],
-}
-for (const [key, [name, meta]] of Object.entries(required)) {
-  const file = path.join(motionDir, name)
-  if (!fs.existsSync(file)) fail(`Camada ${key} da Windows Beta não foi empacotada no APK.`)
-  const bytes = fs.readFileSync(file)
-  const blob = gitBlobSha(bytes)
-  if (blob !== meta.blobSha) fail(`${key}: Git blob incorreto: ${blob}`)
-  if (meta.size && bytes.length !== meta.size) fail(`${key}: tamanho incorreto: ${bytes.length}`)
-  if (meta.sha256) {
-    const sha = crypto.createHash("sha256").update(bytes).digest("hex")
-    if (sha !== meta.sha256) fail(`${key}: SHA-256 incorreto: ${sha}`)
-  }
-}
+const assets = path.join(root, "android", "app", "src", "main", "assets", "public")
+const index = read(path.join(assets, "index.html"))
+const appJs = read(path.join(assets, "app.js"))
+const quizJs = read(path.join(assets, "quiz-local.js"))
+const css = read(path.join(assets, "app.css"))
+assertJs(appJs, "Shell local Beta 9")
+assertJs(quizJs, "Quiz local Beta 9")
+requireMarkers(index, ["app.css", "app.js", "quiz-local.js"], "index local")
+requireMarkers(appJs, ["2.0.0-beta.9", "OfflineStore", "SyncHttp", "flushQueue", "loadLocalLiturgia", "renderAtrasos", "renderPresencas"], "shell local")
+requireMarkers(quizJs, ["/api/quizzes/liturgia/offline", "saveQueue"], "quiz local")
+requireMarkers(css, ["@keyframes trophy", "@keyframes float3d", ".podium"], "animações locais")
 
-const androidPatch = path.join(motionDir, "android-motion-beta.js")
-if (!fs.existsSync(androidPatch)) fail("Complemento Motion Android não foi empacotado no APK.")
+const capConfig = read(path.join(root, "android", "app", "src", "main", "assets", "capacitor.config.json"))
+let parsed
+try { parsed = JSON.parse(capConfig) } catch { fail("capacitor.config.json inválido no APK.") }
+if (parsed.server?.url) fail(`Beta 9 não pode conter server.url: ${parsed.server.url}`)
+if (String(parsed.android?.appendUserAgent || "").indexOf("SantaLuziaLocalFirst/1") < 0) fail("User-Agent local-first ausente.")
 
-const offlineFirst = path.join(motionDir, "android-offline-first-beta7.js")
-if (!fs.existsSync(offlineFirst)) fail("Camada de navegação offline-first da Beta 7 não foi empacotada no APK.")
-const offlineFirstText = read(offlineFirst)
-assertJavascript(offlineFirstText, "Camada offline-first Beta 7")
-for (const marker of ["2.0.0-beta.7", "window.fetch", "warmEverything", "window.location.assign", "/area-restrita/moderador/presencas", "/api/formacoes/presencas/resumo"]) {
-  if (!offlineFirstText.includes(marker)) fail(`Camada offline-first Beta 7 sem marcador: ${marker}`)
+const main = read(path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", "MainActivity.java"))
+requireMarkers(main, ["SyncHttpPlugin.class", "OfflineStorePlugin.class", "CaminhoDaLuzPlugin.class", "WhatajongPlugin.class"], "MainActivity")
+if (/evaluateJavascript|android-local-first-beta8|android-offline-first-beta7/.test(main)) fail("MainActivity ainda injeta runtime do site remoto.")
+
+for (const java of ["SyncHttpPlugin.java", "OfflineStorePlugin.java"]) {
+  const file = path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", java)
+  if (!fs.existsSync(file)) fail(`${java} não foi copiado para o projeto Android.`)
 }
 
-const localFirst = path.join(motionDir, "android-local-first-beta8.js")
-if (!fs.existsSync(localFirst)) fail("Camada transacional local-first da Beta 8 não foi empacotada no APK.")
-const localFirstText = read(localFirst)
-assertJavascript(localFirstText, "Camada transacional Beta 8")
-for (const marker of [
-  "2.0.0-beta.8",
-  "indexedDB",
-  "QUEUE_STORE",
-  "motionLocalFirstFetch",
-  "createQueuedMutation",
-  "optimisticMutation",
-  "replayQueue",
-  "/api/escalas",
-  "/api/formacoes",
-  "/presencas",
-  "/api/perfil",
-  "warmDiscoveredLinks",
-  "networkStatusChange",
-  "localPendingDownload",
-]) {
-  if (!localFirstText.includes(marker)) fail(`Camada local-first Beta 8 sem marcador: ${marker}`)
-}
+const liturgia = path.join(assets, "offline", "liturgia-completa", "2026-08.json")
+if (!fs.existsSync(liturgia)) fail("Pacote local da Liturgia de agosto/2026 ausente.")
+const whatajong = path.join(assets, "whatajong", "index.html")
+if (!fs.existsSync(whatajong)) fail("Whatajong local ausente.")
 
-const memberState = path.join(motionDir, "android-member-state-beta8.js")
-if (!fs.existsSync(memberState)) fail("Camada otimista de membros/registros da Beta 8 não foi empacotada no APK.")
-const memberStateText = read(memberState)
-assertJavascript(memberStateText, "Camada de membros Beta 8")
-for (const marker of [
-  "2.0.0-beta.8",
-  "motionMemberStateFetch",
-  "/status",
-  "/promover",
-  "/registros",
-  "offline_pendente",
-  "/api/membros",
-  "/api/equipe",
-]) {
-  if (!memberStateText.includes(marker)) fail(`Camada de membros Beta 8 sem marcador: ${marker}`)
-}
-
-const rscGuard = path.join(motionDir, "android-rsc-guard-beta8.js")
-if (!fs.existsSync(rscGuard)) fail("Guard de cache RSC/HTML da Beta 8 não foi empacotado no APK.")
-const rscGuardText = read(rscGuard)
-assertJavascript(rscGuardText, "Guard RSC Beta 8")
-for (const marker of [
-  "2.0.0-beta.8",
-  "motionRscGuardFetch",
-  "text/x-component",
-  "next-router-state-tree",
-  "santa-luzia-motion-documents-v1",
-  "santa-luzia-motion-rsc-v1",
-  "restoreDocument",
-  "scrubRscFromDocumentCaches",
-  "networkStatusChange",
-]) {
-  if (!rscGuardText.includes(marker)) fail(`Guard RSC Beta 8 sem marcador: ${marker}`)
-}
-
-if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId da Beta não foi aplicado.")
-if (!read(strings).includes(config.appName)) fail("Nome Santa Luzia Motion Beta não foi aplicado.")
-
-console.log(`[motion-beta] Pacote isolado pronto: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
-console.log(`[motion-beta] Stack Windows Beta completa empacotada no commit ${config.windowsBeta.commit}.`)
-console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado otimista + isolamento RSC/HTML empacotados e validados por sintaxe.")
+console.log(`[motion-beta] Beta 9 local pronta: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
+console.log("[motion-beta] WebView sem server.url; SQLite + SyncHttp + Liturgia + jogos empacotados localmente.")
