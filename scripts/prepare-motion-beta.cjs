@@ -116,9 +116,27 @@ for (const marker of [
   if (!memberStateText.includes(marker)) fail(`Camada de membros Beta 8 sem marcador: ${marker}`)
 }
 
+const rscGuard = path.join(motionDir, "android-rsc-guard-beta8.js")
+if (!fs.existsSync(rscGuard)) fail("Guard de cache RSC/HTML da Beta 8 não foi empacotado no APK.")
+const rscGuardText = read(rscGuard)
+assertJavascript(rscGuardText, "Guard RSC Beta 8")
+for (const marker of [
+  "2.0.0-beta.8",
+  "motionRscGuardFetch",
+  "text/x-component",
+  "next-router-state-tree",
+  "santa-luzia-motion-documents-v1",
+  "santa-luzia-motion-rsc-v1",
+  "restoreDocument",
+  "scrubRscFromDocumentCaches",
+  "networkStatusChange",
+]) {
+  if (!rscGuardText.includes(marker)) fail(`Guard RSC Beta 8 sem marcador: ${marker}`)
+}
+
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId da Beta não foi aplicado.")
 if (!read(strings).includes(config.appName)) fail("Nome Santa Luzia Motion Beta não foi aplicado.")
 
 console.log(`[motion-beta] Pacote isolado pronto: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
 console.log(`[motion-beta] Stack Windows Beta completa empacotada no commit ${config.windowsBeta.commit}.`)
-console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado local otimista, incluindo membros/registros, empacotados e validados por sintaxe.")
+console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado otimista + isolamento RSC/HTML empacotados e validados por sintaxe.")
