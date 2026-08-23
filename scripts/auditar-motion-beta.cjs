@@ -29,7 +29,7 @@ const capacitor = all("capacitor.config.ts", [
 ], "Capacitor local-first")
 if (/errorPath|offline\.html/.test(capacitor)) throw new Error("Beta 9 não pode ter interface offline alternativa.")
 
-all("android-web/index.html", ["app.css", "app.js", "quiz-local.js", "Abrindo o aplicativo local"], "Shell HTML local")
+all("android-web/index.html", ["app.css", "app.js", "quiz-local.js", "game-local.js", "Abrindo o aplicativo local"], "Shell HTML local")
 all("android-web/app.css", ["@keyframes trophy", "@keyframes float3d", ".podium", ".nav-modal", ".bottom"], "Animações/visual local")
 const app = all("android-web/app.js", [
   'const VERSION = "2.0.0-beta.9"',
@@ -60,12 +60,11 @@ const app = all("android-web/app.js", [
   "renderPresencas",
   "renderRegistro",
   "openGame",
-  'plugin("CaminhoDaLuz")',
-  'plugin("Whatajong")',
 ], "Aplicativo SPA local")
 if (/window\.location\.assign\(|location\.href\s*=\s*["']https?:/.test(app)) throw new Error("Shell local não pode navegar para uma interface web remota.")
 
 all("android-web/quiz-local.js", ["local:quizzes", "local:quiz-liturgia", "/api/quizzes/liturgia/offline", "saveQueue"], "Quiz offline")
+all("android-web/game-local.js", ["CaminhoDaLuz", "Whatajong", "completedRound", "difficulty", "/api/jogo/whatajong/resultado", "/api/jogo/caminho-da-luz/resultado"], "Compatibilidade local dos jogos")
 
 const main = all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [
   beta.applicationId,
@@ -108,7 +107,7 @@ all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/Offline
 all("scripts/prepare-android.cjs", ["liturgia-completa", "build-whatajong-original.cjs", "CaminhoDaLuzActivity", "WhatajongActivity"], "Empacotamento offline nativo")
 all("app/api/quizzes/liturgia/offline/route.ts", ["dataIso", "respostas", "garantirQuizLiturgiaOffline", "Quiz offline sincronizado"], "API idempotente do Quiz offline")
 all("app/api/formacoes/[id]/minha-presenca/route.ts", ["situacao", "justificada", "presente", "horario"], "Regra de presença")
-all("app/api/formacoes/[id]/presencas/route.ts", ["presencas", "usuarioId", "situacao", 'method' in {} ? "" : "salvarPresencasFormacao"].filter(Boolean), "Lista de presença")
+all("app/api/formacoes/[id]/presencas/route.ts", ["presencas", "usuarioId", "situacao", "salvarPresencasFormacao"], "Lista de presença")
 
 console.log("[motion-beta] Beta 9 aprovada: APK inicia pelo shell local e usa o servidor somente para sincronização.")
 console.log(`[motion-beta] Android oficial preservado: ${stable.versionName}/code${stable.versionCode}.`)
