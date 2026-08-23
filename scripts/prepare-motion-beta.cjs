@@ -93,9 +93,25 @@ for (const marker of [
   if (!localFirstText.includes(marker)) fail(`Camada local-first Beta 8 sem marcador: ${marker}`)
 }
 
+const memberState = path.join(motionDir, "android-member-state-beta8.js")
+if (!fs.existsSync(memberState)) fail("Camada otimista de membros/registros da Beta 8 não foi empacotada no APK.")
+const memberStateText = read(memberState)
+for (const marker of [
+  "2.0.0-beta.8",
+  "motionMemberStateFetch",
+  "/status",
+  "/promover",
+  "/registros",
+  "offline_pendente",
+  "/api/membros",
+  "/api/equipe",
+]) {
+  if (!memberStateText.includes(marker)) fail(`Camada de membros Beta 8 sem marcador: ${marker}`)
+}
+
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId da Beta não foi aplicado.")
 if (!read(strings).includes(config.appName)) fail("Nome Santa Luzia Motion Beta não foi aplicado.")
 
 console.log(`[motion-beta] Pacote isolado pronto: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
 console.log(`[motion-beta] Stack Windows Beta completa empacotada no commit ${config.windowsBeta.commit}.`)
-console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado local otimista empacotados e auditados.")
+console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado local otimista, incluindo membros/registros, empacotados e auditados.")
