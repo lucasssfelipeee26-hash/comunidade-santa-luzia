@@ -3,13 +3,13 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.8").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.10").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-// A Motion Beta usa a origem HTTPS como bootstrap/sincronização quando há rede.
-// A navegação já sincronizada, estado local, animações e operações elegíveis são
-// persistidos pelas camadas empacotadas da Beta 7 + Beta 8, sem interface offline paralela.
+// A Motion Beta mantém a MESMA interface React/Next usada online. A origem HTTPS
+// continua sendo a origem lógica do WebView; no Android, MotionOfflineWebViewClient
+// persiste as respostas reais e atende a mesma URL localmente quando não há rede.
 if (valorServidor) {
   const url = new URL(valorServidor)
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
@@ -33,7 +33,7 @@ const config: CapacitorConfig = {
   zoomEnabled: false,
   android: {
     appendUserAgent: motionBeta
-      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaWindowsBeta/0.1.0-beta.19`
+      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaOriginalUIOffline/1 SantaLuziaWindowsBeta/0.1.0-beta.19`
       : " SantaLuziaAndroid",
     backgroundColor: "#fffaf0",
     allowMixedContent: false,
