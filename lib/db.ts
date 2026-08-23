@@ -42,7 +42,28 @@ type CodigoRow = {
 }
 
 export type EscalaPessoa = { id?: string; nome: string; funcao: string; categoria: "sacerdote" | "acolito" | "coroinha" }
-export type EscalaRow = { id: string; data: string; horario: string; celebrante: string; pessoas: EscalaPessoa[]; observacoes: string; criado_em: number }
+export type EscalaRow = {
+  id: string
+  data: string
+  horario: string
+  celebrante: string
+  pessoas: EscalaPessoa[]
+  observacoes: string
+  celebracao_liturgica?: string | null
+  tempo_liturgico?: string | null
+  cor_liturgica?: string | null
+  ciclo_dominical?: string | null
+  data_liturgica?: string | null
+  criado_em: number
+}
+
+export type EscalaJustificativaRow = {
+  id: string
+  escala_id: string
+  usuario_id: string
+  justificativa: string
+  criado_em: number
+}
 
 export type FormacaoArquivo = {
   nome_original: string
@@ -158,6 +179,7 @@ type Store = {
   registros: RegistroRow[]
   codigos_recuperacao: CodigoRow[]
   escalas: EscalaRow[]
+  escala_justificativas: EscalaJustificativaRow[]
   formacoes: FormacaoRow[]
   formacao_presencas: FormacaoPresencaRow[]
   reconhecimentos: ReconhecimentoRow[]
@@ -174,7 +196,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 let storeDisponivel = true
 
 function readStore(): Store {
-  if (!fs.existsSync(DB_PATH)) return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
+  if (!fs.existsSync(DB_PATH)) return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], escala_justificativas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
   try {
     const raw = fs.readFileSync(DB_PATH, "utf8")
     const parsed = JSON.parse(raw) as Partial<Store>
@@ -183,6 +205,7 @@ function readStore(): Store {
       registros: Array.isArray(parsed.registros) ? parsed.registros : [],
       codigos_recuperacao: Array.isArray(parsed.codigos_recuperacao) ? parsed.codigos_recuperacao : [],
       escalas: Array.isArray(parsed.escalas) ? parsed.escalas : [],
+      escala_justificativas: Array.isArray(parsed.escala_justificativas) ? parsed.escala_justificativas : [],
       formacoes: Array.isArray(parsed.formacoes) ? parsed.formacoes : [],
       formacao_presencas: Array.isArray(parsed.formacao_presencas) ? parsed.formacao_presencas : [],
       reconhecimentos: Array.isArray(parsed.reconhecimentos) ? parsed.reconhecimentos : [],
@@ -201,7 +224,7 @@ function readStore(): Store {
     } catch {}
     storeDisponivel = false
     console.error("[Banco local] Não foi possível ler data/santa-luzia.json. As gravações foram bloqueadas para proteger os dados.", error)
-    return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
+    return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], escala_justificativas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
   }
 }
 
@@ -509,7 +532,33 @@ export function listarEscalas() {
     .sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario))
 }
 export function salvarEscala(e: Omit<EscalaRow,"id"|"criado_em">) { const row={...e,id:`escala-${Date.now()}`,criado_em:Date.now()}; store.escalas.push(row); persistNow(); return row }
-export function excluirEscala(id:string) { const n=store.escalas.length; store.escalas=store.escalas.filter(e=>e.id!==id); persistNow(); return n!==store.escalas.length }
+export function buscarEscala(id: string) { return store.escalas.find((escala) => escala.id === id) }
+export function atualizarEscala(id: string, dados: Partial<Omit<EscalaRow, "id" | "criado_em">>) {
+  const escala = buscarEscala(id)
+  if (!escala) return null
+  Object.assign(escala, dados)
+  persistNow()
+  return escala
+}
+export function excluirEscala(id:string) {
+  const n=store.escalas.length
+  store.escalas=store.escalas.filter(e=>e.id!==id)
+  store.escala_justificativas=store.escala_justificativas.filter((item)=>item.escala_id!==id)
+  persistNow()
+  return n!==store.escalas.length
+}
+export function listarJustificativasEscala() { return [...store.escala_justificativas].sort((a, b) => b.criado_em - a.criado_em) }
+export function buscarJustificativaEscala(escalaId: string, usuarioId: string) {
+  return store.escala_justificativas.find((item) => item.escala_id === escalaId && item.usuario_id === usuarioId)
+}
+export function salvarJustificativaEscala(escalaId: string, usuarioId: string, justificativa: string) {
+  const existente = buscarJustificativaEscala(escalaId, usuarioId)
+  if (existente) return existente
+  const row: EscalaJustificativaRow = { id: `escala-just-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, escala_id: escalaId, usuario_id: usuarioId, justificativa, criado_em: Date.now() }
+  store.escala_justificativas.push(row)
+  persistNow()
+  return row
+}
 export function buscarUsuario(id:string){ return store.usuarios.find(u=>u.id===id) }
 
 export function promoverUsuarioModerador(id: string, promotorId: string) {
@@ -543,6 +592,7 @@ export function excluirContaUsuario(id: string) {
     ...escala,
     pessoas: escala.pessoas.filter((pessoa) => pessoa.id !== id && !(pessoa.id == null && pessoa.nome === usuario.nome)),
   }))
+  store.escala_justificativas = store.escala_justificativas.filter((item) => item.usuario_id !== id)
   store.formacao_presencas = store.formacao_presencas.filter((presenca) => presenca.usuario_id !== id)
   store.reconhecimentos = store.reconhecimentos.filter((r) => r.de_usuario_id !== id && r.para_usuario_id !== id)
   store.quizzes = store.quizzes.filter((q) => q.criado_por !== id)

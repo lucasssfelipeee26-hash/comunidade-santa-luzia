@@ -2,20 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { AlertCircle, Check, CheckCircle2, ChevronDown, Loader2, Plus, Trash2, X } from "lucide-react"
+import { AlertCircle, Check, CheckCircle2, ChevronDown, FilePenLine, Loader2, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { Membro } from "@/lib/store"
 import { FUNCOES_ESCALA } from "@/lib/escala-funcoes"
 
-type Escala = { id: string; data: string; horario: string; celebrante: string }
+type Escala = {
+  id: string
+  data: string
+  horario: string
+  celebrante: string
+  observacoes: string
+  pessoas: Array<{ id?: string; nome: string; categoria: CategoriaEscala; funcao: string }>
+  celebracao_liturgica?: string | null
+  tempo_liturgico?: string | null
+  cor_liturgica?: string | null
+  ciclo_dominical?: string | null
+  data_liturgica?: string | null
+}
 type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
 type CategoriaEscala = "acolito" | "coroinha"
 type FuncaoCadastro = "Acólito" | "Coroinha"
 type Rascunho = { membroId: string; funcao: string }
 type PessoaEscalada = Rascunho & { categoria: CategoriaEscala }
 type SeletorAberto = { tipo: "pessoa" | "funcao"; categoria: CategoriaEscala }
+type LiturgiaOpcao = { liturgia: string; tempoLiturgicoAtual: string; cor: string; cicloDominical?: string; dataIso: string }
 
 const CATEGORIAS_ESCALA: Array<{
   id: CategoriaEscala
@@ -54,12 +67,16 @@ function hojeCuiaba() {
 
 export function EditorEscala({ membros }: { membros: Membro[] }) {
   const { data, error, mutate } = useSWR<EscalasResponse>("/api/escalas", fetcher)
-  const [form, setForm] = useState({ data: hojeCuiaba(), horario: "18:00", celebrante: "", observacoes: "" })
+  const [form, setForm] = useState({ data: hojeCuiaba(), horario: "18:00", celebrante: "", observacoes: "", celebracaoLiturgica: "", tempoLiturgico: "", corLiturgica: "", cicloDominical: "", dataLiturgica: "" })
   const [rascunhos, setRascunhos] = useState<Record<CategoriaEscala, Rascunho>>(rascunhosVazios)
   const [pessoasEscaladas, setPessoasEscaladas] = useState<PessoaEscalada[]>([])
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState<{ tipo: "erro" | "sucesso"; texto: string } | null>(null)
   const [seletorAberto, setSeletorAberto] = useState<SeletorAberto | null>(null)
+  const [windowsBeta, setWindowsBeta] = useState(false)
+  const [liturgiasDisponiveis, setLiturgiasDisponiveis] = useState<LiturgiaOpcao[]>([])
+  const [carregandoLiturgia, setCarregandoLiturgia] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
 
   const ativos = useMemo(
     () => membros
@@ -78,6 +95,36 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
   const pessoasDoSeletor = grupoDoSeletor
     ? ativos.filter((membro) => membro.funcao === grupoDoSeletor.funcaoCadastro)
     : []
+
+  useEffect(() => {
+    setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
+  }, [])
+
+  useEffect(() => {
+    if (!windowsBeta || !form.data) return
+    let ativo = true
+    setCarregandoLiturgia(true)
+    const base = new Date(`${form.data}T12:00:00Z`)
+    const seguinte = new Date(base); seguinte.setUTCDate(seguinte.getUTCDate() + 1)
+    const datas = [base.toISOString().slice(0, 10), seguinte.toISOString().slice(0, 10)]
+    void Promise.all(datas.map(async (dataIso) => {
+      const response = await fetch(`/api/liturgia?data=${dataIso}`, { cache: "force-cache", headers: { "X-Santa-Luzia-Windows-Beta": "1" } })
+      if (!response.ok) return null
+      const json = await response.json().catch(() => null) as LiturgiaOpcao | null
+      return json?.liturgia ? { ...json, dataIso } : null
+    })).then((resultados) => {
+      if (!ativo) return
+      const unicas = resultados.filter((item): item is LiturgiaOpcao => Boolean(item)).filter((item, indice, lista) => lista.findIndex((outro) => outro.dataIso === item.dataIso && outro.liturgia === item.liturgia) === indice)
+      const ordenadas = base.getUTCDay() === 6 ? [...unicas].sort((a, b) => b.dataIso.localeCompare(a.dataIso)) : unicas
+      setLiturgiasDisponiveis(ordenadas)
+      setForm((atual) => {
+        if (atual.celebracaoLiturgica || !ordenadas[0]) return atual
+        const preferida = ordenadas[0]
+        return { ...atual, celebracaoLiturgica: preferida.liturgia, tempoLiturgico: preferida.tempoLiturgicoAtual || "", corLiturgica: preferida.cor || "", cicloDominical: preferida.cicloDominical || "", dataLiturgica: preferida.dataIso }
+      })
+    }).finally(() => { if (ativo) setCarregandoLiturgia(false) })
+    return () => { ativo = false }
+  }, [windowsBeta, form.data])
 
   useEffect(() => {
     if (!seletorAberto) return
@@ -149,11 +196,38 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
     setMensagem(null)
   }
 
+  function escolherLiturgia(chave: string) {
+    const escolhida = liturgiasDisponiveis.find((item) => `${item.dataIso}::${item.liturgia}` === chave)
+    if (!escolhida) return
+    setForm((atual) => ({ ...atual, celebracaoLiturgica: escolhida.liturgia, tempoLiturgico: escolhida.tempoLiturgicoAtual || "", corLiturgica: escolhida.cor || "", cicloDominical: escolhida.cicloDominical || "", dataLiturgica: escolhida.dataIso }))
+  }
+
+  function iniciarEdicao(escala: Escala) {
+    setEditandoId(escala.id)
+    setForm({ data: escala.data, horario: escala.horario, celebrante: escala.celebrante, observacoes: escala.observacoes || "", celebracaoLiturgica: escala.celebracao_liturgica || "", tempoLiturgico: escala.tempo_liturgico || "", corLiturgica: escala.cor_liturgica || "", cicloDominical: escala.ciclo_dominical || "", dataLiturgica: escala.data_liturgica || "" })
+    setPessoasEscaladas(escala.pessoas.flatMap((pessoa) => pessoa.id ? [{ membroId: pessoa.id, categoria: pessoa.categoria, funcao: pessoa.funcao }] : []))
+    setRascunhos(rascunhosVazios())
+    setMensagem({ tipo: "sucesso", texto: "Escala aberta para edição. Altere os dados e salve." })
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  function cancelarEdicao() {
+    setEditandoId(null)
+    setPessoasEscaladas([])
+    setRascunhos(rascunhosVazios())
+    setForm({ data: hojeCuiaba(), horario: "18:00", celebrante: "", observacoes: "", celebracaoLiturgica: "", tempoLiturgico: "", corLiturgica: "", cicloDominical: "", dataLiturgica: "" })
+    setMensagem(null)
+  }
+
   async function publicar() {
     if (salvando) return
     setMensagem(null)
     if (!form.data || !form.horario || !form.celebrante.trim()) {
       setMensagem({ tipo: "erro", texto: "Informe data, horário e o sacerdote celebrante." })
+      return
+    }
+    if (windowsBeta && !form.celebracaoLiturgica) {
+      setMensagem({ tipo: "erro", texto: "Selecione a celebração litúrgica indicada pelo iLiturgia." })
       return
     }
     const funcoesEscolhidas = pessoasEscaladas.map((pessoa) => pessoa.funcao)
@@ -170,8 +244,8 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
 
     setSalvando(true)
     try {
-      const response = await fetch("/api/escalas", {
-        method: "POST",
+      const response = await fetch(editandoId ? `/api/escalas/${editandoId}` : "/api/escalas", {
+        method: editandoId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, pessoas }),
       })
@@ -180,9 +254,11 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
 
       setPessoasEscaladas([])
       setRascunhos(rascunhosVazios())
-      setForm((atual) => ({ ...atual, celebrante: "", observacoes: "" }))
+      setForm((atual) => ({ ...atual, celebrante: "", observacoes: "", celebracaoLiturgica: "", tempoLiturgico: "", corLiturgica: "", cicloDominical: "", dataLiturgica: "" }))
+      const estavaEditando = Boolean(editandoId)
+      setEditandoId(null)
       await mutate()
-      setMensagem({ tipo: "sucesso", texto: "Escala publicada com sucesso." })
+      setMensagem({ tipo: "sucesso", texto: estavaEditando ? "Escala atualizada com sucesso." : "Escala publicada com sucesso." })
     } catch (e) {
       setMensagem({ tipo: "erro", texto: e instanceof Error ? e.message : "Erro ao publicar a escala." })
     } finally {
@@ -204,7 +280,7 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
 
   return (
     <section className="mt-10 rounded-xl border bg-card p-5">
-      <h2 className="font-serif text-2xl text-primary">Montar Escala do Dia</h2>
+      <h2 className="font-serif text-2xl text-primary">{editandoId ? "Editar Escala do Dia" : "Montar Escala do Dia"}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Informe o sacerdote celebrante e distribua as funções litúrgicas. Cada função pode ser atribuída a uma pessoa por escala.
       </p>
@@ -223,6 +299,15 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
           <Input id="escala-celebrante" placeholder="Nome do sacerdote" value={form.celebrante} onChange={(e) => setForm({ ...form, celebrante: e.target.value })} />
         </div>
       </div>
+
+      {windowsBeta && <div className="mt-4 rounded-2xl border border-[#d4af37]/35 bg-[#fffaf0] p-4">
+        <Label htmlFor="escala-celebracao-liturgica">Celebração litúrgica</Label>
+        <select id="escala-celebracao-liturgica" value={form.celebracaoLiturgica && form.dataLiturgica ? `${form.dataLiturgica}::${form.celebracaoLiturgica}` : ""} onChange={(event) => escolherLiturgia(event.target.value)} disabled={carregandoLiturgia} className="mt-2 min-h-12 w-full rounded-xl border-2 border-[#d8cec8] bg-white px-3 text-sm font-semibold outline-none focus:border-primary">
+          <option value="">{carregandoLiturgia ? "Consultando iLiturgia…" : "Selecione a celebração"}</option>
+          {liturgiasDisponiveis.map((item) => <option key={`${item.dataIso}-${item.liturgia}`} value={`${item.dataIso}::${item.liturgia}`}>{item.dataIso.split("-").reverse().join("/")} · {item.liturgia}</option>)}
+        </select>
+        {form.celebracaoLiturgica && <p className="mt-2 text-xs text-[#6f541a]"><strong>{form.celebracaoLiturgica}</strong>{form.tempoLiturgico ? ` · ${form.tempoLiturgico}` : ""}{form.cicloDominical ? ` · Ano ${form.cicloDominical}` : ""}{form.corLiturgica ? ` · Cor ${form.corLiturgica}` : ""}</p>}
+      </div>}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         {CATEGORIAS_ESCALA.map((grupo) => {
@@ -382,10 +467,10 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
         </div>
       )}
 
-      <Button className="mt-4 gap-2" onClick={publicar} disabled={salvando}>
+      <div className="mt-4 flex flex-wrap gap-2"><Button className="gap-2" onClick={publicar} disabled={salvando}>
         {salvando && <Loader2 className="size-4 animate-spin" />}
-        {salvando ? "Publicando..." : "Publicar escala"}
-      </Button>
+        {salvando ? "Salvando..." : editandoId ? "Salvar alterações" : "Publicar escala"}
+      </Button>{editandoId && <Button type="button" variant="outline" onClick={cancelarEdicao} disabled={salvando}>Cancelar edição</Button>}</div>
 
       <div className="mt-7">
         <h3 className="mb-3 font-semibold">Escalas publicadas</h3>
@@ -398,9 +483,9 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
             {data.escalas.map((escala) => (
               <div key={escala.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
                 <span>{escala.data.split("-").reverse().join("/")} · {escala.horario} · {escala.celebrante}</span>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => excluir(escala.id)}>
+                <div className="flex gap-2">{windowsBeta && <Button variant="outline" size="sm" className="gap-1.5" onClick={() => iniciarEdicao(escala)}><FilePenLine className="size-4" /> Editar</Button>}<Button variant="outline" size="sm" className="gap-1.5" onClick={() => excluir(escala.id)}>
                   <Trash2 className="size-4" /> Excluir
-                </Button>
+                </Button></div>
               </div>
             ))}
           </div>

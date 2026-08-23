@@ -9,5 +9,5 @@ export default async function RankingPage() {
   if (!sessao) redirect("/area-restrita/login")
   const usuario = buscarUsuario(sessao.sub)
   if (!usuario || (usuario.tipo === "membro" && usuario.status !== "aprovado")) redirect("/area-restrita/login")
-  return <RankingInterativo />
+  return <RankingInterativo usuarioInicial={{ id: usuario.id, nome: usuario.nome, tipo: usuario.tipo }} />
 }

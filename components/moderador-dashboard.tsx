@@ -32,7 +32,7 @@ function EstatCard({ label, valor, destaque, alerta }: { label: string; valor: n
 }
 
 export function ModeradorDashboard() {
-  const { membros, equipe, aprovarMembro, recusarMembro } = useStore()
+  const { membros, equipe, dadosModeradorCarregando, aprovarMembro, recusarMembro } = useStore()
   const pendentes = membros.filter((m) => m.status === "pendente")
   const acolitos = equipe.filter((m) => m.funcao === "Acólito")
   const coroinhas = equipe.filter((m) => m.funcao === "Coroinha")
@@ -46,12 +46,12 @@ export function ModeradorDashboard() {
         <ProfileSettings />
         <ModeratorPromotionPanel />
 
-        <dl className="mb-3 grid grid-cols-4 gap-1.5 sm:gap-2">
+        {dadosModeradorCarregando ? <div className="mb-3 grid grid-cols-4 gap-1.5 sm:gap-2" aria-label="Carregando indicadores da equipe">{Array.from({ length: 4 }).map((_, indice) => <div key={indice} className="h-[58px] animate-pulse rounded-xl border bg-white/70" />)}</div> : <dl className="mb-3 grid grid-cols-4 gap-1.5 sm:gap-2">
           <EstatCard label="Acólitos" valor={acolitos.length} />
           <EstatCard label="Coroinhas" valor={coroinhas.length} />
           <EstatCard label="Aguardando" valor={pendentes.length} destaque={pendentes.length > 0} />
           <EstatCard label="Advertências" valor={advertenciasNoMes} alerta={advertenciasNoMes > 0} />
-        </dl>
+        </dl>}
 
         <div className="mb-3 grid grid-cols-2 gap-2">
           <Link href="/area-restrita/atrasos" className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-white/80 p-2.5 shadow-sm transition hover:border-primary/30">

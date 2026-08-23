@@ -133,6 +133,7 @@ export function limparDadosPrivadosOffline() {
     window.localStorage.removeItem(RANKING_KEY)
     window.localStorage.removeItem(SESSAO_KEY)
     window.localStorage.removeItem(FORMACOES_KEY)
+    window.localStorage.removeItem(ESCALAS_KEY)
   } catch {}
   navigator.serviceWorker?.controller?.postMessage({ tipo: "LIMPAR_CACHE_PRIVADO" })
   if ("caches" in window) void window.caches.delete("santa-luzia-private-v1")

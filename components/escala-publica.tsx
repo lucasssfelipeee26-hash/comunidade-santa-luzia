@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import useSWR from "swr"
-import { AlertCircle, CalendarDays, CheckCircle2, Clock, Cross, RefreshCw, Users, WifiOff } from "lucide-react"
+import { AlertCircle, CalendarDays, CheckCircle2, Clock, Cross, Loader2, RefreshCw, ShieldCheck, Users, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ordemFuncaoEscala } from "@/lib/escala-funcoes"
 import { carregarCacheEscalas, salvarCacheEscalas } from "@/lib/offline-data"
@@ -21,14 +21,20 @@ type Escala = {
   celebrante: string
   pessoas: PessoaEscala[]
   observacoes: string
+  celebracao_liturgica?: string | null
+  tempo_liturgico?: string | null
+  cor_liturgica?: string | null
+  ciclo_dominical?: string | null
+  data_liturgica?: string | null
+  minha_justificativa?: { id: string; justificativa: string; criado_em: number } | null
 }
 
-type EscalasResponse = { ok: boolean; escalas: Escala[]; erro?: string }
+type EscalasResponse = { ok: boolean; escalas: Escala[]; usuarioId?: string | null; tipoUsuario?: "moderador" | "membro" | null; erro?: string }
 type EscalasCache = { atualizadoEm: number; dados: EscalasResponse }
 type LiturgiaDaEscala = { liturgia: string; tempoLiturgicoAtual: string; tempoCategoria?: string; cor: string; cicloDominical?: string; dataIso: string }
 
 async function fetcher(url: string): Promise<EscalasResponse> {
-  const response = await fetch(url, { cache: "no-store" })
+  const response = await fetch(url, { cache: "no-store", credentials: "same-origin" })
   const json = await response.json().catch(() => null)
   if (!response.ok || !json) throw new Error(json?.erro ?? "Não foi possível carregar a escala.")
   return json
@@ -90,6 +96,7 @@ export function EscalaPublica() {
     if (!windowsBeta) return
     const escalas = data?.escalas ?? cacheLocal?.dados?.escalas ?? []
     void Promise.all(escalas.map(async (escala) => {
+      if (escala.celebracao_liturgica) return [escala.id, { liturgia: escala.celebracao_liturgica, tempoLiturgicoAtual: escala.tempo_liturgico || "", cor: escala.cor_liturgica || "—", cicloDominical: escala.ciclo_dominical || "", dataIso: escala.data_liturgica || escala.data }] as const
       const [ano, mes, dia] = escala.data.split("-").map(Number)
       const dataCivil = new Date(Date.UTC(ano, mes - 1, dia))
       const proximoDia = new Date(dataCivil); proximoDia.setUTCDate(proximoDia.getUTCDate() + 1)
@@ -168,6 +175,8 @@ export function EscalaPublica() {
             </p>
           </div>
 
+          {windowsBeta && dadosExibidos?.usuarioId && escala.pessoas.some((pessoa) => pessoa.id === dadosExibidos.usuarioId) && <JustificarAusenciaEscala escala={escala} onAtualizada={() => void mutate()} />}
+
           <div className="grid gap-4 md:grid-cols-2">
             <Grupo titulo="Acólitos" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "acolito").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
             <Grupo titulo="Coroinhas" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "coroinha").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
@@ -204,4 +213,24 @@ function Grupo({ titulo, itens, compacto = false }: { titulo: string; itens: Pes
       )}
     </div>
   )
+}
+
+function JustificarAusenciaEscala({ escala, onAtualizada }: { escala: Escala; onAtualizada: () => void }) {
+  const [aberto, setAberto] = useState(false)
+  const [justificativa, setJustificativa] = useState("")
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState("")
+  if (escala.minha_justificativa) return <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><p className="flex items-center gap-2 font-bold"><ShieldCheck className="size-4" /> Falta justificada</p><p className="mt-1 text-xs leading-5">{escala.minha_justificativa.justificativa}</p><p className="mt-1 text-[10px] opacity-75">Registro confirmado e bloqueado para alterações.</p></div>
+
+  async function enviar() {
+    if (justificativa.trim().length < 3) { setErro("Informe o motivo da ausência."); return }
+    setSalvando(true); setErro("")
+    const response = await fetch(`/api/escalas/${escala.id}/minha-justificativa`, { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Santa-Luzia-Windows-Beta": "1" }, body: JSON.stringify({ justificativa: justificativa.trim() }) })
+    const json = await response.json().catch(() => null)
+    if (!response.ok) { setErro(json?.erro || "Não foi possível registrar a justificativa."); setSalvando(false); return }
+    setSalvando(false); setAberto(false); onAtualizada()
+    window.dispatchEvent(new Event("santa-luzia:server-sync"))
+  }
+
+  return <div className="mt-4 rounded-2xl border border-primary/10 bg-[#fffaf7] p-3"><button type="button" onClick={() => setAberto((valor) => !valor)} className="flex min-h-10 w-full items-center justify-between gap-3 text-left text-sm font-bold text-primary"><span>Não poderá comparecer?</span><span className="rounded-full bg-primary px-3 py-1 text-[10px] text-white">Justificar falta</span></button>{aberto && <div className="mt-3 border-t pt-3"><label htmlFor={`justificativa-escala-${escala.id}`} className="text-xs font-semibold">Motivo da ausência</label><textarea id={`justificativa-escala-${escala.id}`} value={justificativa} onChange={(event) => setJustificativa(event.target.value)} maxLength={500} rows={3} className="mt-1 w-full rounded-xl border bg-white p-3 text-sm outline-none focus:border-primary" placeholder="Explique por que não poderá participar da missa" /><Button type="button" size="sm" onClick={() => void enviar()} disabled={salvando} className="mt-2 gap-2">{salvando && <Loader2 className="size-4 animate-spin" />}{salvando ? "Salvando…" : "Confirmar falta justificada"}</Button>{erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}</div>}</div>
 }

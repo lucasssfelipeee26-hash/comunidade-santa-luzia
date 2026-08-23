@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 import { PrayerPersonIcon } from "@/components/prayer-person-icon"
 
-type ItemMenu = { href: string; label: string; curto: string; icon: React.ReactNode }
+type ItemMenu = { href: string; label: string; curto: string; icon: React.ReactNode; motion?: "panel" | "scale" | "liturgy" | "library" | "formation" | "quiz" | "clock" }
 
 function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
   const [aberto, setAberto] = useState(false)
@@ -74,6 +74,7 @@ function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
                     prefetch={false}
                     key={item.href}
                     href={item.href}
+                    data-sl-nav-motion={item.motion}
                     onClick={() => setAberto(false)}
                     className={`app-nav-tile flex min-w-0 flex-col items-center gap-1.5 rounded-2xl px-1 py-2.5 text-center transition active:scale-95 ${
                       ativo
@@ -105,11 +106,11 @@ function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
 
 export function ModeradorMenu() {
   const itens: ItemMenu[] = [
-    { href: "/area-restrita/moderador", label: "Painel do Moderador", curto: "Painel", icon: <LayoutDashboard className="size-5" /> },
-    { href: "/area-restrita/atrasos", label: "Central de Atrasos", curto: "Atrasos", icon: <Clock3 className="size-5" /> },
-    { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" /> },
-    { href: "/area-restrita/moderador/escala", label: "Gerenciar Escalas", curto: "Escalas", icon: <CalendarCheck2 className="size-5" /> },
-    { href: "/area-restrita/moderador/formacao", label: "Gerenciar Formação", curto: "Formação", icon: <BookOpen className="size-5" /> },
+    { href: "/area-restrita/moderador", label: "Painel do Moderador", curto: "Painel", icon: <LayoutDashboard className="size-5" />, motion: "panel" },
+    { href: "/area-restrita/atrasos", label: "Central de Atrasos", curto: "Atrasos", icon: <Clock3 className="size-5" />, motion: "clock" },
+    { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" />, motion: "quiz" },
+    { href: "/area-restrita/moderador/escala", label: "Gerenciar Escalas", curto: "Escalas", icon: <CalendarCheck2 className="size-5" />, motion: "scale" },
+    { href: "/area-restrita/moderador/formacao", label: "Gerenciar Formação", curto: "Formação", icon: <BookOpen className="size-5" />, motion: "formation" },
     { href: "/area-restrita/moderador/presencas", label: "Controle de Presenças", curto: "Presenças", icon: <ClipboardCheck className="size-5" /> },
     { href: "/area-restrita/moderador/registro", label: "Novo Registro", curto: "Registro", icon: <ClipboardPlus className="size-5" /> },
     { href: "/area-restrita/moderador/ranking", label: "Gerenciar Quizzes", curto: "Quizzes", icon: <BrainCircuit className="size-5" /> },
@@ -122,10 +123,10 @@ export function ModeradorMenu() {
 export function MembroMenu() {
   const itens: ItemMenu[] = [
     { href: "/area-restrita/membro", label: "Meu Perfil", curto: "Meu perfil", icon: <PrayerPersonIcon className="size-5" /> },
-    { href: "/area-restrita/atrasos", label: "Central de Atrasos", curto: "Atrasos", icon: <Clock3 className="size-5" /> },
-    { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" /> },
-    { href: "/escala", label: "Escala do Dia", curto: "Escala", icon: <CalendarDays className="size-5" /> },
-    { href: "/formacao", label: "Formação", curto: "Formação", icon: <BookOpen className="size-5" /> },
+    { href: "/area-restrita/atrasos", label: "Central de Atrasos", curto: "Atrasos", icon: <Clock3 className="size-5" />, motion: "clock" },
+    { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" />, motion: "quiz" },
+    { href: "/escala", label: "Escala do Dia", curto: "Escala", icon: <CalendarDays className="size-5" />, motion: "scale" },
+    { href: "/formacao", label: "Formação", curto: "Formação", icon: <BookOpen className="size-5" />, motion: "formation" },
   ]
   return <MenuArea itens={itens} rotulo="Abrir navegação da Área Restrita" />
 }

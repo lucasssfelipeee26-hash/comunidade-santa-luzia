@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import {
   listarEquipeAprovada,
+  listarEscalas,
   listarFormacoes,
+  listarJustificativasEscala,
   listarTodasPresencasFormacao,
   listarPontualidadeOcorrencias,
   db,
@@ -21,12 +23,14 @@ export async function GET(request: NextRequest) {
   const equipeCompleta = listarEquipeAprovada()
   const equipe = sessao.tipo === "moderador" ? equipeCompleta : equipeCompleta.filter((usuario) => usuario.id === sessao.sub)
   const formacoes = listarFormacoes()
+  const escalas = listarEscalas()
   const usuariosPorId = new Map(equipe.map((usuario) => [usuario.id, usuario]))
   const formacoesPorId = new Map(formacoes.map((formacao) => [formacao.id, formacao]))
   const registros = listarTodasPresencasFormacao()
     .filter((registro) => usuariosPorId.has(registro.usuario_id) && formacoesPorId.has(registro.formacao_id))
   const registrosAdministrativos = windowsBeta ? db.prepare("SELECT * FROM registros").all() as RegistroRow[] : []
   const atrasos = windowsBeta ? listarPontualidadeOcorrencias(false) : []
+  const justificativasEscala = windowsBeta ? listarJustificativasEscala().filter((item) => usuariosPorId.has(item.usuario_id)) : []
 
   const contar = (itens: typeof registros) => ({
     presencas: itens.filter((item) => item.status === "presente").length,
@@ -45,6 +49,7 @@ export async function GET(request: NextRequest) {
       advertencias: registrosAdministrativos.filter((registro) => registro.usuario_id === usuario.id && registro.tipo === "advertencias").length,
       atrasos: atrasos.filter((atraso) => atraso.usuario_id === usuario.id).length,
       ...contar(itens),
+      justificadas: contar(itens).justificadas + justificativasEscala.filter((item) => item.usuario_id === usuario.id).length,
     }
   }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
 
@@ -118,7 +123,25 @@ export async function GET(request: NextRequest) {
       atualizadoEm: atraso.moderado_em || atraso.criado_em,
     } : null
   }).filter((item): item is NonNullable<typeof item> => Boolean(item)) : []
-  const recentes = [...recentesPresenca, ...recentesAdministrativos, ...recentesAtrasos]
+  const recentesEscala = windowsBeta ? justificativasEscala.map((registro) => {
+    const usuario = usuariosPorId.get(registro.usuario_id)
+    const escala = escalas.find((item) => item.id === registro.escala_id)
+    return usuario && escala ? {
+      id: `escala-justificada-${registro.id}`,
+      usuarioId: usuario.id,
+      usuarioNome: usuario.nome,
+      usuarioFuncao: usuario.funcao,
+      usuarioTipo: usuario.tipo,
+      formacaoId: escala.id,
+      formacaoTitulo: `Falta justificada na missa · ${escala.celebracao_liturgica || "Celebração litúrgica"}`,
+      formacaoData: escala.data,
+      formacaoHorario: escala.horario,
+      status: "justificada",
+      justificativa: registro.justificativa,
+      atualizadoEm: registro.criado_em,
+    } : null
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item)) : []
+  const recentes = [...recentesPresenca, ...recentesAdministrativos, ...recentesAtrasos, ...recentesEscala]
     .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
     .slice(0, 500)
 
@@ -126,6 +149,7 @@ export async function GET(request: NextRequest) {
     {
       resumo: {
         ...contar(registros),
+        justificadas: contar(registros).justificadas + justificativasEscala.length,
         naoRegistrados: Math.max(0, (equipe.length * formacoes.filter((item) => item.status !== "cancelada").length) - registros.length),
         participantes: equipe.length,
         formacoes: formacoes.length,

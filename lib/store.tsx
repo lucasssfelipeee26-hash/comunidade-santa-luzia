@@ -68,6 +68,7 @@ type ResultadoAcao = { ok: boolean; erro?: string; destino?: string; mensagem?: 
 
 type Ctx = {
   ready: boolean
+  dadosModeradorCarregando: boolean
   membros: Membro[]
   equipe: Membro[]
   sessao: Sessao
@@ -115,11 +116,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const isModerador = sessaoInfo?.tipo === "moderador"
   const isMembro = sessaoInfo?.tipo === "membro"
 
-  const { data: membrosData } = useSWR<{ membros: Membro[] }>(
+  const { data: membrosData, isLoading: membrosLoading } = useSWR<{ membros: Membro[] }>(
     isModerador ? "/api/membros" : null,
     fetcher,
   )
-  const { data: equipeData } = useSWR<{ equipe: Membro[] }>(
+  const { data: equipeData, isLoading: equipeLoading } = useSWR<{ equipe: Membro[] }>(
     isModerador ? "/api/equipe" : null,
     fetcher,
   )
@@ -252,6 +253,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Ctx>(
     () => ({
       ready,
+      dadosModeradorCarregando: Boolean(isModerador && (membrosLoading || equipeLoading || !membrosData || !equipeData)),
       membros,
       equipe,
       sessao,
@@ -270,6 +272,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       ready,
+      isModerador,
+      membrosLoading,
+      equipeLoading,
+      membrosData,
+      equipeData,
       membros,
       equipe,
       sessao,

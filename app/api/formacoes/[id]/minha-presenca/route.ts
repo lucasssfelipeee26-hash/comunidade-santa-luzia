@@ -62,8 +62,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const anterior = listarHistoricoFormacaoUsuario(sessao.sub).find((item) => item.formacao_id === id)
-  if (windowsBeta && anterior?.status === "justificada") {
-    return NextResponse.json({ erro: "A falta já foi justificada e este registro não pode mais ser alterado." }, { status: 409 })
+  if (windowsBeta && anterior) {
+    return NextResponse.json({ erro: "Sua participação já foi registrada e não pode mais ser alterada.", presenca: anterior }, { status: 409 })
   }
 
   const hoje = hojeEmCuiaba()

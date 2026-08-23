@@ -70,9 +70,11 @@ export function FormacaoMembros() {
   const [erro, setErro] = useState("")
   const [online, setOnline] = useState(true)
   const [revisaoLocal, setRevisaoLocal] = useState(0)
+  const [windowsBeta, setWindowsBeta] = useState(false)
   const hoje = hojeCuiaba()
 
   useEffect(() => {
+    setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
     let ativo = true
     const cache = carregarCacheFormacoes<FormacoesResponse>()
     if (cache?.dados?.usuarioId && Array.isArray(cache.dados.formacoes)) setResposta(cache.dados)
@@ -157,7 +159,7 @@ export function FormacaoMembros() {
         {!proxima ? (
           <p className="rounded-xl border bg-white p-5 text-muted-foreground">Nenhuma próxima formação publicada no momento.</p>
         ) : (
-          <div className="max-w-3xl"><CardProxima item={proxima} hoje={hoje} usuarioId={resposta.usuarioId} onAtualizada={(presenca) => atualizarMinhaPresenca(proxima.id, presenca)} /></div>
+          <div className="max-w-3xl"><CardProxima item={proxima} hoje={hoje} usuarioId={resposta.usuarioId} windowsBeta={windowsBeta} onAtualizada={(presenca) => atualizarMinhaPresenca(proxima.id, presenca)} /></div>
         )}
       </section>
 
@@ -201,13 +203,14 @@ function MaterialFormacao({ item }: { item: FormacaoComPresenca }) {
   )
 }
 
-function CardProxima({ item, hoje, usuarioId, onAtualizada }: { item: FormacaoComPresenca; hoje: string; usuarioId: string; onAtualizada: (presenca: MinhaPresenca) => void }) {
+function CardProxima({ item, hoje, usuarioId, windowsBeta, onAtualizada }: { item: FormacaoComPresenca; hoje: string; usuarioId: string; windowsBeta: boolean; onAtualizada: (presenca: MinhaPresenca) => void }) {
   const ehHoje = item.data === hoje
   return (
     <article className={`rounded-xl border bg-white p-5 shadow-sm ${item.status === "cancelada" ? "border-destructive/40" : "border-[#d4af37]/35"}`}>
       <CabecalhoFormacao item={item} />
-      {item.status === "agendada" && ehHoje && <MinhaPresencaControle formacaoId={item.id} dataFormacao={item.data} usuarioId={usuarioId} presenca={item.minha_presenca} onAtualizada={onAtualizada} />}
-      {item.status === "agendada" && !ehHoje && (
+      {item.status === "agendada" && windowsBeta && item.minha_presenca && <ParticipacaoConfirmada presenca={item.minha_presenca} />}
+      {item.status === "agendada" && ((windowsBeta && !item.minha_presenca) || (!windowsBeta && ehHoje)) && <MinhaPresencaControle formacaoId={item.id} dataFormacao={item.data} horarioFormacao={item.horario} usuarioId={usuarioId} presenca={item.minha_presenca} windowsBeta={windowsBeta} onAtualizada={onAtualizada} />}
+      {item.status === "agendada" && !windowsBeta && !ehHoje && (
         <div className="mt-4 flex items-start gap-2 rounded-2xl border border-[#d4af37]/35 bg-[#fff8e6] p-3 text-sm leading-5 text-[#6f541a]"><LockKeyhole className="mt-0.5 size-4 shrink-0" /><span><strong>Presença bloqueada por enquanto.</strong> Os botões serão liberados somente no dia {formatarData(item.data)}.</span></div>
       )}
       <MaterialFormacao item={item} />
@@ -236,17 +239,34 @@ const OPCOES: Array<{ id: MinhaPresencaFormacaoSituacao; rotulo: string; classe:
   { id: "justificada", rotulo: "Falta justificada", classe: "border-amber-600 bg-amber-50 text-amber-900" },
 ]
 
-function MinhaPresencaControle({ formacaoId, dataFormacao, usuarioId, presenca, onAtualizada }: { formacaoId: string; dataFormacao: string; usuarioId: string; presenca: MinhaPresenca | null; onAtualizada: (presenca: MinhaPresenca) => void }) {
+function ParticipacaoConfirmada({ presenca }: { presenca: MinhaPresenca }) {
+  const situacao = dadosSituacao(presenca.status)
+  return <div className={`mt-4 rounded-2xl border p-3 ${situacao.classe}`}><p className="flex items-center gap-2 text-sm font-bold">{situacao.icone}{situacao.rotulo}</p>{presenca.justificativa && <p className="mt-2 text-xs leading-5">{presenca.justificativa}</p>}<p className="mt-1 text-[10px] opacity-75">Participação confirmada. Este registro não pode mais ser alterado.</p></div>
+}
+
+function MinhaPresencaControle({ formacaoId, dataFormacao, horarioFormacao, usuarioId, presenca, windowsBeta, onAtualizada }: { formacaoId: string; dataFormacao: string; horarioFormacao: string | null; usuarioId: string; presenca: MinhaPresenca | null; windowsBeta: boolean; onAtualizada: (presenca: MinhaPresenca) => void }) {
   const [situacao, setSituacao] = useState<MinhaPresencaFormacaoSituacao | null>(presenca?.status ?? null)
   const [justificativa, setJustificativa] = useState(presenca?.justificativa ?? "")
   const [salvando, setSalvando] = useState(false)
   const [mensagem, setMensagem] = useState<{ tipo: "erro" | "sucesso"; texto: string } | null>(null)
+  const [agora, setAgora] = useState(() => Date.now())
+
+  const inicioFormacao = horarioFormacao ? Date.parse(`${dataFormacao}T${horarioFormacao}:00`) : Number.NaN
+  const presenteLiberado = !windowsBeta || (dataFormacao === hojeCuiaba() && (!Number.isFinite(inicioFormacao) || agora >= inicioFormacao))
 
   useEffect(() => { setSituacao(presenca?.status ?? null); setJustificativa(presenca?.justificativa ?? "") }, [presenca?.status, presenca?.justificativa])
+  useEffect(() => {
+    if (!windowsBeta || presenteLiberado) return
+    const timer = window.setInterval(() => setAgora(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [windowsBeta, presenteLiberado])
 
   async function salvar() {
-    if (dataFormacao !== hojeCuiaba()) { setMensagem({ tipo: "erro", texto: "A presença só pode ser marcada no dia da formação." }); return }
     if (!situacao) { setMensagem({ tipo: "erro", texto: "Escolha sua situação na formação." }); return }
+    if ((!windowsBeta || situacao === "presente") && dataFormacao !== hojeCuiaba()) { setMensagem({ tipo: "erro", texto: "A presença só pode ser marcada no dia da formação." }); return }
+    if (windowsBeta && situacao === "presente" && horarioFormacao) {
+      if (!presenteLiberado) { setMensagem({ tipo: "erro", texto: `A presença será liberada às ${horarioFormacao}.` }); return }
+    }
     if (situacao === "justificada" && justificativa.trim().length < 3) { setMensagem({ tipo: "erro", texto: "Informe o motivo da falta justificada." }); return }
     setSalvando(true); setMensagem(null)
     const resultado = await enviarOuEnfileirarMinhaPresencaFormacao(formacaoId, { situacao, justificativa: situacao === "justificada" ? justificativa.trim() : "" }, usuarioId)
@@ -261,11 +281,13 @@ function MinhaPresencaControle({ formacaoId, dataFormacao, usuarioId, presenca, 
     <div data-no-pull-refresh className="mt-4 rounded-2xl border border-[#e2d8d2] bg-[#fffaf7] p-3.5">
       <p className="mb-2 text-sm font-bold text-[#6f1d30]">Como foi sua participação?</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Minha situação nesta formação">
-        {OPCOES.map((opcao) => {
+        {OPCOES.filter((opcao) => !windowsBeta || opcao.id !== "falta").map((opcao) => {
           const ativa = situacao === opcao.id
-          return <button key={opcao.id} type="button" role="radio" aria-checked={ativa} onClick={() => { setSituacao(opcao.id); if (opcao.id !== "justificada") setJustificativa(""); setMensagem(null) }} className={`min-h-11 rounded-xl border px-3 py-2 text-xs font-bold transition ${ativa ? `${opcao.classe} ring-2 ring-current/20` : "border-[#ded5d0] bg-white text-[#5f5658]"}`}>{opcao.rotulo}</button>
+          const bloqueada = windowsBeta && opcao.id === "presente" && !presenteLiberado
+          return <button key={opcao.id} type="button" role="radio" aria-checked={ativa} disabled={bloqueada} onClick={() => { setSituacao(opcao.id); if (opcao.id !== "justificada") setJustificativa(""); setMensagem(null) }} className={`min-h-11 rounded-xl border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-45 ${ativa ? `${opcao.classe} ring-2 ring-current/20` : "border-[#ded5d0] bg-white text-[#5f5658]"}`}>{opcao.rotulo}</button>
         })}
       </div>
+      {windowsBeta && !presenteLiberado && <p className="mt-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900"><LockKeyhole data-sl-nav-motion="clock" className="size-4" /> A presença será liberada{horarioFormacao ? ` às ${horarioFormacao}` : " no horário da formação"}. A falta justificada já está disponível.</p>}
       {situacao === "justificada" && <div className="mt-3"><label htmlFor={`minha-justificativa-${formacaoId}`} className="mb-1.5 block text-xs font-semibold text-[#5f5658]">Justificativa</label><textarea id={`minha-justificativa-${formacaoId}`} value={justificativa} onChange={(e) => setJustificativa(e.target.value)} maxLength={500} rows={3} placeholder="Informe o motivo da ausência" className="w-full resize-y rounded-xl border border-[#d8cec8] bg-white px-3 py-2.5 text-sm text-[#2b2224] outline-none focus:border-[#8f1934] focus:ring-2 focus:ring-[#8f1934]/15" /></div>}
       <button type="button" onClick={salvar} disabled={salvando || !usuarioId} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#8f1934] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">{salvando ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}{salvando ? "Salvando..." : "Salvar minha presença"}</button>
       {presenca?.pendente && <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-sky-800"><Clock3 className="size-4" /> Pendente de sincronização.</p>}

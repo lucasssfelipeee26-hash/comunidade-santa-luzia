@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { listarEscalas, salvarEscala, buscarUsuario, listarMembrosAprovados, type EscalaPessoa } from "@/lib/db"
+import { buscarJustificativaEscala, listarEscalas, salvarEscala, buscarUsuario, listarMembrosAprovados, type EscalaPessoa } from "@/lib/db"
 import { funcaoEscalaValida } from "@/lib/escala-funcoes"
 import { notificarUsuarios } from "@/lib/notificacoes"
 import { dataCivilIsoValida, horario24hValido } from "@/lib/validation"
 
 export const dynamic = "force-dynamic"
 
+function normalizarCelebrante(valor: string) {
+  const nome = valor.trim().replace(/\s+/g, " ")
+  return /^(padre|pe\.?|frei|dom)\s/i.test(nome) ? nome.replace(/^pe\.?\s+/i, "Padre ") : `Padre ${nome}`
+}
+
 export async function GET() {
+  const sessao = await lerSessao()
+  const escalas = listarEscalas().map((escala) => ({
+    ...escala,
+    minha_justificativa: sessao ? buscarJustificativaEscala(escala.id, sessao.sub) ?? null : null,
+  }))
   return NextResponse.json(
-    { ok: true, escalas: listarEscalas() },
+    { ok: true, escalas, usuarioId: sessao?.sub ?? null, tipoUsuario: sessao?.tipo ?? null },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   )
 }
@@ -23,18 +33,30 @@ export async function POST(req: Request) {
     )
   }
 
+  const windowsBeta = /SantaLuziaWindowsBeta\//.test(req.headers.get("user-agent") || "") || req.headers.get("x-santa-luzia-windows-beta") === "1"
   const body = await req.json().catch(() => null) as {
     data?: string
     horario?: string
     celebrante?: string
     observacoes?: string
+    celebracaoLiturgica?: string
+    tempoLiturgico?: string
+    corLiturgica?: string
+    cicloDominical?: string
+    dataLiturgica?: string
     pessoas?: Array<{ id?: string; categoria?: string; funcao?: string }>
   } | null
 
   const data = String(body?.data ?? "").trim()
   const horario = String(body?.horario ?? "").trim()
-  const celebrante = String(body?.celebrante ?? "").trim().replace(/\s+/g, " ")
+  const celebranteBruto = String(body?.celebrante ?? "").trim().replace(/\s+/g, " ")
+  const celebrante = celebranteBruto ? (windowsBeta ? normalizarCelebrante(celebranteBruto) : celebranteBruto) : ""
   const observacoes = String(body?.observacoes ?? "").trim()
+  const celebracaoLiturgica = String(body?.celebracaoLiturgica ?? "").trim().replace(/\s+/g, " ")
+  const tempoLiturgico = String(body?.tempoLiturgico ?? "").trim().replace(/\s+/g, " ")
+  const corLiturgica = String(body?.corLiturgica ?? "").trim().replace(/\s+/g, " ")
+  const cicloDominical = String(body?.cicloDominical ?? "").trim().replace(/\s+/g, " ")
+  const dataLiturgica = String(body?.dataLiturgica ?? "").trim()
 
   if (!dataCivilIsoValida(data, { anoMinimo: 2020, anoMaximo: 2100 })) {
     return NextResponse.json({ ok: false, erro: "Informe uma data válida para a escala." }, { status: 400 })
@@ -47,6 +69,12 @@ export async function POST(req: Request) {
   }
   if (observacoes.length > 1200) {
     return NextResponse.json({ ok: false, erro: "As observações devem ter no máximo 1.200 caracteres." }, { status: 400 })
+  }
+  if ([celebracaoLiturgica, tempoLiturgico, corLiturgica, cicloDominical].some((valor) => valor.length > 180)) {
+    return NextResponse.json({ ok: false, erro: "As informações litúrgicas excedem o tamanho permitido." }, { status: 400 })
+  }
+  if (dataLiturgica && !dataCivilIsoValida(dataLiturgica, { anoMinimo: 2020, anoMaximo: 2100 })) {
+    return NextResponse.json({ ok: false, erro: "A data da celebração litúrgica é inválida." }, { status: 400 })
   }
   if (Array.isArray(body?.pessoas) && body.pessoas.length > 80) {
     return NextResponse.json({ ok: false, erro: "A escala possui pessoas demais para uma única celebração." }, { status: 400 })
@@ -96,6 +124,11 @@ export async function POST(req: Request) {
     celebrante,
     pessoas,
     observacoes,
+    celebracao_liturgica: celebracaoLiturgica || null,
+    tempo_liturgico: tempoLiturgico || null,
+    cor_liturgica: corLiturgica || null,
+    ciclo_dominical: cicloDominical || null,
+    data_liturgica: dataLiturgica || null,
   })
 
   const equipe = listarMembrosAprovados()

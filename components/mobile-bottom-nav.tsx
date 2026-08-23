@@ -8,20 +8,20 @@ import { BookOpenText, BrainCircuit, CalendarDays, GraduationCap, Home, Library,
 import { carregarSessaoOffline } from "@/lib/offline-data"
 
 const publicItems = [
-  { href: "/visitante", label: "Início", icon: Home },
-  { href: "/liturgia", label: "Liturgia", icon: BookOpenText },
-  { href: "/escala", label: "Escala", icon: CalendarDays },
-  { href: "/biblioteca", label: "Biblioteca", icon: Library },
+  { href: "/visitante", label: "Início", icon: Home, motion: "panel" },
+  { href: "/liturgia", label: "Liturgia", icon: BookOpenText, motion: "liturgy" },
+  { href: "/escala", label: "Escala", icon: CalendarDays, motion: "scale" },
+  { href: "/biblioteca", label: "Biblioteca", icon: Library, motion: "library" },
   { href: "/area-restrita/login", label: "Entrar", icon: LogIn },
 ]
 
 // Quem já entrou no aplicativo não precisa de uma aba Visitante. O início público
 // passa a ser a home do usuário, enquanto o perfil/painel continua acessível pelo menu superior.
 const areaItems = [
-  { href: "/visitante", label: "Início", icon: Home },
-  { href: "/escala", label: "Escala", icon: CalendarDays },
-  { href: "/formacao", label: "Formação", icon: GraduationCap },
-  { href: "/area-restrita/ranking", label: "Quiz", icon: BrainCircuit },
+  { href: "/visitante", label: "Início", icon: Home, motion: "panel" },
+  { href: "/escala", label: "Escala", icon: CalendarDays, motion: "scale" },
+  { href: "/formacao", label: "Formação", icon: GraduationCap, motion: "formation" },
+  { href: "/area-restrita/ranking", label: "Quiz", icon: BrainCircuit, motion: "quiz" },
 ]
 
 type MeNavResponse = { sessao: null | { tipo: "moderador" | "membro" } }
@@ -72,6 +72,7 @@ export function MobileBottomNav() {
               prefetch={false}
               key={item.href}
               href={item.href}
+              data-sl-nav-motion={"motion" in item ? item.motion : undefined}
               aria-current={active ? "page" : undefined}
               className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition active:scale-95 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`}
             >

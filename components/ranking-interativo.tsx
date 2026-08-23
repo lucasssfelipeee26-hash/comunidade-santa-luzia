@@ -69,8 +69,8 @@ function Podio({ linha, destaque }: { linha: RankingLinha; destaque?: boolean })
   )
 }
 
-export function RankingInterativo() {
-  const [dados, setDados] = useState<DadosRanking | null>(null)
+export function RankingInterativo({ usuarioInicial }: { usuarioInicial: DadosRanking["eu"] }) {
+  const [dados, setDados] = useState<DadosRanking>({ eu: usuarioInicial, ranking: [] })
   const [quizzes, setQuizzes] = useState<QuizPublico[]>([])
   const [quizAuto, setQuizAuto] = useState<QuizAuto | null>(null)
   const [autoConcluido, setAutoConcluido] = useState<any>(null)
@@ -169,11 +169,6 @@ export function RankingInterativo() {
     setMensagem(`Quiz avulso concluído: ${j.resultado.acertos}/${quizManual.perguntas.length} acertos.`); setQuizManual(null); await carregarDados()
   }
 
-  if (!dados) {
-    const windowsBeta = typeof navigator !== "undefined" && navigator.userAgent.includes("SantaLuziaWindowsBeta/")
-    if (windowsBeta && erro) return <div className="min-h-screen bg-[linear-gradient(180deg,#faf7f5_0%,#f6f2ef_100%)] p-6 text-center"><div className="mx-auto mt-20 max-w-md rounded-2xl border bg-white p-5 shadow-sm"><BrainCircuit className="mx-auto size-9 text-primary" /><h1 className="mt-3 font-serif text-xl text-primary">Não foi possível carregar o Quiz</h1><p className="mt-2 text-sm text-muted-foreground">{erro}</p><Button className="mt-4" onClick={() => void carregarDados()}>Tentar novamente</Button></div></div>
-    return <div className="min-h-screen p-8 text-center text-muted-foreground">Carregando Jornada Litúrgica…</div>
-  }
   const isMod = dados.eu.tipo === "moderador"
   const ranking = dados.ranking || []
   const euRanking = ranking.find((l) => l.usuarioId === dados.eu.id)
