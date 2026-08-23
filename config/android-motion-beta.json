@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 9: interface local no APK, dados em SQLite e servidor usado apenas para sincronizacao. Beta 8 e filas antigas sao migradas. Android estavel 1.0.6/code18 permanece intocado."
+  "notes": "Beta 9: interface local no APK, dados em SQLite e servidor usado apenas para sincronizacao. Beta 8 e filas antigas sao migradas. Android estavel 1.0.6/code18 permanece intocado. Build final de teste disparado em 2026-08-23."
 }
