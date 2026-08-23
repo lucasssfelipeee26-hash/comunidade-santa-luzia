@@ -42,6 +42,7 @@ export function MobileBottomNav() {
   const pathname = usePathname()
   const ocultar = pathname === "/" || authPaths.some((p) => pathname.startsWith(p))
   const [sessaoOffline, setSessaoOffline] = useState<MeNavResponse["sessao"] | undefined>(undefined)
+  const [windowsBeta, setWindowsBeta] = useState(false)
   const { data: me } = useSWR<MeNavResponse>(ocultar ? null : "/api/auth/me", fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
@@ -49,6 +50,7 @@ export function MobileBottomNav() {
   })
 
   useEffect(() => {
+    setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
     const cache = carregarSessaoOffline<MeNavResponse>()
     setSessaoOffline(cache?.dados?.sessao ?? null)
   }, [])
@@ -67,6 +69,9 @@ export function MobileBottomNav() {
         {items.map((item) => {
           const active = ativo(pathname, item.href)
           const Icon = item.icon
+          const className = `flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition active:scale-95 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`
+          const conteudo = <><span className={`flex size-8 items-center justify-center rounded-xl transition ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white/70 text-[#7b1326]"}`}><Icon className="size-[18px]" /></span><span className="w-full truncate text-center text-[9px] leading-3">{item.label}</span></>
+          if (windowsBeta && item.label === "Quiz") return <a key={item.href} href={item.href} data-sl-full-document="quiz" data-sl-nav-motion={"motion" in item ? item.motion : undefined} aria-current={active ? "page" : undefined} className={className}>{conteudo}</a>
           return (
             <Link
               prefetch={false}
@@ -74,12 +79,9 @@ export function MobileBottomNav() {
               href={item.href}
               data-sl-nav-motion={"motion" in item ? item.motion : undefined}
               aria-current={active ? "page" : undefined}
-              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition active:scale-95 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`}
+              className={className}
             >
-              <span className={`flex size-8 items-center justify-center rounded-xl transition ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white/70 text-[#7b1326]"}`}>
-                <Icon className="size-[18px]" />
-              </span>
-              <span className="w-full truncate text-center text-[9px] leading-3">{item.label}</span>
+              {conteudo}
             </Link>
           )
         })}
