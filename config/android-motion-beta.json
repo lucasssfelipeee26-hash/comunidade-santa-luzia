@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20003,
-  "versionName": "2.0.0-beta.3",
+  "versionCode": 20004,
+  "versionName": "2.0.0-beta.4",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 3 de teste separada. Abre a interface local empacotada no APK, usa o servidor apenas para sincronização de dados, e mantém a stack da Windows Beta 0.1.0-beta.19 como referência de paridade."
+  "notes": "Beta 4 de teste separada. Corrige a Beta 3 que abria apenas o splash local: restaura abertura funcional no WebView e mantém a stack da Windows Beta 0.1.0-beta.19 empacotada e reaplicada no Android."
 }
