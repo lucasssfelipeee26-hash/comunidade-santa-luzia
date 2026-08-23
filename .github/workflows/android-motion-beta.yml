@@ -130,6 +130,8 @@ jobs:
           grep -Fq "windows-beta7-polish.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "windows-preload-v5.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "30000" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" android/app/src/main/assets/capacitor.config.json
+          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" android/app/src/main/assets/capacitor.config.json
 
       - name: Compilar APK Motion Beta de teste
         working-directory: android
@@ -152,11 +154,13 @@ jobs:
           unzip -p "$APK" assets/capacitor.config.json | tee "$RUNNER_TEMP/motion-capacitor-config.json"
           grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"
           grep -Fq "$CAPACITOR_SERVER_URL" "$RUNNER_TEMP/motion-capacitor-config.json"
+          grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" "$RUNNER_TEMP/motion-capacitor-config.json"
+          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$RUNNER_TEMP/motion-capacitor-config.json"
           mkdir -p dist
-          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta4.apk"
-          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta4.apk | awk '{print $1}')"
-          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta4.apk)"
-          cat > dist/RELATORIO-MOTION-BETA4.txt <<EOF
+          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta5.apk"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta5.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta5.apk)"
+          cat > dist/RELATORIO-MOTION-BETA5.txt <<EOF
           Santa Luzia Motion Beta Android
           Versão: $APP_VERSION_NAME
           VersionCode: $APP_VERSION_CODE
@@ -166,7 +170,7 @@ jobs:
           Certificado debug: $CERT
           Windows Beta fixada: $WINDOWS_BETA_COMMIT
           Servidor de sincronização/abertura funcional: $SYNC_SERVER_URL
-          Correção da Beta 4: a Beta 3 abria apenas o splash local android-web/index.html; esta build volta a abrir a interface funcional e reaplica a stack Motion empacotada por até 30s.
+          Correção da Beta 5: o WebView Android agora também se identifica como SantaLuziaWindowsBeta/0.1.0-beta.19, além de SantaLuziaMotionBeta, para ativar nos componentes reais as mudanças da Windows Beta em Presenças, Escalas, Formação, Registros, Atrasos, Painel e Jornada.
           Camadas de referência: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android.
           Paridade exigida: Atrasos, Presenças, Registros, Escala, Formação, Perfil/Painel, Ranking, Login diário, Quiz/Kiss/Jornada, Jogos, transições, animações e offline.
           Android estável preservado: 1.0.6 / code18.
@@ -178,19 +182,19 @@ jobs:
       - name: Guardar APK de teste
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-2.0-beta4
+          name: santa-luzia-motion-2.0-beta5
           path: |
-            dist/Santa-Luzia-Motion-2.0-beta4.apk
-            dist/RELATORIO-MOTION-BETA4.txt
+            dist/Santa-Luzia-Motion-2.0-beta5.apk
+            dist/RELATORIO-MOTION-BETA5.txt
           if-no-files-found: error
           retention-days: 14
 
       - name: Resumo
         run: |
-          echo "### Santa Luzia Motion Beta 4" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Santa Luzia Motion Beta 5" >> "$GITHUB_STEP_SUMMARY"
           echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Corrige o travamento no splash da Beta 3." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ativa o modo Windows Beta 0.1.0-beta.19 também no Android Motion." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
