@@ -106,7 +106,8 @@ export function EditorEscala({ membros }: { membros: Membro[] }) {
     setCarregandoLiturgia(true)
     const base = new Date(`${form.data}T12:00:00Z`)
     const seguinte = new Date(base); seguinte.setUTCDate(seguinte.getUTCDate() + 1)
-    const datas = [base.toISOString().slice(0, 10), seguinte.toISOString().slice(0, 10)]
+    const dataSelecionada = base.toISOString().slice(0, 10)
+    const datas = base.getUTCDay() === 6 ? [dataSelecionada, seguinte.toISOString().slice(0, 10)] : [dataSelecionada]
     void Promise.all(datas.map(async (dataIso) => {
       const response = await fetch(`/api/liturgia?data=${dataIso}`, { cache: "force-cache", headers: { "X-Santa-Luzia-Windows-Beta": "1" } })
       if (!response.ok) return null

@@ -12,10 +12,12 @@ function normalizarCelebrante(valor: string) {
   return /^(padre|pe\.?|frei|dom)\s/i.test(nome) ? nome.replace(/^pe\.?\s+/i, "Padre ") : `Padre ${nome}`
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const sessao = await lerSessao()
+  const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
   const escalas = listarEscalas().map((escala) => ({
     ...escala,
+    celebrante: windowsBeta && escala.celebrante ? normalizarCelebrante(escala.celebrante) : escala.celebrante,
     minha_justificativa: sessao ? buscarJustificativaEscala(escala.id, sessao.sub) ?? null : null,
   }))
   return NextResponse.json(
