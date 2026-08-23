@@ -15,6 +15,16 @@ function requireText(content, marker, label) {
   if (!content.includes(marker)) throw new Error(`${label}: marcador ausente: ${marker}`)
 }
 
+function requireAny(content, markers, label) {
+  if (!markers.some((marker) => content.includes(marker))) throw new Error(`${label}: nenhum marcador encontrado: ${markers.join(" | ")}`)
+}
+
+function requireAll(relative, markers, label) {
+  const content = read(relative)
+  for (const marker of markers) requireText(content, marker, `${label} (${relative})`)
+  return content
+}
+
 if (stable.versionCode !== 18 || stable.versionName !== "1.0.6") {
   throw new Error(`A Motion Beta não pode alterar o Android estável: encontrado ${stable.versionName}/code${stable.versionCode}.`)
 }
@@ -23,16 +33,18 @@ if (!/^2\.0\.0-beta\.\d+$/.test(beta.versionName)) throw new Error(`Versionament
 if (!Number.isInteger(beta.versionCode) || beta.versionCode < 20001) throw new Error("versionCode da Motion Beta deve usar faixa isolada >= 20001.")
 if (!/^https:\/\//.test(beta.serverUrl)) throw new Error("Servidor de sincronização da Beta deve usar HTTPS.")
 if (!/^[a-f0-9]{40}$/i.test(beta.windowsBeta?.commit || "")) throw new Error("Commit fixado da Windows Beta é inválido.")
+if (beta.windowsBeta.commit !== "1c798019ebcb7ace6fbaa762fab398b92385a361") throw new Error("A Motion Beta deve mirar a Windows Beta 0.1.0-beta.19 registrada.")
 
-const capacitor = read("capacitor.config.ts")
-requireText(capacitor, "SANTA_LUZIA_MOTION_BETA", "Capacitor")
-requireText(capacitor, "SantaLuziaMotionBeta/", "Capacitor")
-requireText(capacitor, "A Beta 3 confirmou", "Capacitor Beta 4")
-requireText(capacitor, "url: url.origin", "Capacitor abertura funcional")
-requireText(capacitor, "allowNavigation: [url.hostname]", "Capacitor navegação segura")
+const capacitor = requireAll("capacitor.config.ts", [
+  "SANTA_LUZIA_MOTION_BETA",
+  "SantaLuziaMotionBeta/",
+  "SantaLuziaWindowsBeta/0.1.0-beta.19",
+  "url: url.origin",
+  "allowNavigation: [url.hostname]",
+], "Capacitor/WebView")
+requireAny(capacitor, ["2.0.0-beta.5", "2.0.0-beta.6"], "Capacitor versionamento Motion")
 
-const mainActivity = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java")
-for (const marker of [
+const mainActivity = requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [
   beta.applicationId,
   "windows-motion-fixes.css",
   "windows-behavior-fixes.js",
@@ -44,16 +56,11 @@ for (const marker of [
   "WebSettings.LOAD_DEFAULT",
   "evaluateJavascript",
   "30000",
-]) requireText(mainActivity, marker, "MainActivity Motion")
+], "MainActivity Motion")
 
-const css = read("android-web/motion/windows-motion-fixes.css")
-requireText(css, "slHeaderMenuEnter", "CSS Motion Windows")
-
-const behavior = read("android-web/motion/windows-behavior-fixes.js")
-for (const marker of ["daily-presence-v1", "Presença diária", "Conferir resultado"]) requireText(behavior, marker, "Behavior Windows")
-
-const polish = read("android-web/motion/windows-beta7-polish.js")
-for (const marker of [
+const css = requireAll("android-web/motion/windows-motion-fixes.css", ["slHeaderMenuEnter"], "CSS Motion Windows")
+const behavior = requireAll("android-web/motion/windows-behavior-fixes.js", ["daily-presence-v1", "Presença diária", "Conferir resultado"], "Behavior Windows")
+const polish = requireAll("android-web/motion/windows-beta7-polish.js", [
   "weekly-presence-v3",
   "Constância de Luz",
   "DAILY_POINTS = 2",
@@ -64,30 +71,25 @@ for (const marker of [
   "enhanceRanking",
   "decorateProfileTitle",
   "sl-b7-route-enter",
-]) requireText(polish, marker, "Polimento Windows Beta")
-
-const preload = read("android-web/motion/windows-preload-v5.js")
-for (const marker of [
+], "Polimento Windows Beta")
+const preload = requireAll("android-web/motion/windows-preload-v5.js", [
   "Pódio da equipe",
   "sl-top-avatar",
   "sl-trophy-3d",
   "aplicarMenuModerador",
   "aplicarTabs",
   "aplicarRanking",
-]) requireText(preload, marker, "Preload visual Windows")
-
-const runtime = read("android-web/motion/windows-beta-runtime.js")
-for (const marker of [
+], "Preload visual Windows")
+const runtime = requireAll("android-web/motion/windows-beta-runtime.js", [
   'const revision = "14"',
   "sl-r10-profile-icon",
   "sl-r12-quiz-visible",
   'data-sl-nav-motion="quiz"',
   "enhanceProfileAndSoundControls",
   "enhanceAnimatedNavigationIcons",
-]) requireText(runtime, marker, "Runtime Windows revisão 14")
+], "Runtime Windows revisão 14")
 
-const patch = read("android-web/motion/android-motion-beta.js")
-for (const marker of [
+const androidPatch = requireAll("android-web/motion/android-motion-beta.js", [
   "Formação mais recente",
   "Histórico anterior",
   "DELAY_SEEN_PREFIX",
@@ -95,25 +97,139 @@ for (const marker of [
   "prefers-reduced-motion",
   "viewerId",
   "latestConfirmed",
-]) requireText(patch, marker, "Runtime Motion Android")
-if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(patch)) throw new Error("Runtime Motion Android não pode baixar código remoto durante a execução.")
+], "Runtime Motion Android")
+if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(androidPatch)) throw new Error("Runtime Motion Android não pode baixar código remoto durante a execução.")
 
-const sw = read("public/sw.js")
-for (const marker of ["PRIVATE_CACHE", "AQUECER_CACHE_PRIVADO", "/area-restrita/membro", "/area-restrita/moderador", "/formacao", "/area-restrita/ranking"]) {
-  requireText(sw, marker, "Service Worker local-first")
-}
+requireAll("components/controle-presencas-formacao.tsx", [
+  "X-Santa-Luzia-Windows-Beta",
+  "data-windows-beta-presence-center",
+  "relatorioPorPessoa",
+  "Acompanhamento por pessoa",
+  "tiposRelatorio",
+  "Advertências",
+  "Atrasos",
+  "Digite um nome para consultar o relatório individual.",
+], "Tela real de Presenças/Registros/Atrasos")
+
+requireAll("components/late-arrival-banner.tsx", [
+  "santa-luzia:atraso-banner:",
+  "Registro de pontualidade confirmado",
+  "ocorrencia.id",
+  "localStorage.setItem",
+], "Banner de atraso visto uma vez")
+
+requireAll("components/formacao-membros.tsx", [
+  "Formação mais recente",
+  "Histórico anterior",
+  "historicoRecente",
+  "historicoAnterior",
+  "ParticipacaoConfirmada",
+  "MinhaPresencaControle",
+  "Falta justificada",
+  "Presença bloqueada por enquanto",
+  "salvarCacheFormacoes",
+], "Tela real de Formação")
+
+requireAll("components/gerenciador-formacoes.tsx", [
+  "Gerenciar Formação",
+  "cancelada",
+  "motivo_cancelamento",
+  "arquivo",
+], "Gerenciamento de Formação")
+
+requireAll("components/editor-escala.tsx", [
+  "editandoId",
+  "iniciarEdicao",
+  "cancelarEdicao",
+  "celebracaoLiturgica",
+  "tempoLiturgico",
+  "corLiturgica",
+  "cicloDominical",
+  "dataLiturgica",
+  "/api/liturgia?data=",
+  "X-Santa-Luzia-Windows-Beta",
+  "Selecione a celebração litúrgica indicada pelo iLiturgia.",
+  "Escala aberta para edição. Altere os dados e salve.",
+], "Editor de Escalas completo")
+
+requireAll("components/escala-publica.tsx", [
+  "salvarCacheEscalas",
+  "data-windows-beta-scale",
+  "Celebração litúrgica",
+  "JustificarAusenciaEscala",
+  "minha_justificativa",
+  "Falta justificada",
+  "Justificar falta",
+  "X-Santa-Luzia-Windows-Beta",
+], "Escala pública com liturgia e justificativa")
+
+requireAll("app/api/escalas/[id]/minha-justificativa/route.ts", [
+  "minha-justificativa",
+  "justificativa",
+  "X-Santa-Luzia-Windows-Beta",
+], "API de justificativa da escala")
+
+requireAll("app/api/escalas/[id]/route.ts", [
+  "PATCH",
+  "celebracaoLiturgica",
+  "tempoLiturgico",
+  "corLiturgica",
+  "cicloDominical",
+], "API de edição de escala")
+
+requireAll("app/api/formacoes/presencas/resumo/route.ts", [
+  "advertencias",
+  "atrasos",
+  "observacao",
+  "X-Santa-Luzia-Windows-Beta",
+], "API de relatório de presenças")
+
+requireAll("components/ranking-interativo.tsx", [
+  "Jornada Litúrgica",
+  "Quiz",
+  "Joias",
+  "Ranking",
+  "Avulsos",
+  "carregarCacheRanking",
+  "QuizCountdown",
+  "CaminhoDaLuzEntry",
+], "Jornada/Quiz/Kiss/Ranking")
+
+requireAll("components/area-menu.tsx", [
+  "motion?:",
+  "presence",
+  "record",
+  "data-sl-nav-motion",
+  "Presenças",
+  "Registro",
+], "Menu/Painel com ícones e animações")
+
+requireAll("components/meu-relatorio-windows.tsx", [
+  "Meu relatório",
+  "Presenças",
+  "Atrasos",
+], "Relatório individual Windows Beta")
+
+requireAll("components/membro-dashboard.tsx", ["MeuRelatorioWindows", "SantaLuziaWindowsBeta"], "Painel do membro")
+requireAll("components/moderador-dashboard.tsx", ["MeuRelatorioWindows", "SantaLuziaWindowsBeta"], "Painel do moderador")
+
+const sw = requireAll("public/sw.js", ["PRIVATE_CACHE", "AQUECER_CACHE_PRIVADO", "/area-restrita/membro", "/area-restrita/moderador", "/formacao", "/area-restrita/ranking"], "Service Worker local-first")
 
 const snapshot = read("components/android-offline-snapshot-runtime.tsx")
 for (const marker of ["OfflineStore", "snapshot", "fila", "formacoes", "ranking", "escalas"]) {
   if (!snapshot.toLowerCase().includes(marker.toLowerCase())) throw new Error(`Snapshot offline sem marcador: ${marker}`)
 }
 
-const sync = read("components/server-sync-runtime.tsx")
-for (const marker of ["sincronizarRelatosAtrasoPendentes", "sincronizarPresencasFormacaoPendentes", "salvarCacheEscalas", "salvarCacheFormacoes", "networkStatusChange"]) {
-  requireText(sync, marker, "Sincronização local-first")
-}
+requireAll("components/server-sync-runtime.tsx", [
+  "sincronizarRelatosAtrasoPendentes",
+  "sincronizarPresencasFormacaoPendentes",
+  "salvarCacheEscalas",
+  "salvarCacheFormacoes",
+  "networkStatusChange",
+], "Sincronização local-first")
 
-console.log("[motion-beta] Auditoria de equivalência Windows→Android aprovada.")
+console.log("[motion-beta] Auditoria de paridade Windows 0.1.0-beta.19 → Android aprovada.")
 console.log(`[motion-beta] Android estável preservado: ${stable.versionName}/code${stable.versionCode}.`)
 console.log(`[motion-beta] Beta isolada: ${beta.versionName}/code${beta.versionCode} — ${beta.applicationId}.`)
-console.log("[motion-beta] Abertura funcional, login semanal, perfil/painel, Quiz, ranking, animações, transições e stack Windows completa validados por marcadores.")
+console.log("[motion-beta] Telas auditadas: Presenças, Registros, Atrasos, Formação, Escala, Painel, Jornada/Quiz/Kiss, Ranking, offline e sync.")
+void css; void behavior; void polish; void preload; void runtime; void mainActivity
