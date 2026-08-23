@@ -100,6 +100,7 @@ public class MainActivity extends BridgeActivity {
         String runtime = lerAssetTexto("public/motion/windows-beta-runtime.js");
         String android = lerAssetTexto("public/motion/android-motion-beta.js");
         String offlineFirst = lerAssetTexto("public/motion/android-offline-first-beta7.js");
+        String localFirst = lerAssetTexto("public/motion/android-local-first-beta8.js");
 
         String cssBootstrap = "(() => {" +
             "const id='sl-motion-beta-windows-css-android';" +
@@ -108,16 +109,17 @@ public class MainActivity extends BridgeActivity {
             "if(s)s.textContent=" + JSONObject.quote(css) + ";" +
             "})();";
 
-        // Espelha a ordem visual da Windows Beta e fecha com a camada Android
-        // offline-first da Beta 7. Essa última vive dentro do APK e não depende
-        // de publicação no servidor oficial para corrigir a navegação sem rede.
+        // Mantém a correção de navegação da Beta 7 e fecha com a camada
+        // transacional local-first da Beta 8. As duas vivem dentro do APK:
+        // a rede passa a servir para sincronizar, não para permitir o uso da UI.
         motionRuntime = cssBootstrap + "\n;\n" +
             behavior + "\n;\n" +
             polish + "\n;\n" +
             preload + "\n;\n" +
             runtime + "\n;\n" +
             android + "\n;\n" +
-            offlineFirst;
+            offlineFirst + "\n;\n" +
+            localFirst;
         return motionRuntime;
     }
 
