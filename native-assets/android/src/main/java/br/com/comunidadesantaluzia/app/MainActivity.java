@@ -7,6 +7,7 @@ import com.getcapacitor.BridgeActivity;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static final String MOTION_BETA_PACKAGE = "br.com.comunidadesantaluzia.motionbeta";
@@ -14,10 +15,6 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // O AppCompat intercepta ActionMode por padrão. Isso fazia o WebView usar
-        // uma camada intermediária para os menus de seleção/cópia/cola. Ao
-        // desativar essa interceptação, o framework Android volta a desenhar e
-        // colorir o menu contextual conforme o próprio aparelho/versão do SO.
         getDelegate().setHandleNativeActionModesEnabled(false);
 
         registerPlugin(AppUpdaterPlugin.class);
@@ -59,22 +56,43 @@ public class MainActivity extends BridgeActivity {
                 String script = carregarMotionRuntime();
                 if (script != null && !script.isEmpty()) webView.evaluateJavascript(script, null);
             } catch (Exception erro) {
-                android.util.Log.e("SantaLuziaMotion", "Falha ao aplicar runtime Motion empacotado", erro);
+                android.util.Log.e("SantaLuziaMotion", "Falha ao aplicar stack Motion empacotada", erro);
             }
         };
 
-        // A primeira execução pega páginas que já carregaram; as seguintes cobrem
-        // WebViews mais lentos sem substituir o WebViewClient interno do Capacitor.
-        webView.postDelayed(aplicar, 700);
-        webView.postDelayed(aplicar, 2200);
+        // O WebView pode terminar a hidratação do Next.js em momentos diferentes
+        // conforme o aparelho. Reaplicar é seguro porque cada camada é idempotente.
+        webView.postDelayed(aplicar, 450);
+        webView.postDelayed(aplicar, 1200);
+        webView.postDelayed(aplicar, 2600);
         webView.postDelayed(aplicar, 5200);
     }
 
     private String carregarMotionRuntime() throws Exception {
         if (motionRuntime != null) return motionRuntime;
-        String windows = lerAssetTexto("public/motion/windows-beta-runtime.js");
+
+        String css = lerAssetTexto("public/motion/windows-motion-fixes.css");
+        String behavior = lerAssetTexto("public/motion/windows-behavior-fixes.js");
+        String polish = lerAssetTexto("public/motion/windows-beta7-polish.js");
+        String preload = lerAssetTexto("public/motion/windows-preload-v5.js");
+        String runtime = lerAssetTexto("public/motion/windows-beta-runtime.js");
         String android = lerAssetTexto("public/motion/android-motion-beta.js");
-        motionRuntime = windows + "\n;\n" + android;
+
+        String cssBootstrap = "(() => {" +
+            "const id='sl-motion-beta-windows-css-android';" +
+            "let s=document.getElementById(id);" +
+            "if(!s){s=document.createElement('style');s.id=id;document.head&&document.head.appendChild(s);}" +
+            "if(s)s.textContent=" + JSONObject.quote(css) + ";" +
+            "})();";
+
+        // Espelha a ordem efetiva usada pelo Electron: CSS -> behavior -> polish ->
+        // preload visual -> runtime consolidado -> adaptações Android.
+        motionRuntime = cssBootstrap + "\n;\n" +
+            behavior + "\n;\n" +
+            polish + "\n;\n" +
+            preload + "\n;\n" +
+            runtime + "\n;\n" +
+            android;
         return motionRuntime;
     }
 
