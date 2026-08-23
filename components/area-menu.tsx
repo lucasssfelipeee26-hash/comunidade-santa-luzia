@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 import { PrayerPersonIcon } from "@/components/prayer-person-icon"
 
-type ItemMenu = { href: string; label: string; curto: string; icon: React.ReactNode; motion?: "panel" | "scale" | "liturgy" | "library" | "formation" | "quiz" | "clock" }
+type ItemMenu = { href: string; label: string; curto: string; icon: React.ReactNode; motion?: "panel" | "scale" | "liturgy" | "library" | "formation" | "quiz" | "clock" | "presence" | "record" }
 
 function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
   const [aberto, setAberto] = useState(false)
@@ -111,8 +111,8 @@ export function ModeradorMenu() {
     { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" />, motion: "quiz" },
     { href: "/area-restrita/moderador/escala", label: "Gerenciar Escalas", curto: "Escalas", icon: <CalendarCheck2 className="size-5" />, motion: "scale" },
     { href: "/area-restrita/moderador/formacao", label: "Gerenciar Formação", curto: "Formação", icon: <BookOpen className="size-5" />, motion: "formation" },
-    { href: "/area-restrita/moderador/presencas", label: "Controle de Presenças", curto: "Presenças", icon: <ClipboardCheck className="size-5" /> },
-    { href: "/area-restrita/moderador/registro", label: "Novo Registro", curto: "Registro", icon: <ClipboardPlus className="size-5" /> },
+    { href: "/area-restrita/moderador/presencas", label: "Controle de Presenças", curto: "Presenças", icon: <ClipboardCheck className="size-5" />, motion: "presence" },
+    { href: "/area-restrita/moderador/registro", label: "Novo Registro", curto: "Registro", icon: <ClipboardPlus className="size-5" />, motion: "record" },
     { href: "/area-restrita/moderador/ranking", label: "Gerenciar Quizzes", curto: "Quizzes", icon: <BrainCircuit className="size-5" /> },
     { href: "/area-restrita/moderador/tema", label: "Cores do Site", curto: "Cores", icon: <Palette className="size-5" /> },
     { href: "/escala", label: "Ver Escala", curto: "Escala pública", icon: <CalendarDays className="size-5" /> },

@@ -142,6 +142,8 @@ export function FormacaoMembros() {
   const ordenados = useMemo(() => [...itens].sort((a, b) => a.data.localeCompare(b.data)), [itens])
   const proxima = ordenados.find((item) => item.data >= hoje) || null
   const historico = [...ordenados].filter((item) => item.data < hoje).sort((a, b) => b.data.localeCompare(a.data))
+  const historicoRecente = windowsBeta ? historico.slice(0, 1) : historico
+  const historicoAnterior = windowsBeta ? historico.slice(1) : []
 
   if (erro && !resposta) return <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-destructive">{erro}</div>
   if (!resposta) return <p className="flex items-center gap-2 rounded-xl border bg-white p-5 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Carregando formações...</p>
@@ -164,12 +166,13 @@ export function FormacaoMembros() {
       </section>
 
       <section>
-        <h2 className="mb-4 flex items-center gap-2 font-serif text-2xl text-[#0b4b35]"><History className="size-5 text-[#9a731d]" /> Histórico de formações</h2>
+        <h2 className="mb-4 flex items-center gap-2 font-serif text-2xl text-[#0b4b35]"><History className="size-5 text-[#9a731d]" /> {windowsBeta ? "Formação mais recente" : "Histórico de formações"}</h2>
         {historico.length === 0 ? (
           <p className="rounded-xl border border-dashed bg-white p-5 text-sm text-muted-foreground">As formações realizadas aparecerão aqui automaticamente depois da data.</p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">{historico.map((item) => <CardHistorico key={item.id} item={item} />)}</div>
+          <div className="grid gap-4 md:grid-cols-2">{historicoRecente.map((item) => <CardHistorico key={item.id} item={item} />)}</div>
         )}
+        {historicoAnterior.length > 0 && <details className="mt-4 rounded-2xl border border-[#d4af37]/25 bg-white/70 p-3"><summary className="cursor-pointer list-none font-serif text-lg font-semibold text-[#123f2e]">Histórico anterior <span className="ml-1 rounded-full bg-[#f5efeb] px-2 py-0.5 font-sans text-[10px] text-[#655d5f]">{historicoAnterior.length}</span></summary><div className="mt-3 grid gap-4 md:grid-cols-2">{historicoAnterior.map((item) => <CardHistorico key={item.id} item={item} />)}</div></details>}
       </section>
     </div>
   )

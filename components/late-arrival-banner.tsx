@@ -16,17 +16,22 @@ const fetcher = async (url: string) => {
 export function LateArrivalBanner() {
   const { data, mutate } = useSWR("/api/ranking", fetcher, { revalidateOnFocus: true, dedupingInterval: 2_000, refreshInterval: 3_000 })
   const [oculto, setOculto] = useState(false)
+  const [windowsBeta, setWindowsBeta] = useState<boolean | null>(null)
   const ocorrencia = useMemo(() => {
     const lista = (data?.ocorrencias || []).filter((o: any) => o.status === "confirmado").sort((a: any, b: any) => Number(b.criado_em) - Number(a.criado_em))
     return lista[0] || null
   }, [data])
 
   useEffect(() => {
+    setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
+  }, [])
+
+  useEffect(() => {
     if (!ocorrencia) return
     setOculto(localStorage.getItem(`santa-luzia:atraso-banner:${ocorrencia.id}`) === "1")
   }, [ocorrencia])
 
-  if (!ocorrencia || oculto) return null
+  if (windowsBeta !== false || !ocorrencia || oculto) return null
   const reacoes = data?.reacoes || []
   async function reagir(emoji: string) {
     await fetch("/api/ranking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reagir", ocorrenciaId: ocorrencia.id, emoji }) })

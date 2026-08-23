@@ -71,10 +71,9 @@ export function MobileBottomNav() {
           const Icon = item.icon
           const className = `flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition active:scale-95 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`
           const conteudo = <><span className={`flex size-8 items-center justify-center rounded-xl transition ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white/70 text-[#7b1326]"}`}><Icon className="size-[18px]" /></span><span className="w-full truncate text-center text-[9px] leading-3">{item.label}</span></>
-          if (windowsBeta && item.label === "Quiz") return <a key={item.href} href={item.href} data-sl-full-document="quiz" data-sl-nav-motion={"motion" in item ? item.motion : undefined} aria-current={active ? "page" : undefined} className={className}>{conteudo}</a>
           return (
             <Link
-              prefetch={false}
+              prefetch={windowsBeta && item.label === "Quiz"}
               key={item.href}
               href={item.href}
               data-sl-nav-motion={"motion" in item ? item.motion : undefined}

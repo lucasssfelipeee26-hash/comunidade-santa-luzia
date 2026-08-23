@@ -54,12 +54,12 @@ export function ModeradorDashboard() {
         </dl>}
 
         <div className="mb-3 grid grid-cols-2 gap-2">
-          <Link href="/area-restrita/atrasos" className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-white/80 p-2.5 shadow-sm transition hover:border-primary/30">
+          <Link href="/area-restrita/atrasos" data-sl-nav-motion="clock" className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-white/80 p-2.5 shadow-sm transition hover:border-primary/30">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary"><Clock className="size-4" aria-hidden="true" /></span>
             <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-foreground">Atrasos</strong><span className="block truncate text-[9px] text-muted-foreground">Relatos e confirmações</span></span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </Link>
-          <Link href="/area-restrita/moderador/presencas" className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-white/80 p-2.5 shadow-sm transition hover:border-primary/30">
+          <Link href="/area-restrita/moderador/presencas" data-sl-nav-motion="presence" className="flex min-w-0 items-center gap-2 rounded-2xl border border-border bg-white/80 p-2.5 shadow-sm transition hover:border-primary/30">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary"><ClipboardCheck className="size-4" aria-hidden="true" /></span>
             <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-foreground">Presenças</strong><span className="block truncate text-[9px] text-muted-foreground">Formações da equipe</span></span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
