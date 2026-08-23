@@ -75,6 +75,20 @@ public class SyncHttpPlugin extends Plugin {
 
     private Corpo normalizarCorpo(String path, String method, String body, String contentType) {
         String tipo = contentType == null || contentType.isEmpty() ? "application/json; charset=utf-8" : contentType;
+
+        if ("POST".equals(method) && "/api/jogo/whatajong/resultado".equals(path) && tipo.toLowerCase().contains("application/json")) {
+            try {
+                JSONObject recebido = new JSONObject(body == null || body.isEmpty() ? "{}" : body);
+                if (!recebido.has("completedRound") && recebido.has("level")) {
+                    JSONObject corrigido = new JSONObject();
+                    corrigido.put("score", recebido.optInt("score", 0));
+                    corrigido.put("completedRound", Math.max(1, recebido.optInt("level", 1)));
+                    corrigido.put("difficulty", recebido.optString("mode", "facil"));
+                    return new Corpo(corrigido.toString(), "application/json; charset=utf-8");
+                }
+            } catch (Exception ignored) {}
+        }
+
         if ("POST".equals(method) && "/api/formacoes".equals(path) && tipo.toLowerCase().contains("application/json")) {
             try {
                 JSONObject json = new JSONObject(body == null || body.isEmpty() ? "{}" : body);
