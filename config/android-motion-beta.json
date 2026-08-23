@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20006,
-  "versionName": "2.0.0-beta.6",
+  "versionCode": 20007,
+  "versionName": "2.0.0-beta.7",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 6 de teste separada. Mantém a identidade SantaLuziaWindowsBeta/0.1.0-beta.19 e remove a queda normal para offline.html: online e offline devem usar a mesma interface/rotas, com Service Worker, cache privado, SQLite/snapshot e fila local; servidor apenas como sincronizador."
+  "notes": "Beta 7 de teste separada. Preserva a interface única da Beta 6 e adiciona uma camada offline-first empacotada no APK: aquece e persiste as rotas reais do membro/moderador, guarda leituras GET necessárias, força navegação HTML local quando não há rede e mantém o servidor somente como origem de sincronização/atualização de dados. Android estável 1.0.6/code18 permanece intocado."
 }
