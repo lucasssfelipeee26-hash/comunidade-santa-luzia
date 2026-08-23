@@ -23,6 +23,10 @@ function gitBlobSha(buffer) {
   return crypto.createHash("sha1").update(Buffer.from(`blob ${buffer.length}\0`)).update(buffer).digest("hex")
 }
 
+function assertJavascript(content, label) {
+  try { new Function(content) } catch (error) { fail(`${label}: JavaScript inválido: ${error instanceof Error ? error.message : String(error)}`) }
+}
+
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório para impedir alteração acidental do app oficial.")
 
 const gradle = path.join(root, "android", "app", "build.gradle")
@@ -67,6 +71,7 @@ if (!fs.existsSync(androidPatch)) fail("Complemento Motion Android não foi empa
 const offlineFirst = path.join(motionDir, "android-offline-first-beta7.js")
 if (!fs.existsSync(offlineFirst)) fail("Camada de navegação offline-first da Beta 7 não foi empacotada no APK.")
 const offlineFirstText = read(offlineFirst)
+assertJavascript(offlineFirstText, "Camada offline-first Beta 7")
 for (const marker of ["2.0.0-beta.7", "window.fetch", "warmEverything", "window.location.assign", "/area-restrita/moderador/presencas", "/api/formacoes/presencas/resumo"]) {
   if (!offlineFirstText.includes(marker)) fail(`Camada offline-first Beta 7 sem marcador: ${marker}`)
 }
@@ -74,6 +79,7 @@ for (const marker of ["2.0.0-beta.7", "window.fetch", "warmEverything", "window.
 const localFirst = path.join(motionDir, "android-local-first-beta8.js")
 if (!fs.existsSync(localFirst)) fail("Camada transacional local-first da Beta 8 não foi empacotada no APK.")
 const localFirstText = read(localFirst)
+assertJavascript(localFirstText, "Camada transacional Beta 8")
 for (const marker of [
   "2.0.0-beta.8",
   "indexedDB",
@@ -96,6 +102,7 @@ for (const marker of [
 const memberState = path.join(motionDir, "android-member-state-beta8.js")
 if (!fs.existsSync(memberState)) fail("Camada otimista de membros/registros da Beta 8 não foi empacotada no APK.")
 const memberStateText = read(memberState)
+assertJavascript(memberStateText, "Camada de membros Beta 8")
 for (const marker of [
   "2.0.0-beta.8",
   "motionMemberStateFetch",
@@ -114,4 +121,4 @@ if (!read(strings).includes(config.appName)) fail("Nome Santa Luzia Motion Beta 
 
 console.log(`[motion-beta] Pacote isolado pronto: ${config.applicationId} ${config.versionName} (code ${config.versionCode}).`)
 console.log(`[motion-beta] Stack Windows Beta completa empacotada no commit ${config.windowsBeta.commit}.`)
-console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado local otimista, incluindo membros/registros, empacotados e auditados.")
+console.log("[motion-beta] Beta 8: navegação offline + fila transacional durável + estado local otimista, incluindo membros/registros, empacotados e validados por sintaxe.")
