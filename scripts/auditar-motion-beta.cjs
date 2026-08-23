@@ -77,7 +77,7 @@ for (const marker of [
   'const revision = "14"',
   "sl-r10-profile-icon",
   "sl-r12-quiz-visible",
-  "sl-r11Quiz",
+  'data-sl-nav-motion="quiz"',
   "enhanceProfileAndSoundControls",
   "enhanceAnimatedNavigationIcons",
 ]) requireText(runtime, marker, "Runtime Windows revisão 14")
