@@ -107,7 +107,7 @@ jobs:
       - name: Auditar núcleo offline
         run: npm run audit:offline
 
-      - name: Auditar arquitetura Motion Beta
+      - name: Auditar paridade Windows para Android
         run: node scripts/auditar-motion-beta.cjs
 
       - name: Validar aplicação web
@@ -157,10 +157,10 @@ jobs:
           grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" "$RUNNER_TEMP/motion-capacitor-config.json"
           grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$RUNNER_TEMP/motion-capacitor-config.json"
           mkdir -p dist
-          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta5.apk"
-          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta5.apk | awk '{print $1}')"
-          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta5.apk)"
-          cat > dist/RELATORIO-MOTION-BETA5.txt <<EOF
+          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta6.apk"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta6.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta6.apk)"
+          cat > dist/RELATORIO-MOTION-BETA6.txt <<EOF
           Santa Luzia Motion Beta Android
           Versão: $APP_VERSION_NAME
           VersionCode: $APP_VERSION_CODE
@@ -170,9 +170,9 @@ jobs:
           Certificado debug: $CERT
           Windows Beta fixada: $WINDOWS_BETA_COMMIT
           Servidor de sincronização/abertura funcional: $SYNC_SERVER_URL
-          Correção da Beta 5: o WebView Android agora também se identifica como SantaLuziaWindowsBeta/0.1.0-beta.19, além de SantaLuziaMotionBeta, para ativar nos componentes reais as mudanças da Windows Beta em Presenças, Escalas, Formação, Registros, Atrasos, Painel e Jornada.
+          Correção da Beta 6: auditoria forte de paridade Windows 0.1.0-beta.19 para Android. Verifica telas reais de Presenças, Registros, Atrasos, Formação, Escalas, Painel, Jornada/Quiz/Kiss, Ranking, offline e sincronização antes de gerar o APK.
+          Identidade do WebView: SantaLuziaMotionBeta/$APP_VERSION_NAME e SantaLuziaWindowsBeta/0.1.0-beta.19.
           Camadas de referência: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android.
-          Paridade exigida: Atrasos, Presenças, Registros, Escala, Formação, Perfil/Painel, Ranking, Login diário, Quiz/Kiss/Jornada, Jogos, transições, animações e offline.
           Android estável preservado: 1.0.6 / code18.
           Canal: artefato de teste; nenhuma release oficial publicada.
           EOF
@@ -182,19 +182,19 @@ jobs:
       - name: Guardar APK de teste
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-2.0-beta5
+          name: santa-luzia-motion-2.0-beta6
           path: |
-            dist/Santa-Luzia-Motion-2.0-beta5.apk
-            dist/RELATORIO-MOTION-BETA5.txt
+            dist/Santa-Luzia-Motion-2.0-beta6.apk
+            dist/RELATORIO-MOTION-BETA6.txt
           if-no-files-found: error
           retention-days: 14
 
       - name: Resumo
         run: |
-          echo "### Santa Luzia Motion Beta 5" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Santa Luzia Motion Beta 6" >> "$GITHUB_STEP_SUMMARY"
           echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Ativa o modo Windows Beta 0.1.0-beta.19 também no Android Motion." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Auditoria forte de paridade Windows 0.1.0-beta.19 → Android." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
