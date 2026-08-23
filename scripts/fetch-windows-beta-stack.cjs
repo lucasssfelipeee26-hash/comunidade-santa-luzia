@@ -40,6 +40,7 @@ async function download(key, destinationName) {
 ;(async () => {
   await download("motionCss", "windows-motion-fixes.css")
   await download("behavior", "windows-behavior-fixes.js")
+  await download("polish", "windows-beta7-polish.js")
   await download("preload", "windows-preload-v5.js")
   await download("runtime", "windows-beta-runtime.js")
   console.log(`[motion-beta] Stack Windows Beta completa fixada no commit ${source.commit}.`)
