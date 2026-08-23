@@ -102,6 +102,7 @@ public class MainActivity extends BridgeActivity {
         String offlineFirst = lerAssetTexto("public/motion/android-offline-first-beta7.js");
         String localFirst = lerAssetTexto("public/motion/android-local-first-beta8.js");
         String memberState = lerAssetTexto("public/motion/android-member-state-beta8.js");
+        String rscGuard = lerAssetTexto("public/motion/android-rsc-guard-beta8.js");
 
         String cssBootstrap = "(() => {" +
             "const id='sl-motion-beta-windows-css-android';" +
@@ -111,7 +112,7 @@ public class MainActivity extends BridgeActivity {
             "})();";
 
         // Mantém a correção de navegação da Beta 7 e fecha com as camadas
-        // transacionais/otimistas da Beta 8. Todas vivem dentro do APK:
+        // transacionais/otimistas da Beta 8 e o guard de RSC. Todas vivem no APK:
         // a rede passa a servir para sincronizar, não para permitir o uso da UI.
         motionRuntime = cssBootstrap + "\n;\n" +
             behavior + "\n;\n" +
@@ -121,7 +122,8 @@ public class MainActivity extends BridgeActivity {
             android + "\n;\n" +
             offlineFirst + "\n;\n" +
             localFirst + "\n;\n" +
-            memberState;
+            memberState + "\n;\n" +
+            rscGuard;
         return motionRuntime;
     }
 
