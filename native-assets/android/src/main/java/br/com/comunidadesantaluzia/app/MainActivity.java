@@ -2,19 +2,31 @@ package br.com.comunidadesantaluzia.app;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.os.Build;
 import android.os.Bundle;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+
 import com.getcapacitor.BridgeActivity;
+
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static final String MOTION_BETA_PACKAGE = "br.com.comunidadesantaluzia.motionbeta";
     private String motionRuntime;
+    private MotionOfflineWebViewClient motionClient;
+    private boolean serviceWorkerConfigured = false;
+    private boolean offlineRecoveryTriggered = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -27,7 +39,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         if (ehMotionBeta()) {
-            prepararWebViewLocalFirst();
+            prepararWebViewOriginalOffline();
             agendarMotion();
         }
     }
@@ -36,7 +48,7 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         if (ehMotionBeta()) {
-            prepararWebViewLocalFirst();
+            prepararWebViewOriginalOffline();
             agendarMotion();
         }
     }
@@ -48,20 +60,61 @@ public class MainActivity extends BridgeActivity {
     private boolean temConexao() {
         try {
             ConnectivityManager manager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            NetworkInfo info = manager != null ? manager.getActiveNetworkInfo() : null;
-            return info != null && info.isConnected();
+            if (manager == null) return false;
+            Network network = manager.getActiveNetwork();
+            if (network == null) return false;
+            NetworkCapabilities caps = manager.getNetworkCapabilities(network);
+            return caps != null
+                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
         } catch (Exception erro) {
-            return true;
+            return false;
         }
     }
 
-    private void prepararWebViewLocalFirst() {
+    private void prepararWebViewOriginalOffline() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
-        WebSettings settings = getBridge().getWebView().getSettings();
+        WebView webView = getBridge().getWebView();
+        WebSettings settings = webView.getSettings();
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
-        settings.setCacheMode(temConexao() ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        if (motionClient == null) {
+            motionClient = new MotionOfflineWebViewClient(getBridge(), this, this::agendarMotion);
+            webView.setWebViewClient(motionClient);
+        }
+
+        if (!serviceWorkerConfigured && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                ServiceWorkerController.getInstance().setServiceWorkerClient(new ServiceWorkerClient() {
+                    @Override
+                    public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+                        MotionOfflineWebViewClient client = motionClient;
+                        WebView current = getBridge() != null ? getBridge().getWebView() : null;
+                        return client != null ? client.shouldInterceptRequest(current, request) : null;
+                    }
+                });
+                serviceWorkerConfigured = true;
+            } catch (Exception erro) {
+                android.util.Log.w("SantaLuziaMotion", "Não foi possível instalar o cache do Service Worker", erro);
+            }
+        }
+
+        // O Bridge do Capacitor pode iniciar a primeira navegação antes de MainActivity
+        // instalar o cliente. Se o app foi aberto já sem rede, repetimos a navegação uma
+        // única vez para que a URL original seja atendida pelo cache HTTP nativo.
+        if (!temConexao() && !offlineRecoveryTriggered) {
+            offlineRecoveryTriggered = true;
+            webView.postDelayed(() -> {
+                try {
+                    String url = webView.getUrl();
+                    if (url != null && url.startsWith("https://")) webView.loadUrl(url);
+                } catch (Exception ignored) {}
+            }, 180);
+        }
+        if (temConexao()) offlineRecoveryTriggered = false;
     }
 
     private void agendarMotion() {
@@ -69,7 +122,6 @@ public class MainActivity extends BridgeActivity {
         WebView webView = getBridge().getWebView();
         Runnable aplicar = () -> {
             try {
-                prepararWebViewLocalFirst();
                 String script = carregarMotionRuntime();
                 if (script != null && !script.isEmpty()) webView.evaluateJavascript(script, null);
             } catch (Exception erro) {
@@ -77,17 +129,12 @@ public class MainActivity extends BridgeActivity {
             }
         };
 
-        // O WebView pode terminar a navegação e a hidratação do Next.js em momentos
-        // diferentes conforme aparelho/rede. Reaplicar é seguro porque as camadas
-        // empacotadas são idempotentes e usam guards próprios.
-        webView.postDelayed(aplicar, 350);
-        webView.postDelayed(aplicar, 900);
-        webView.postDelayed(aplicar, 1800);
+        // Reaplica depois de cada navegação/hidratação sem substituir a interface React.
+        webView.postDelayed(aplicar, 250);
+        webView.postDelayed(aplicar, 750);
+        webView.postDelayed(aplicar, 1600);
         webView.postDelayed(aplicar, 3200);
-        webView.postDelayed(aplicar, 5200);
-        webView.postDelayed(aplicar, 9000);
-        webView.postDelayed(aplicar, 15000);
-        webView.postDelayed(aplicar, 30000);
+        webView.postDelayed(aplicar, 6500);
     }
 
     private String carregarMotionRuntime() throws Exception {
@@ -103,6 +150,7 @@ public class MainActivity extends BridgeActivity {
         String localFirst = lerAssetTexto("public/motion/android-local-first-beta8.js");
         String memberState = lerAssetTexto("public/motion/android-member-state-beta8.js");
         String rscGuard = lerAssetTexto("public/motion/android-rsc-guard-beta8.js");
+        String originalUi = lerAssetTexto("public/motion/android-original-ui-beta10.js");
 
         String cssBootstrap = "(() => {" +
             "const id='sl-motion-beta-windows-css-android';" +
@@ -111,9 +159,6 @@ public class MainActivity extends BridgeActivity {
             "if(s)s.textContent=" + JSONObject.quote(css) + ";" +
             "})();";
 
-        // Mantém a correção de navegação da Beta 7 e fecha com as camadas
-        // transacionais/otimistas da Beta 8 e o guard de RSC. Todas vivem no APK:
-        // a rede passa a servir para sincronizar, não para permitir o uso da UI.
         motionRuntime = cssBootstrap + "\n;\n" +
             behavior + "\n;\n" +
             polish + "\n;\n" +
@@ -123,7 +168,8 @@ public class MainActivity extends BridgeActivity {
             offlineFirst + "\n;\n" +
             localFirst + "\n;\n" +
             memberState + "\n;\n" +
-            rscGuard;
+            rscGuard + "\n;\n" +
+            originalUi;
         return motionRuntime;
     }
 
