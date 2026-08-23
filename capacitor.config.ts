@@ -3,7 +3,7 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.4").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.5").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
@@ -34,8 +34,11 @@ const config: CapacitorConfig = {
   loggingBehavior: "none",
   zoomEnabled: false,
   android: {
+    // Mantém a identidade própria da Motion Android e adiciona a identidade da
+    // Windows Beta 0.1.0-beta.19. As telas reais do app principal ativam os
+    // ajustes de Presenças, Escalas, Formação, Registros e Atrasos por esse UA.
     appendUserAgent: motionBeta
-      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion}`
+      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaWindowsBeta/0.1.0-beta.19`
       : " SantaLuziaAndroid",
     backgroundColor: "#fffaf0",
     allowMixedContent: false,
