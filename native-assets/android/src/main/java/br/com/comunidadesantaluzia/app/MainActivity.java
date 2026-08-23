@@ -79,7 +79,7 @@ public class MainActivity extends BridgeActivity {
 
         // O WebView pode terminar a navegação e a hidratação do Next.js em momentos
         // diferentes conforme aparelho/rede. Reaplicar é seguro porque as camadas
-        // da Windows Beta são idempotentes e usam guards próprios.
+        // empacotadas são idempotentes e usam guards próprios.
         webView.postDelayed(aplicar, 350);
         webView.postDelayed(aplicar, 900);
         webView.postDelayed(aplicar, 1800);
@@ -99,6 +99,7 @@ public class MainActivity extends BridgeActivity {
         String preload = lerAssetTexto("public/motion/windows-preload-v5.js");
         String runtime = lerAssetTexto("public/motion/windows-beta-runtime.js");
         String android = lerAssetTexto("public/motion/android-motion-beta.js");
+        String offlineFirst = lerAssetTexto("public/motion/android-offline-first-beta7.js");
 
         String cssBootstrap = "(() => {" +
             "const id='sl-motion-beta-windows-css-android';" +
@@ -107,14 +108,16 @@ public class MainActivity extends BridgeActivity {
             "if(s)s.textContent=" + JSONObject.quote(css) + ";" +
             "})();";
 
-        // Espelha a ordem efetiva usada pelo Electron: CSS -> behavior -> polish ->
-        // preload visual -> runtime consolidado -> adaptações Android.
+        // Espelha a ordem visual da Windows Beta e fecha com a camada Android
+        // offline-first da Beta 7. Essa última vive dentro do APK e não depende
+        // de publicação no servidor oficial para corrigir a navegação sem rede.
         motionRuntime = cssBootstrap + "\n;\n" +
             behavior + "\n;\n" +
             polish + "\n;\n" +
             preload + "\n;\n" +
             runtime + "\n;\n" +
-            android;
+            android + "\n;\n" +
+            offlineFirst;
         return motionRuntime;
     }
 
