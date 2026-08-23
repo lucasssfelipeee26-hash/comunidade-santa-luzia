@@ -30,11 +30,37 @@ if (!/^https:\/\//.test(beta.serverUrl)) throw new Error("Servidor de sincroniza
 if (beta.windowsBeta.commit !== "1c798019ebcb7ace6fbaa762fab398b92385a361") throw new Error("A Motion Beta deve mirar a Windows Beta 0.1.0-beta.19 registrada.")
 
 const capacitor = requireAll("capacitor.config.ts", ["SANTA_LUZIA_MOTION_BETA", "SantaLuziaMotionBeta/", "SantaLuziaWindowsBeta/0.1.0-beta.19", "url: url.origin", "allowNavigation: [url.hostname]"], "Capacitor/WebView")
-requireAny(capacitor, ["2.0.0-beta.5", "2.0.0-beta.6"], "Capacitor versionamento Motion")
-requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [beta.applicationId, "windows-motion-fixes.css", "windows-behavior-fixes.js", "windows-beta7-polish.js", "windows-preload-v5.js", "windows-beta-runtime.js", "android-motion-beta.js", "setDomStorageEnabled(true)", "WebSettings.LOAD_DEFAULT", "evaluateJavascript", "30000"], "MainActivity Motion")
+requireAny(capacitor, ["2.0.0-beta.7"], "Capacitor versionamento Motion")
+requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [beta.applicationId, "windows-motion-fixes.css", "windows-behavior-fixes.js", "windows-beta7-polish.js", "windows-preload-v5.js", "windows-beta-runtime.js", "android-motion-beta.js", "android-offline-first-beta7.js", "setDomStorageEnabled(true)", "WebSettings.LOAD_DEFAULT", "WebSettings.LOAD_CACHE_ELSE_NETWORK", "evaluateJavascript", "30000"], "MainActivity Motion")
 
 const androidPatch = requireAll("android-web/motion/android-motion-beta.js", ["Formação mais recente", "Histórico anterior", "DELAY_SEEN_PREFIX", "AQUECER_CACHE_PRIVADO", "prefers-reduced-motion", "viewerId", "latestConfirmed"], "Runtime Motion Android")
 if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(androidPatch)) throw new Error("Runtime Motion Android não pode baixar código remoto durante a execução.")
+
+const offlineFirst = requireAll("android-web/motion/android-offline-first-beta7.js", [
+  'const VERSION = "2.0.0-beta.7"',
+  "window.fetch = async function motionOfflineFetch",
+  "warmEverything",
+  "window.location.assign",
+  "santa-luzia:server-sync",
+  "/area-restrita/membro",
+  "/area-restrita/moderador",
+  "/area-restrita/moderador/escala",
+  "/area-restrita/moderador/formacao",
+  "/area-restrita/moderador/presencas",
+  "/area-restrita/moderador/registro",
+  "/area-restrita/moderador/ranking",
+  "/area-restrita/moderador/tema",
+  "/area-restrita/moderador/acervo-liturgico",
+  "/area-restrita/atrasos",
+  "/area-restrita/ranking",
+  "/formacao",
+  "/escala",
+  "/liturgia",
+  "/api/formacoes/presencas/resumo",
+  "clearPrivateRouteCopies",
+], "Camada Android offline-first Beta 7")
+if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(offlineFirst)) throw new Error("Camada offline-first Beta 7 não pode baixar código remoto durante a execução.")
+
 requireAll("android-web/motion/windows-motion-fixes.css", ["slHeaderMenuEnter"], "CSS Motion Windows")
 requireAll("android-web/motion/windows-behavior-fixes.js", ["daily-presence-v1", "Presença diária", "Conferir resultado"], "Behavior Windows")
 requireAll("android-web/motion/windows-beta7-polish.js", ["weekly-presence-v3", "Constância de Luz", "DAILY_POINTS = 2", "WEEK_DAYS", "Meu login diário", "14 pts", "replaceJoiasWithJogos", "enhanceRanking", "decorateProfileTitle", "sl-b7-route-enter"], "Polimento Windows Beta")
@@ -64,4 +90,4 @@ requireAll("components/server-sync-runtime.tsx", ["sincronizarRelatosAtrasoPende
 console.log("[motion-beta] Auditoria de paridade Windows 0.1.0-beta.19 → Android aprovada.")
 console.log(`[motion-beta] Android estável preservado: ${stable.versionName}/code${stable.versionCode}.`)
 console.log(`[motion-beta] Beta isolada: ${beta.versionName}/code${beta.versionCode} — ${beta.applicationId}.`)
-console.log("[motion-beta] Telas auditadas: Presenças, Registros, Atrasos, Formação, Escala, Painel, Jornada/Quiz/Kiss, Ranking, offline e sync.")
+console.log("[motion-beta] Beta 7 auditada: rotas reais, navegação HTML offline, cache de GETs, Presenças/Registros/Atrasos/Formação/Escala/Ranking e sync.")
