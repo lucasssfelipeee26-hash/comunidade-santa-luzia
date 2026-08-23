@@ -77,6 +77,8 @@ jobs:
           node --check android-web/motion/android-motion-beta.js
           node --check android-web/motion/android-offline-first-beta7.js
           node --check android-web/motion/android-local-first-beta8.js
+          node --check android-web/motion/android-member-state-beta8.js
+          node --check android-web/motion/android-rsc-guard-beta8.js
           node --check scripts/fetch-windows-beta-stack.cjs
           node --check scripts/prepare-motion-beta.cjs
           node --check scripts/auditar-motion-beta.cjs
@@ -138,11 +140,13 @@ jobs:
             cat android/app/src/main/assets/capacitor.config.json >&2
             exit 1
           fi
-          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-offline-first-beta7.js android-local-first-beta8.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-offline-first-beta7.js android-local-first-beta8.js android-member-state-beta8.js android-rsc-guard-beta8.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
           grep -Fq "windows-beta7-polish.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "windows-preload-v5.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "android-offline-first-beta7.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "android-local-first-beta8.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq "android-member-state-beta8.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq "android-rsc-guard-beta8.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "30000" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "LOAD_CACHE_ELSE_NETWORK" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" android/app/src/main/assets/capacitor.config.json
@@ -165,7 +169,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/motion-apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test -n "$CERT"
-          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-offline-first-beta7.js android-local-first-beta8.js; do unzip -l "$APK" | grep -Fq "assets/public/motion/$f"; done
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-offline-first-beta7.js android-local-first-beta8.js android-member-state-beta8.js android-rsc-guard-beta8.js; do unzip -l "$APK" | grep -Fq "assets/public/motion/$f"; done
           unzip -p "$APK" assets/capacitor.config.json | tee "$RUNNER_TEMP/motion-capacitor-config.json"
           grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"
           grep -Fq "$CAPACITOR_SERVER_URL" "$RUNNER_TEMP/motion-capacitor-config.json"
@@ -193,14 +197,16 @@ jobs:
           Certificado debug: $CERT
           Windows Beta fixada: $WINDOWS_BETA_COMMIT
           Servidor de sincronização/bootstrap: $SYNC_SERVER_URL
-          Arquitetura Beta 8: operação local-first. A Beta 7 permanece responsável pela navegação/rotas HTML em cache; a Beta 8 adiciona cache ampliado de leituras GET, fila IndexedDB durável para mutações elegíveis, estado otimista local de Escalas/Formações/Presenças/Perfil e reenvio automático ao servidor quando a conexão retorna.
+          Arquitetura Beta 8: operação local-first. A Beta 7 permanece responsável pela navegação/rotas HTML em cache; a Beta 8 adiciona cache ampliado de leituras GET, fila IndexedDB durável para mutações elegíveis, estado otimista local e reenvio automático ao servidor quando a conexão retorna.
+          Estado otimista coberto explicitamente: Escalas, Formações, lista de Presenças, presença individual, Perfil, notificações, status de membros, promoção e Registros do moderador.
           Arquivos anexados a formações criadas offline permanecem na fila local e podem ser reabertos enquanto pendentes; IDs temporários são reconciliados com IDs do servidor após sincronização.
+          O guard RSC mantém respostas internas do Next.js separadas dos documentos HTML, impedindo que refresh/prefetch substitua a página offline por payload RSC incompatível.
           Componentes antigos que bloqueavam botões apenas por navigator.onLine passam a executar normalmente; a conectividade física é acompanhada separadamente pela camada nativa/Capacitor para decidir entre envio e fila.
           Dados ainda nunca sincronizados não são fabricados. Relatórios/leituras previamente recebidos são reutilizados offline; novidades chegam na próxima sincronização.
           Jogos nativos e stack visual/animações continuam empacotados no APK.
           Identidade do WebView: SantaLuziaMotionBeta/$APP_VERSION_NAME e SantaLuziaWindowsBeta/0.1.0-beta.19.
-          Camadas: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android; android-offline-first-beta7.js; android-local-first-beta8.js.
-          Paridade exigida: Navegação, Atrasos, Presenças, Registros, Escala, Formação, Perfil/Painel, Ranking, Login diário, Quiz/Kiss/Jornada, Jogos, transições e animações com conteúdo local disponível offline.
+          Camadas: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android; android-offline-first-beta7.js; android-local-first-beta8.js; android-member-state-beta8.js; android-rsc-guard-beta8.js.
+          Paridade exigida: Navegação, Atrasos, Presenças, Registros, Escala, Formação, Perfil/Painel, Ranking, Liturgia, Login diário, Quiz/Kiss/Jornada, Jogos, transições e animações com conteúdo local disponível offline.
           Android estável preservado: 1.0.6 / code18.
           Canal: artefato de teste; nenhuma release oficial publicada.
           EOF
@@ -224,5 +230,5 @@ jobs:
           echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Local-first: rotas/GETs em cache + fila transacional durável + estado otimista + sincronização posterior." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Local-first: rotas/GETs em cache + fila transacional durável + estado otimista + isolamento RSC/HTML + sincronização posterior." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
