@@ -1,0 +1,16 @@
+{
+  "channel": "android-motion-beta",
+  "versionCode": 20001,
+  "versionName": "2.0.0-beta.1",
+  "applicationId": "br.com.comunidadesantaluzia.motionbeta",
+  "appName": "Santa Luzia Motion Beta",
+  "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
+  "windowsMotion": {
+    "repository": "lucasssfelipeee26-hash/santa-luzia-windows-beta",
+    "commit": "73a1e450ea2af6db2c60ddffc334d96c65715844",
+    "path": "runtime/windows-beta-runtime.js",
+    "size": 54911,
+    "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
+  },
+  "notes": "Beta de teste separada. Não substitui nem publica o Android estável. A camada Motion é fixada e empacotada no APK."
+}
