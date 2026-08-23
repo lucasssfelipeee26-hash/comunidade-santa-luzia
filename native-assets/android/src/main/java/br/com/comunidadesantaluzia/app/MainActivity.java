@@ -60,12 +60,17 @@ public class MainActivity extends BridgeActivity {
             }
         };
 
-        // O WebView pode terminar a hidratação do Next.js em momentos diferentes
-        // conforme o aparelho. Reaplicar é seguro porque cada camada é idempotente.
-        webView.postDelayed(aplicar, 450);
-        webView.postDelayed(aplicar, 1200);
-        webView.postDelayed(aplicar, 2600);
+        // O WebView pode terminar a navegação e a hidratação do Next.js em momentos
+        // diferentes conforme aparelho/rede. Reaplicar é seguro porque as camadas
+        // da Windows Beta são idempotentes e usam guards próprios.
+        webView.postDelayed(aplicar, 350);
+        webView.postDelayed(aplicar, 900);
+        webView.postDelayed(aplicar, 1800);
+        webView.postDelayed(aplicar, 3200);
         webView.postDelayed(aplicar, 5200);
+        webView.postDelayed(aplicar, 9000);
+        webView.postDelayed(aplicar, 15000);
+        webView.postDelayed(aplicar, 30000);
     }
 
     private String carregarMotionRuntime() throws Exception {
