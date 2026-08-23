@@ -2,46 +2,49 @@ const fs = require("node:fs")
 const path = require("node:path")
 const vm = require("node:vm")
 
-const raiz = path.resolve(__dirname, "..")
-const caminhos = {
-  offline: path.join(raiz, "android-web", "offline.html"),
-  bridge: path.join(raiz, "android-web", "offline-bridge.html"),
-  missao: path.join(raiz, "android-web", "caminho-da-luz", "index.html"),
+const root = path.resolve(__dirname, "..")
+const required = {
+  splash: path.join(root, "android-web", "index.html"),
+  mission: path.join(root, "android-web", "caminho-da-luz", "index.html"),
+  motion10: path.join(root, "android-web", "motion", "android-original-ui-beta10.js"),
 }
 
-for (const arquivo of Object.values(caminhos)) {
-  if (!fs.existsSync(arquivo)) throw new Error(`Arquivo Android ausente: ${path.relative(raiz, arquivo)}`)
-  const html = fs.readFileSync(arquivo, "utf8")
-  if (!/<!doctype html>/i.test(html)) throw new Error(`HTML inválido: ${path.relative(raiz, arquivo)}`)
-
-  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
-  scripts.forEach((match, indice) => {
-    const codigo = match[1].trim()
-    if (!codigo) return
-    new vm.Script(codigo, { filename: `${path.relative(raiz, arquivo)}#script-${indice + 1}` })
-  })
+for (const [name, file] of Object.entries(required)) {
+  if (!fs.existsSync(file)) throw new Error(`Arquivo Android obrigatório ausente (${name}): ${path.relative(root, file)}`)
 }
 
-const offline = fs.readFileSync(caminhos.offline, "utf8")
-const marcadores = [
-  ["OfflineStore", "armazenamento nativo local"],
-  ["quiz-liturgia", "fila do Quiz da Liturgia"],
-  ["function perfis()", "perfis/equipe sincronizados"],
-  ["function renderBiblioteca", "Biblioteca local"],
-  ['bottomTabs=[["inicio"', "navegação local com Início"],
-  ['window.addEventListener("online"', "retorno automático ao servidor"],
-]
-
-for (const [marcador, recurso] of marcadores) {
-  if (!offline.includes(marcador)) throw new Error(`Núcleo offline sem recurso obrigatório (${recurso}): ${marcador}`)
+for (const forbidden of ["offline.html", "offline-bridge.html"]) {
+  if (fs.existsSync(path.join(root, "android-web", forbidden))) {
+    throw new Error(`Beta 10 não pode conter interface offline paralela: android-web/${forbidden}`)
+  }
 }
 
-// A Missão do Altar é um pacote local independente. A validação correta é confirmar
-// que o HTML do jogo continua fisicamente dentro de android-web; ele não precisa ser
-// acoplado por uma frase ou link específico da antiga tela de contingência.
-const missao = fs.readFileSync(caminhos.missao, "utf8")
-if (!missao.includes("<script") || missao.length < 1000) {
-  throw new Error("Pacote local da Missão do Altar parece incompleto.")
+const splash = fs.readFileSync(required.splash, "utf8")
+if (!/<!doctype html>/i.test(splash) || !splash.includes("SANTA LUZIA")) throw new Error("Splash local inválido.")
+if (/Área Restrita|Gerenciar Formação|Central de Atrasos|Jornada Litúrgica/.test(splash)) {
+  throw new Error("index.html local deve ser apenas splash, nunca uma segunda interface do aplicativo.")
 }
 
-console.log("Núcleo Android offline validado: HTML/JavaScript válidos, navegação local, dados essenciais e jogo local presentes.")
+const motion10 = fs.readFileSync(required.motion10, "utf8")
+new vm.Script(motion10, { filename: "android-web/motion/android-original-ui-beta10.js" })
+for (const marker of [
+  'const VERSION = "2.0.0-beta.10"',
+  "/area-restrita/membro",
+  "/area-restrita/moderador",
+  "/area-restrita/atrasos",
+  "/area-restrita/moderador/presencas",
+  "/area-restrita/moderador/registro",
+  "/api/auth/me",
+  "/api/escalas",
+  "/api/formacoes",
+  "/api/ranking",
+  "fullWarm",
+  "recoverAuthenticatedOfflineRoute",
+]) {
+  if (!motion10.includes(marker)) throw new Error(`Runtime Beta 10 sem marcador obrigatório: ${marker}`)
+}
+
+const mission = fs.readFileSync(required.mission, "utf8")
+if (!mission.includes("<script") || mission.length < 1000) throw new Error("Pacote local da Missão do Altar parece incompleto.")
+
+console.log("Beta 10 validada: nenhuma interface offline paralela; splash + runtime da interface original + jogo local presentes.")
