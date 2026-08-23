@@ -10,116 +10,106 @@ function read(relative) {
   if (!fs.existsSync(file)) throw new Error(`Arquivo obrigatório ausente: ${relative}`)
   return fs.readFileSync(file, "utf8")
 }
-function requireText(content, marker, label) {
-  if (!content.includes(marker)) throw new Error(`${label}: marcador ausente: ${marker}`)
-}
-function requireAny(content, markers, label) {
-  if (!markers.some((marker) => content.includes(marker))) throw new Error(`${label}: nenhum marcador encontrado: ${markers.join(" | ")}`)
-}
-function requireAll(relative, markers, label) {
-  const content = read(relative)
-  for (const marker of markers) requireText(content, marker, `${label} (${relative})`)
-  return content
+function all(relative, markers, label) {
+  const text = read(relative)
+  for (const marker of markers) if (!text.includes(marker)) throw new Error(`${label}: marcador ausente em ${relative}: ${marker}`)
+  return text
 }
 
-if (stable.versionCode !== 18 || stable.versionName !== "1.0.6") throw new Error(`A Motion Beta não pode alterar o Android estável: encontrado ${stable.versionName}/code${stable.versionCode}.`)
-if (beta.applicationId === "br.com.comunidadesantaluzia.app") throw new Error("applicationId da Beta colide com o aplicativo oficial.")
-if (beta.versionName !== "2.0.0-beta.8" || beta.versionCode !== 20008) throw new Error(`Beta 8 esperada: encontrado ${beta.versionName}/code${beta.versionCode}.`)
-if (!/^https:\/\//.test(beta.serverUrl)) throw new Error("Servidor de sincronização da Beta deve usar HTTPS.")
-if (beta.windowsBeta.commit !== "1c798019ebcb7ace6fbaa762fab398b92385a361") throw new Error("A Motion Beta deve mirar a Windows Beta 0.1.0-beta.19 registrada.")
+if (stable.versionCode !== 18 || stable.versionName !== "1.0.6") throw new Error(`Android estável alterado: ${stable.versionName}/code${stable.versionCode}`)
+if (beta.applicationId === "br.com.comunidadesantaluzia.app") throw new Error("Pacote Beta colide com o oficial.")
+if (beta.versionName !== "2.0.0-beta.9" || beta.versionCode !== 20009) throw new Error(`Beta 9 esperada; encontrado ${beta.versionName}/code${beta.versionCode}.`)
+if (!/^https:\/\//.test(beta.serverUrl)) throw new Error("Servidor de sincronização deve usar HTTPS.")
 
-const capacitor = requireAll("capacitor.config.ts", ["SANTA_LUZIA_MOTION_BETA", "2.0.0-beta.8", "SantaLuziaMotionBeta/", "SantaLuziaWindowsBeta/0.1.0-beta.19", "url: url.origin", "allowNavigation: [url.hostname]"], "Capacitor/WebView")
-if (/errorPath|offline\.html/.test(capacitor)) throw new Error("Motion Beta não pode usar interface offline paralela/errorPath.")
+const capacitor = all("capacitor.config.ts", [
+  'motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.9")',
+  "if (!motionBeta && valorServidor)",
+  "SantaLuziaLocalFirst/1",
+  'webDir: "android-web"',
+], "Capacitor local-first")
+if (/errorPath|offline\.html/.test(capacitor)) throw new Error("Beta 9 não pode ter interface offline alternativa.")
 
-requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [beta.applicationId, "windows-motion-fixes.css", "windows-behavior-fixes.js", "windows-beta7-polish.js", "windows-preload-v5.js", "windows-beta-runtime.js", "android-motion-beta.js", "android-offline-first-beta7.js", "android-local-first-beta8.js", "setDomStorageEnabled(true)", "WebSettings.LOAD_DEFAULT", "WebSettings.LOAD_CACHE_ELSE_NETWORK", "evaluateJavascript", "30000"], "MainActivity Motion")
-
-const androidPatch = requireAll("android-web/motion/android-motion-beta.js", ["Formação mais recente", "Histórico anterior", "DELAY_SEEN_PREFIX", "AQUECER_CACHE_PRIVADO", "prefers-reduced-motion", "viewerId", "latestConfirmed"], "Runtime Motion Android")
-if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(androidPatch)) throw new Error("Runtime Motion Android não pode baixar código remoto durante a execução.")
-
-const offlineFirst = requireAll("android-web/motion/android-offline-first-beta7.js", [
-  'const VERSION = "2.0.0-beta.7"',
-  "window.fetch = async function motionOfflineFetch",
-  "warmEverything",
-  "window.location.assign",
-  "santa-luzia:server-sync",
-  "/area-restrita/membro",
-  "/area-restrita/moderador",
-  "/area-restrita/moderador/escala",
-  "/area-restrita/moderador/formacao",
-  "/area-restrita/moderador/presencas",
-  "/area-restrita/moderador/registro",
-  "/area-restrita/moderador/ranking",
-  "/area-restrita/moderador/tema",
-  "/area-restrita/moderador/acervo-liturgico",
-  "/area-restrita/atrasos",
-  "/area-restrita/ranking",
-  "/formacao",
-  "/escala",
-  "/liturgia",
-  "/api/formacoes/presencas/resumo",
-  "clearPrivateRouteCopies",
-], "Camada Android offline-first Beta 7")
-if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(offlineFirst)) throw new Error("Camada offline-first Beta 7 não pode baixar código remoto durante a execução.")
-
-const localFirst = requireAll("android-web/motion/android-local-first-beta8.js", [
-  'const VERSION = "2.0.0-beta.8"',
-  'const DB_NAME = "santa-luzia-motion-local-first-v1"',
-  'const QUEUE_STORE = "mutations"',
-  "indexedDB.open",
-  "window.fetch = async function motionLocalFirstFetch",
-  "createQueuedMutation",
-  "syntheticQueuedResponse",
-  "optimisticMutation",
-  "replayQueue",
-  "localPendingDownload",
-  "rememberLocalId",
-  "rewriteLocalIds",
-  "warmDiscoveredLinks",
-  "networkStatusChange",
-  "santa-luzia:local-mutation",
-  "santa-luzia:server-sync",
-  "/api/escalas",
-  "/api/formacoes",
-  "/presencas",
+all("android-web/index.html", ["app.css", "app.js", "quiz-local.js", "Abrindo o aplicativo local"], "Shell HTML local")
+all("android-web/app.css", ["@keyframes trophy", "@keyframes float3d", ".podium", ".nav-modal", ".bottom"], "Animações/visual local")
+const app = all("android-web/app.js", [
+  'const VERSION = "2.0.0-beta.9"',
+  'session: "local:session"',
+  'escalas: "local:escalas"',
+  'formacoes: "local:formacoes"',
+  'ranking: "local:ranking"',
+  'plugin("OfflineStore")',
+  'plugin("SyncHttp")',
+  "queueLoad",
+  "queueSave",
+  "flushQueue",
+  "syncNow",
+  "loadLocalLiturgia",
+  "/offline/liturgia-completa/",
+  "presenceAction",
   "/minha-presenca",
-  "/api/perfil",
-  "/api/notificacoes",
-  "navigator",
-  "onLine",
-], "Camada transacional local-first Beta 8")
-if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(localFirst)) throw new Error("Camada local-first Beta 8 não pode baixar código remoto durante a execução.")
-if (!/queueForbidden[\s\S]*\/api\/auth\//.test(localFirst)) throw new Error("Beta 8 deve impedir fila para autenticação/segurança de conta.")
+  "reportDelay",
+  'action:"reportar_atraso"',
+  "moderateDelay",
+  "renderEscala",
+  "renderFormacao",
+  "renderJornada",
+  "renderLiturgia",
+  "renderAtrasos",
+  "renderManageScale",
+  "renderManageFormation",
+  "renderPresencas",
+  "renderRegistro",
+  "openGame",
+  'plugin("CaminhoDaLuz")',
+  'plugin("Whatajong")',
+], "Aplicativo SPA local")
+if (/window\.location\.assign\(|location\.href\s*=\s*["']https?:/.test(app)) throw new Error("Shell local não pode navegar para uma interface web remota.")
 
-requireAll("android-web/motion/windows-motion-fixes.css", ["slHeaderMenuEnter"], "CSS Motion Windows")
-requireAll("android-web/motion/windows-behavior-fixes.js", ["daily-presence-v1", "Presença diária", "Conferir resultado"], "Behavior Windows")
-requireAll("android-web/motion/windows-beta7-polish.js", ["weekly-presence-v3", "Constância de Luz", "DAILY_POINTS = 2", "WEEK_DAYS", "Meu login diário", "14 pts", "replaceJoiasWithJogos", "enhanceRanking", "decorateProfileTitle", "sl-b7-route-enter"], "Polimento Windows Beta")
-requireAll("android-web/motion/windows-preload-v5.js", ["Pódio da equipe", "sl-top-avatar", "sl-trophy-3d", "aplicarMenuModerador", "aplicarTabs", "aplicarRanking"], "Preload visual Windows")
-requireAll("android-web/motion/windows-beta-runtime.js", ['const revision = "14"', "sl-r10-profile-icon", "sl-r12-quiz-visible", 'data-sl-nav-motion="quiz"', "enhanceProfileAndSoundControls", "enhanceAnimatedNavigationIcons"], "Runtime Windows revisão 14")
+all("android-web/quiz-local.js", ["local:quizzes", "local:quiz-liturgia", "/api/quizzes/liturgia/offline", "saveQueue"], "Quiz offline")
 
-requireAll("components/controle-presencas-formacao.tsx", ["X-Santa-Luzia-Windows-Beta", "data-windows-beta-presence-center", "relatorioPorPessoa", "Acompanhamento por pessoa", "tiposRelatorio", "Advertências", "Atrasos", "Digite um nome para consultar o relatório individual."], "Tela real de Presenças/Registros/Atrasos")
-requireAll("components/late-arrival-banner.tsx", ["santa-luzia:atraso-banner:", "Registro de pontualidade confirmado", "ocorrencia.id", "localStorage.setItem"], "Banner de atraso visto uma vez")
-requireAll("components/formacao-membros.tsx", ["Formação mais recente", "Histórico anterior", "historicoRecente", "historicoAnterior", "ParticipacaoConfirmada", "MinhaPresencaControle", "Falta justificada", "Presença bloqueada por enquanto", "salvarCacheFormacoes"], "Tela real de Formação")
-requireAll("components/formacao-presencas-editor.tsx", ["/presencas", 'method: "PUT"', "Lista de presença salva com sucesso."], "Editor de presença com mutação enfileirável")
-requireAll("components/gerenciador-formacoes.tsx", ["Gerenciar Formação", "cancelada", "motivo_cancelamento", "arquivo", 'method: "POST"', 'method: "PATCH"', 'method: "DELETE"'], "Gerenciamento de Formação")
-requireAll("components/editor-escala.tsx", ["editandoId", "iniciarEdicao", "cancelarEdicao", "celebracaoLiturgica", "tempoLiturgico", "corLiturgica", "cicloDominical", "dataLiturgica", "/api/liturgia?data=", "X-Santa-Luzia-Windows-Beta", "Escala aberta para edição. Altere os dados e salve.", 'method: editandoId ? "PATCH" : "POST"', 'method: "DELETE"'], "Editor de Escalas completo")
-requireAll("components/profile-settings.tsx", ["PERFIL_OFFLINE_KEY", "/api/perfil", 'method: "PATCH"', "navigator.onLine"], "Perfil com cache e mutação coberta pela Beta 8")
-requireAll("components/escala-publica.tsx", ["salvarCacheEscalas", "data-windows-beta-scale", "Celebração litúrgica", "JustificarAusenciaEscala", "minha_justificativa", "Falta justificada", "Justificar falta", "X-Santa-Luzia-Windows-Beta"], "Escala pública com liturgia e justificativa")
-requireAll("app/api/escalas/[id]/minha-justificativa/route.ts", ["windowsBeta", "salvarJustificativaEscala", "Sua falta já foi justificada", "Falta justificada na escala", "x-santa-luzia-windows-beta"], "API de justificativa da escala")
-requireAll("app/api/escalas/[id]/route.ts", ["PATCH", "celebracaoLiturgica", "tempoLiturgico", "corLiturgica", "cicloDominical"], "API de edição de escala")
-requireAll("app/api/formacoes/presencas/resumo/route.ts", ["advertencias", "atrasos", "observacao", "x-santa-luzia-windows-beta"], "API de relatório de presenças")
-requireAll("components/ranking-interativo.tsx", ["Jornada Litúrgica", "Quiz", "Joias", "Ranking", "Avulsos", "carregarCacheRanking", "QuizCountdown", "CaminhoDaLuzEntry"], "Jornada/Quiz/Kiss/Ranking")
-requireAll("components/area-menu.tsx", ["motion?:", "presence", "record", "data-sl-nav-motion", "Presenças", "Registro"], "Menu/Painel com ícones e animações")
-requireAll("components/meu-relatorio-windows.tsx", ["Meu relatório", "Presença", "Atraso", "data-windows-beta-personal-report", "X-Santa-Luzia-Windows-Beta", "SantaLuziaWindowsBeta"], "Relatório individual Windows Beta")
-requireAll("components/membro-dashboard.tsx", ["MeuRelatorioWindows", "Meu Perfil"], "Painel do membro")
-requireAll("components/moderador-dashboard.tsx", ["MeuRelatorioWindows", "Painel"], "Painel do moderador")
-requireAll("public/sw.js", ["PRIVATE_CACHE", "AQUECER_CACHE_PRIVADO", "/area-restrita/membro", "/area-restrita/moderador", "/formacao", "/area-restrita/ranking"], "Service Worker local-first")
+const main = all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", [
+  beta.applicationId,
+  "registerPlugin(OfflineStorePlugin.class)",
+  "registerPlugin(SyncHttpPlugin.class)",
+  "registerPlugin(CaminhoDaLuzPlugin.class)",
+  "registerPlugin(WhatajongPlugin.class)",
+  "setDomStorageEnabled(true)",
+], "MainActivity local")
+if (/evaluateJavascript|android-offline-first-beta7|android-local-first-beta8|windows-beta-runtime/.test(main)) throw new Error("Beta 9 não pode depender da injeção do site remoto.")
 
-const snapshot = read("components/android-offline-snapshot-runtime.tsx")
-for (const marker of ["OfflineStore", "snapshot", "fila", "formacoes", "ranking", "escalas"]) if (!snapshot.toLowerCase().includes(marker.toLowerCase())) throw new Error(`Snapshot offline sem marcador: ${marker}`)
-requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java", ["SQLiteOpenHelper", "santa_luzia_local.db", "saveSnapshot", "saveQueue", "saveDocument"], "Persistência nativa SQLite")
-requireAll("components/server-sync-runtime.tsx", ["sincronizarRelatosAtrasoPendentes", "sincronizarPresencasFormacaoPendentes", "salvarCacheEscalas", "salvarCacheFormacoes", "networkStatusChange"], "Sincronização local-first")
+all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/SyncHttpPlugin.java", [
+  "https://comunidade-santa-luzia-production.up.railway.app",
+  "CookieManager",
+  "HttpURLConnection",
+  "SantaLuziaLocalFirst/1",
+  "/api/formacoes",
+  "application/x-www-form-urlencoded",
+  "/api/jogo/whatajong/resultado",
+  "completedRound",
+  "difficulty",
+], "Ponte HTTPS de sincronização")
 
-console.log("[motion-beta] Auditoria de paridade Windows 0.1.0-beta.19 → Android aprovada.")
-console.log(`[motion-beta] Android estável preservado: ${stable.versionName}/code${stable.versionCode}.`)
-console.log(`[motion-beta] Beta isolada: ${beta.versionName}/code${beta.versionCode} — ${beta.applicationId}.`)
-console.log("[motion-beta] Beta 8 auditada: navegação/GETs offline, fila transacional durável, estado otimista, Presenças/Formação/Escala/Perfil/Ranking/Jogos e sincronização posterior.")
+all("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java", [
+  "SQLiteOpenHelper",
+  "santa_luzia_local.db",
+  "saveDocument",
+  "loadDocument",
+  "saveQueue",
+  "loadQueue",
+  "fallbackBeta8",
+  "normalizarFilaBeta8",
+  '"local:session"',
+  '"snapshot:ranking"',
+  '"snapshot:formacoes"',
+  '"snapshot:escalas"',
+  '"quiz-liturgia"',
+], "SQLite e migração Beta 8")
+
+all("scripts/prepare-android.cjs", ["liturgia-completa", "build-whatajong-original.cjs", "CaminhoDaLuzActivity", "WhatajongActivity"], "Empacotamento offline nativo")
+all("app/api/quizzes/liturgia/offline/route.ts", ["dataIso", "respostas", "garantirQuizLiturgiaOffline", "Quiz offline sincronizado"], "API idempotente do Quiz offline")
+all("app/api/formacoes/[id]/minha-presenca/route.ts", ["situacao", "justificada", "presente", "horario"], "Regra de presença")
+all("app/api/formacoes/[id]/presencas/route.ts", ["presencas", "usuarioId", "situacao", 'method' in {} ? "" : "salvarPresencasFormacao"].filter(Boolean), "Lista de presença")
+
+console.log("[motion-beta] Beta 9 aprovada: APK inicia pelo shell local e usa o servidor somente para sincronização.")
+console.log(`[motion-beta] Android oficial preservado: ${stable.versionName}/code${stable.versionCode}.`)
+console.log(`[motion-beta] Pacote Beta: ${beta.versionName}/code${beta.versionCode} — ${beta.applicationId}.`)
