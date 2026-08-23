@@ -4,17 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#fffaf0" />
-    <title>Santa Luzia</title>
-    <style>
-      *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#fffaf0;color:#521123;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}body{min-height:100vh;display:grid;place-items:center;padding:24px}.brand{text-align:center}.seal{width:82px;height:82px;margin:auto;display:grid;place-items:center;border-radius:50%;border:2px solid #d4af37;background:#fff;color:#7b1326;box-shadow:0 12px 38px rgba(82,17,35,.12);font-family:Georgia,serif;font-size:34px;font-weight:700}.name{margin:18px 0 4px;font-family:Georgia,serif;font-size:29px;letter-spacing:.08em;color:#7b1326}.sub{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#705e52}.track{width:min(190px,55vw);height:4px;margin:24px auto 0;overflow:hidden;border-radius:99px;background:#7b132612}.bar{width:48%;height:100%;border-radius:99px;background:linear-gradient(90deg,#5a0b18,#7b1326,#d4af37,#f2cf62,#7b1326);animation:move 1.15s ease-in-out infinite}@keyframes move{0%{transform:translateX(-110%)}100%{transform:translateX(230%)}}@media(prefers-reduced-motion:reduce){.bar{animation-duration:2.8s}}
-    </style>
+    <meta name="color-scheme" content="light" />
+    <title>Santa Luzia Motion Beta</title>
+    <link rel="stylesheet" href="./app.css" />
   </head>
   <body>
-    <main class="brand" aria-label="Santa Luzia">
-      <div class="seal" aria-hidden="true">SL</div>
-      <h1 class="name">SANTA LUZIA</h1>
-      <p class="sub">Acólitos e Coroinhas São Padre Pio</p>
-      <div class="track" aria-hidden="true"><div class="bar"></div></div>
-    </main>
+    <div id="app" aria-live="polite">
+      <main class="login-wrap">
+        <section class="login-card">
+          <div class="seal">SL</div>
+          <h1>Santa Luzia</h1>
+          <p>Abrindo o aplicativo local…</p>
+          <div class="notice offline">Carregando banco local e conteúdo empacotado.</div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
   </body>
 </html>
