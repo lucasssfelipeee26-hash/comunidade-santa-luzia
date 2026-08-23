@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - beta/android-motion-2.0-beta1
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "android-web/motion/**"
+      - "config/android-motion-beta.json"
+      - "scripts/prepare-motion-beta.cjs"
+      - "scripts/auditar-motion-beta.cjs"
+      - "native-assets/android/**"
+      - "capacitor.config.ts"
+      - ".github/workflows/android-motion-beta.yml"
   workflow_dispatch:
 
 permissions:
