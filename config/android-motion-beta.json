@@ -9,18 +9,10 @@
     "repository": "lucasssfelipeee26-hash/santa-luzia-windows-beta",
     "commit": "1c798019ebcb7ace6fbaa762fab398b92385a361",
     "files": {
-      "preload": {
-        "path": "electron/preload-v5.cjs",
-        "blobSha": "95a5a771d28a707f954039d035d17062f54a48cd"
-      },
-      "behavior": {
-        "path": "electron/behavior-fixes.js",
-        "blobSha": "d0ebd01768803565e5bb5d0e5f569b09a9b80c1f"
-      },
-      "motionCss": {
-        "path": "electron/motion-fixes.css",
-        "blobSha": "6f943f71f3a41591c875c4b06da6ef84260b971a"
-      },
+      "preload": { "path": "electron/preload-v5.cjs", "blobSha": "95a5a771d28a707f954039d035d17062f54a48cd" },
+      "behavior": { "path": "electron/behavior-fixes.js", "blobSha": "d0ebd01768803565e5bb5d0e5f569b09a9b80c1f" },
+      "polish": { "path": "electron/beta7-polish.js", "blobSha": "592c0eb0911caf2b28b9b3787a53ddad39aa51a8" },
+      "motionCss": { "path": "electron/motion-fixes.css", "blobSha": "6f943f71f3a41591c875c4b06da6ef84260b971a" },
       "runtime": {
         "path": "runtime/windows-beta-runtime.js",
         "blobSha": "e8c8e5d1c2fc6bc9ed8e59c444158bca55faccfb",
@@ -36,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 2 de teste separada. Empacota as quatro camadas visuais/comportamentais da Windows Beta 0.1.0-beta.19 mais o complemento Android; não substitui nem publica o Android estável."
+  "notes": "Beta 2 de teste separada. Empacota CSS Motion, comportamento, polimento beta7, preload visual e runtime revisão 14 da Windows Beta 0.1.0-beta.19, mais complemento Android; não substitui nem publica o Android estável."
 }
