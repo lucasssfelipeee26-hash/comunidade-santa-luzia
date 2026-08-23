@@ -52,9 +52,9 @@ requireAll("app/api/escalas/[id]/route.ts", ["PATCH", "celebracaoLiturgica", "te
 requireAll("app/api/formacoes/presencas/resumo/route.ts", ["advertencias", "atrasos", "observacao", "x-santa-luzia-windows-beta"], "API de relatório de presenças")
 requireAll("components/ranking-interativo.tsx", ["Jornada Litúrgica", "Quiz", "Joias", "Ranking", "Avulsos", "carregarCacheRanking", "QuizCountdown", "CaminhoDaLuzEntry"], "Jornada/Quiz/Kiss/Ranking")
 requireAll("components/area-menu.tsx", ["motion?:", "presence", "record", "data-sl-nav-motion", "Presenças", "Registro"], "Menu/Painel com ícones e animações")
-requireAll("components/meu-relatorio-windows.tsx", ["Meu relatório", "Presença", "Atraso", "data-windows-beta-personal-report", "X-Santa-Luzia-Windows-Beta"], "Relatório individual Windows Beta")
-requireAll("components/membro-dashboard.tsx", ["MeuRelatorioWindows", "SantaLuziaWindowsBeta"], "Painel do membro")
-requireAll("components/moderador-dashboard.tsx", ["MeuRelatorioWindows", "SantaLuziaWindowsBeta"], "Painel do moderador")
+requireAll("components/meu-relatorio-windows.tsx", ["Meu relatório", "Presença", "Atraso", "data-windows-beta-personal-report", "X-Santa-Luzia-Windows-Beta", "SantaLuziaWindowsBeta"], "Relatório individual Windows Beta")
+requireAll("components/membro-dashboard.tsx", ["MeuRelatorioWindows", "Meu Perfil"], "Painel do membro")
+requireAll("components/moderador-dashboard.tsx", ["MeuRelatorioWindows", "Painel"], "Painel do moderador")
 requireAll("public/sw.js", ["PRIVATE_CACHE", "AQUECER_CACHE_PRIVADO", "/area-restrita/membro", "/area-restrita/moderador", "/formacao", "/area-restrita/ranking"], "Service Worker local-first")
 
 const snapshot = read("components/android-offline-snapshot-runtime.tsx")
