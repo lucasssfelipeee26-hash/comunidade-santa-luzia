@@ -1,16 +1,40 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20001,
-  "versionName": "2.0.0-beta.1",
+  "versionCode": 20002,
+  "versionName": "2.0.0-beta.2",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
+  "windowsBeta": {
+    "repository": "lucasssfelipeee26-hash/santa-luzia-windows-beta",
+    "commit": "1c798019ebcb7ace6fbaa762fab398b92385a361",
+    "files": {
+      "preload": {
+        "path": "electron/preload-v5.cjs",
+        "blobSha": "95a5a771d28a707f954039d035d17062f54a48cd"
+      },
+      "behavior": {
+        "path": "electron/behavior-fixes.js",
+        "blobSha": "d0ebd01768803565e5bb5d0e5f569b09a9b80c1f"
+      },
+      "motionCss": {
+        "path": "electron/motion-fixes.css",
+        "blobSha": "6f943f71f3a41591c875c4b06da6ef84260b971a"
+      },
+      "runtime": {
+        "path": "runtime/windows-beta-runtime.js",
+        "blobSha": "e8c8e5d1c2fc6bc9ed8e59c444158bca55faccfb",
+        "size": 54911,
+        "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
+      }
+    }
+  },
   "windowsMotion": {
     "repository": "lucasssfelipeee26-hash/santa-luzia-windows-beta",
-    "commit": "73a1e450ea2af6db2c60ddffc334d96c65715844",
+    "commit": "1c798019ebcb7ace6fbaa762fab398b92385a361",
     "path": "runtime/windows-beta-runtime.js",
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta de teste separada. Não substitui nem publica o Android estável. A camada Motion é fixada e empacotada no APK."
+  "notes": "Beta 2 de teste separada. Empacota as quatro camadas visuais/comportamentais da Windows Beta 0.1.0-beta.19 mais o complemento Android; não substitui nem publica o Android estável."
 }
