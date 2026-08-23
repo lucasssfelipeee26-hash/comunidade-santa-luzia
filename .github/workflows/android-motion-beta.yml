@@ -61,6 +61,7 @@ jobs:
             APP_VERSION_CODE: c.versionCode,
             APP_VERSION_NAME: c.versionName,
             SANTA_LUZIA_MOTION_VERSION: c.versionName,
+            CAPACITOR_SERVER_URL: c.serverUrl,
             MOTION_APP_ID: c.applicationId,
             WINDOWS_BETA_COMMIT: c.windowsBeta.commit,
             SYNC_SERVER_URL: c.serverUrl,
@@ -109,7 +110,7 @@ jobs:
       - name: Auditar arquitetura Motion Beta
         run: node scripts/auditar-motion-beta.cjs
 
-      - name: Validar aplicação web local
+      - name: Validar aplicação web
         run: npm run build
 
       - name: Criar e sincronizar Capacitor Android
@@ -123,14 +124,12 @@ jobs:
           grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
           grep -Fq "Santa Luzia Motion Beta" android/app/src/main/res/values/strings.xml
           test -f android/app/src/main/assets/capacitor.config.json
-          if grep -Fq '"server"' android/app/src/main/assets/capacitor.config.json; then
-            echo "Motion Beta não pode embutir server.url do Capacitor; deve abrir android-web local." >&2
-            cat android/app/src/main/assets/capacitor.config.json >&2
-            exit 1
-          fi
+          grep -Fq '"server"' android/app/src/main/assets/capacitor.config.json
+          grep -Fq "$CAPACITOR_SERVER_URL" android/app/src/main/assets/capacitor.config.json
           for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
           grep -Fq "windows-beta7-polish.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq "windows-preload-v5.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq "30000" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
 
       - name: Compilar APK Motion Beta de teste
         working-directory: android
@@ -151,15 +150,13 @@ jobs:
           test -n "$CERT"
           for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js; do unzip -l "$APK" | grep -Fq "assets/public/motion/$f"; done
           unzip -p "$APK" assets/capacitor.config.json | tee "$RUNNER_TEMP/motion-capacitor-config.json"
-          if grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"; then
-            echo "APK final ainda contém server.url do Capacitor." >&2
-            exit 1
-          fi
+          grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"
+          grep -Fq "$CAPACITOR_SERVER_URL" "$RUNNER_TEMP/motion-capacitor-config.json"
           mkdir -p dist
-          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta3.apk"
-          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta3.apk | awk '{print $1}')"
-          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta3.apk)"
-          cat > dist/RELATORIO-MOTION-BETA3.txt <<EOF
+          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta4.apk"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta4.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta4.apk)"
+          cat > dist/RELATORIO-MOTION-BETA4.txt <<EOF
           Santa Luzia Motion Beta Android
           Versão: $APP_VERSION_NAME
           VersionCode: $APP_VERSION_CODE
@@ -168,8 +165,8 @@ jobs:
           SHA-256: $SHA
           Certificado debug: $CERT
           Windows Beta fixada: $WINDOWS_BETA_COMMIT
-          Servidor de sincronização: $SYNC_SERVER_URL
-          Modo de abertura: interface local empacotada no APK; sem server.url do Capacitor.
+          Servidor de sincronização/abertura funcional: $SYNC_SERVER_URL
+          Correção da Beta 4: a Beta 3 abria apenas o splash local android-web/index.html; esta build volta a abrir a interface funcional e reaplica a stack Motion empacotada por até 30s.
           Camadas de referência: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android.
           Paridade exigida: Atrasos, Presenças, Registros, Escala, Formação, Perfil/Painel, Ranking, Login diário, Quiz/Kiss/Jornada, Jogos, transições, animações e offline.
           Android estável preservado: 1.0.6 / code18.
@@ -181,19 +178,19 @@ jobs:
       - name: Guardar APK de teste
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-2.0-beta3
+          name: santa-luzia-motion-2.0-beta4
           path: |
-            dist/Santa-Luzia-Motion-2.0-beta3.apk
-            dist/RELATORIO-MOTION-BETA3.txt
+            dist/Santa-Luzia-Motion-2.0-beta4.apk
+            dist/RELATORIO-MOTION-BETA4.txt
           if-no-files-found: error
           retention-days: 14
 
       - name: Resumo
         run: |
-          echo "### Santa Luzia Motion Beta 3" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Santa Luzia Motion Beta 4" >> "$GITHUB_STEP_SUMMARY"
           echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Interface local empacotada; sem server.url do Capacitor." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Corrige o travamento no splash da Beta 3." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
