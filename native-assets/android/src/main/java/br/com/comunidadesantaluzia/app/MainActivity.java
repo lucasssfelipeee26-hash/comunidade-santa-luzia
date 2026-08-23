@@ -1,5 +1,8 @@
 package br.com.comunidadesantaluzia.app;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -32,11 +35,24 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-        if (ehMotionBeta()) agendarMotion();
+        if (ehMotionBeta()) {
+            prepararWebViewLocalFirst();
+            agendarMotion();
+        }
     }
 
     private boolean ehMotionBeta() {
         return MOTION_BETA_PACKAGE.equals(getPackageName());
+    }
+
+    private boolean temConexao() {
+        try {
+            ConnectivityManager manager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo info = manager != null ? manager.getActiveNetworkInfo() : null;
+            return info != null && info.isConnected();
+        } catch (Exception erro) {
+            return true;
+        }
     }
 
     private void prepararWebViewLocalFirst() {
@@ -44,8 +60,8 @@ public class MainActivity extends BridgeActivity {
         WebSettings settings = getBridge().getWebView().getSettings();
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(true);
+        settings.setCacheMode(temConexao() ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
     }
 
     private void agendarMotion() {
@@ -53,6 +69,7 @@ public class MainActivity extends BridgeActivity {
         WebView webView = getBridge().getWebView();
         Runnable aplicar = () -> {
             try {
+                prepararWebViewLocalFirst();
                 String script = carregarMotionRuntime();
                 if (script != null && !script.isEmpty()) webView.evaluateJavascript(script, null);
             } catch (Exception erro) {
