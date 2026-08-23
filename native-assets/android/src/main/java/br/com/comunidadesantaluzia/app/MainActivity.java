@@ -5,16 +5,10 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.webkit.WebSettings;
-import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static final String MOTION_BETA_PACKAGE = "br.com.comunidadesantaluzia.motionbeta";
-    private String motionRuntime;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -24,21 +18,16 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(CaminhoDaLuzPlugin.class);
         registerPlugin(WhatajongPlugin.class);
         registerPlugin(OfflineStorePlugin.class);
+        registerPlugin(SyncHttpPlugin.class);
         super.onCreate(savedInstanceState);
 
-        if (ehMotionBeta()) {
-            prepararWebViewLocalFirst();
-            agendarMotion();
-        }
+        if (ehMotionBeta()) prepararWebViewLocalFirst();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (ehMotionBeta()) {
-            prepararWebViewLocalFirst();
-            agendarMotion();
-        }
+        if (ehMotionBeta()) prepararWebViewLocalFirst();
     }
 
     private boolean ehMotionBeta() {
@@ -51,7 +40,7 @@ public class MainActivity extends BridgeActivity {
             NetworkInfo info = manager != null ? manager.getActiveNetworkInfo() : null;
             return info != null && info.isConnected();
         } catch (Exception erro) {
-            return true;
+            return false;
         }
     }
 
@@ -62,77 +51,5 @@ public class MainActivity extends BridgeActivity {
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setCacheMode(temConexao() ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
-    }
-
-    private void agendarMotion() {
-        if (getBridge() == null || getBridge().getWebView() == null) return;
-        WebView webView = getBridge().getWebView();
-        Runnable aplicar = () -> {
-            try {
-                prepararWebViewLocalFirst();
-                String script = carregarMotionRuntime();
-                if (script != null && !script.isEmpty()) webView.evaluateJavascript(script, null);
-            } catch (Exception erro) {
-                android.util.Log.e("SantaLuziaMotion", "Falha ao aplicar stack Motion empacotada", erro);
-            }
-        };
-
-        // O WebView pode terminar a navegação e a hidratação do Next.js em momentos
-        // diferentes conforme aparelho/rede. Reaplicar é seguro porque as camadas
-        // empacotadas são idempotentes e usam guards próprios.
-        webView.postDelayed(aplicar, 350);
-        webView.postDelayed(aplicar, 900);
-        webView.postDelayed(aplicar, 1800);
-        webView.postDelayed(aplicar, 3200);
-        webView.postDelayed(aplicar, 5200);
-        webView.postDelayed(aplicar, 9000);
-        webView.postDelayed(aplicar, 15000);
-        webView.postDelayed(aplicar, 30000);
-    }
-
-    private String carregarMotionRuntime() throws Exception {
-        if (motionRuntime != null) return motionRuntime;
-
-        String css = lerAssetTexto("public/motion/windows-motion-fixes.css");
-        String behavior = lerAssetTexto("public/motion/windows-behavior-fixes.js");
-        String polish = lerAssetTexto("public/motion/windows-beta7-polish.js");
-        String preload = lerAssetTexto("public/motion/windows-preload-v5.js");
-        String runtime = lerAssetTexto("public/motion/windows-beta-runtime.js");
-        String android = lerAssetTexto("public/motion/android-motion-beta.js");
-        String offlineFirst = lerAssetTexto("public/motion/android-offline-first-beta7.js");
-        String localFirst = lerAssetTexto("public/motion/android-local-first-beta8.js");
-        String memberState = lerAssetTexto("public/motion/android-member-state-beta8.js");
-        String rscGuard = lerAssetTexto("public/motion/android-rsc-guard-beta8.js");
-
-        String cssBootstrap = "(() => {" +
-            "const id='sl-motion-beta-windows-css-android';" +
-            "let s=document.getElementById(id);" +
-            "if(!s){s=document.createElement('style');s.id=id;document.head&&document.head.appendChild(s);}" +
-            "if(s)s.textContent=" + JSONObject.quote(css) + ";" +
-            "})();";
-
-        // Mantém a correção de navegação da Beta 7 e fecha com as camadas
-        // transacionais/otimistas da Beta 8 e o guard de RSC. Todas vivem no APK:
-        // a rede passa a servir para sincronizar, não para permitir o uso da UI.
-        motionRuntime = cssBootstrap + "\n;\n" +
-            behavior + "\n;\n" +
-            polish + "\n;\n" +
-            preload + "\n;\n" +
-            runtime + "\n;\n" +
-            android + "\n;\n" +
-            offlineFirst + "\n;\n" +
-            localFirst + "\n;\n" +
-            memberState + "\n;\n" +
-            rscGuard;
-        return motionRuntime;
-    }
-
-    private String lerAssetTexto(String caminho) throws Exception {
-        try (InputStream input = getAssets().open(caminho); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[16 * 1024];
-            int lidos;
-            while ((lidos = input.read(buffer)) != -1) output.write(buffer, 0, lidos);
-            return output.toString(StandardCharsets.UTF_8.name());
-        }
     }
 }
