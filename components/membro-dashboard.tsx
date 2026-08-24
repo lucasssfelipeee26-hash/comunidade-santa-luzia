@@ -70,7 +70,7 @@ export function MembroDashboard({ membro }: { membro: Membro }) {
           </form>
         </section>
 
-        <div className="flex min-w-0 items-start gap-2 rounded-xl border border-primary/10 bg-primary/[.025] px-3 py-2.5 text-[10px] leading-4 text-muted-foreground"><Lock className="mt-0.5 size-4 shrink-0 text-primary" /><p className="min-w-0"><strong className="text-foreground">Registros administrativos são privados.</strong> Faltas, advertências, justificativas e observações ficam somente com os moderadores.</p></div>
+        <div className="flex min-w-0 items-start gap-2 rounded-xl border border-primary/10 bg-primary/[.025] px-3 py-2.5 text-[10px] leading-4 text-muted-foreground"><Lock className="mt-0.5 size-4 shrink-0 text-primary" /><p className="min-w-0"><strong className="text-foreground">Seu histórico não é público.</strong> Presenças, faltas, justificativas, advertências e atrasos aparecem no seu relatório pessoal e para os moderadores. Observações administrativas internas continuam visíveis somente à moderação.</p></div>
       </main>
     </div>
   )
