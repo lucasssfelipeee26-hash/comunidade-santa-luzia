@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack -H 0.0.0.0",
     "build": "node scripts/build-next.cjs && node scripts/validate-android-web.cjs",
+    "build:android-local": "node scripts/build-android-local.cjs",
     "prestart": "node scripts/bootstrap-acervo.cjs",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
@@ -45,6 +46,7 @@
     "@types/react-dom": "^19",
     "@types/bcryptjs": "^2.4.6",
     "@types/nodemailer": "^6.4.16",
+    "esbuild": "^0.25.12",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
     "typescript": "5.7.3",
