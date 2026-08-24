@@ -27,26 +27,58 @@ function copyTree(source, target) {
     else fs.copyFileSync(from, to)
   }
 }
-function normalizeGzipFiles(dir) {
+function prepareAndroidILiturgia(dir) {
+  const manifestFile = path.join(dir, "iliturgia", "manifest.json")
+  if (!fs.existsSync(manifestFile)) fail("Manifesto iLiturgia offline ausente no pacote Android.")
+
+  let manifest
+  try { manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) }
+  catch (error) { fail(`Manifesto iLiturgia inválido: ${error instanceof Error ? error.message : String(error)}`) }
+
+  const iliturgiaDir = path.dirname(manifestFile)
+  const geralFile = path.join(iliturgiaDir, "gerais.html.json.gz")
+  ensure(geralFile, "fonte íntegra gerais.html.json.gz do iLiturgia")
+  try {
+    const pacoteGeral = JSON.parse(zlib.gunzipSync(fs.readFileSync(geralFile)).toString("utf8"))
+    if (!Array.isArray(pacoteGeral?.documents) || pacoteGeral.documents.length < 450) {
+      fail(`Fonte geral do iLiturgia incompleta (${pacoteGeral?.documents?.length || 0} documentos).`)
+    }
+    console.log(`[android-local] fonte iLiturgia geral validada: ${pacoteGeral.documents.length} documentos.`)
+  } catch (error) {
+    fail(`Fonte geral do iLiturgia inválida: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  // Os 12 pacotes públicos evangelhos-XX foram gerados separadamente e alguns
+  // chegaram corrompidos ao repositório. O acervo geral íntegro já contém esse
+  // conjunto de documentos (a auditoria histórica contabiliza 475 entradas).
+  // Na Beta Android usamos essa fonte íntegra uma única vez, sem duplicar dados.
+  const evangelho = Array.isArray(manifest.categorias) ? manifest.categorias.find((c) => c?.id === "evangelho") : null
+  if (!evangelho) fail("Categoria evangelho ausente no manifesto iLiturgia.")
+  evangelho.arquivos = ["gerais.html.json.gz"]
+  evangelho.androidFonteIntegra = "gerais.html.json.gz"
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`)
+
+  for (const file of fs.readdirSync(iliturgiaDir)) {
+    if (/^evangelhos-\d{2}\.html\.json\.gz$/i.test(file)) fs.rmSync(path.join(iliturgiaDir, file), { force: true })
+  }
+
   const gzipFiles = walk(dir).filter((file) => file.toLowerCase().endsWith(".gz"))
+  const invalid = []
   for (const file of gzipFiles) {
     const rel = path.relative(out, file).split(path.sep).join("/")
     try {
       const source = fs.readFileSync(file)
       const decoded = zlib.gunzipSync(source)
-      // Regrava um fluxo GZIP canônico. O Android Asset Merger abre arquivos
-      // .gz durante mergeDebugAssets e rejeita trailers inconsistentes, mesmo
-      // quando o navegador/Node tolera certos arquivos pré-gerados.
       const normalized = zlib.gzipSync(decoded, { level: 9, mtime: 0 })
-      // Validação final antes de entregar os assets ao Capacitor/Gradle.
       zlib.gunzipSync(normalized)
       fs.writeFileSync(file, normalized)
       console.log(`[android-local] gzip validado: ${rel} (${source.length} -> ${normalized.length} bytes)`)
     } catch (error) {
-      fail(`GZIP offline inválido em ${rel}: ${error instanceof Error ? error.message : String(error)}`)
+      invalid.push(`${rel}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
-  console.log(`[android-local] ${gzipFiles.length} arquivo(s) GZIP offline validado(s)/normalizado(s).`)
+  if (invalid.length) fail(`GZIP offline inválido após saneamento:\n- ${invalid.join("\n- ")}`)
+  console.log(`[android-local] ${gzipFiles.length} arquivo(s) GZIP offline validado(s)/normalizado(s); Evangelhos Android ligados à fonte geral íntegra.`)
 }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
@@ -56,7 +88,7 @@ for (const name of ["android-native-fetch-beta10.js", "android-local-first-beta8
 
 fs.mkdirSync(out, { recursive: true })
 copyTree(publicDir, out)
-normalizeGzipFiles(path.join(out, "offline"))
+prepareAndroidILiturgia(path.join(out, "offline"))
 copyTree(nextStatic, path.join(out, "_next", "static"))
 
 const alias = {
