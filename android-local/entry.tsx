@@ -34,6 +34,7 @@ import { GerenciadorTema } from "@/components/gerenciador-tema"
 import { ImportarAcervoLiturgico } from "@/components/importar-acervo-liturgico"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu } from "@/components/area-menu"
+import { PrayerPersonIcon } from "@/components/prayer-person-icon"
 import { StoreProvider, useStore } from "@/lib/store"
 import { TEMA_PADRAO, temaValido, type TemaSite } from "@/lib/site-theme-shared"
 import { site } from "@/lib/site"
@@ -87,7 +88,7 @@ function BibliotecaRoute() {
 }
 
 function LoginRoute() {
-  return <AuthShell titulo="Bem-vindo ao Santa Luzia" subtitulo="Entre para abrir seu painel ou continue como visitante" rodape="Seu acesso permanece neste aparelho até você sair."><LoginForm /></AuthShell>
+  return <AuthShell icon={<PrayerPersonIcon className="size-7" />} titulo="Bem-vindo ao Santa Luzia" subtitulo="Entre para abrir seu painel ou continue como visitante" rodape="Seu acesso permanece neste aparelho até você sair."><LoginForm /></AuthShell>
 }
 
 function CadastroRoute() {
