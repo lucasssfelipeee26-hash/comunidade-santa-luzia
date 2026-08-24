@@ -1,5 +1,6 @@
 const fs = require("node:fs")
 const path = require("node:path")
+const zlib = require("node:zlib")
 const esbuild = require("esbuild")
 
 const root = path.resolve(__dirname, "..")
@@ -26,6 +27,27 @@ function copyTree(source, target) {
     else fs.copyFileSync(from, to)
   }
 }
+function normalizeGzipFiles(dir) {
+  const gzipFiles = walk(dir).filter((file) => file.toLowerCase().endsWith(".gz"))
+  for (const file of gzipFiles) {
+    const rel = path.relative(out, file).split(path.sep).join("/")
+    try {
+      const source = fs.readFileSync(file)
+      const decoded = zlib.gunzipSync(source)
+      // Regrava um fluxo GZIP canônico. O Android Asset Merger abre arquivos
+      // .gz durante mergeDebugAssets e rejeita trailers inconsistentes, mesmo
+      // quando o navegador/Node tolera certos arquivos pré-gerados.
+      const normalized = zlib.gzipSync(decoded, { level: 9, mtime: 0 })
+      // Validação final antes de entregar os assets ao Capacitor/Gradle.
+      zlib.gunzipSync(normalized)
+      fs.writeFileSync(file, normalized)
+      console.log(`[android-local] gzip validado: ${rel} (${source.length} -> ${normalized.length} bytes)`)
+    } catch (error) {
+      fail(`GZIP offline inválido em ${rel}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  console.log(`[android-local] ${gzipFiles.length} arquivo(s) GZIP offline validado(s)/normalizado(s).`)
+}
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
 ensure(path.join(root, "android-local", "entry.tsx"), "entry React local")
@@ -34,6 +56,7 @@ for (const name of ["android-native-fetch-beta10.js", "android-local-first-beta8
 
 fs.mkdirSync(out, { recursive: true })
 copyTree(publicDir, out)
+normalizeGzipFiles(path.join(out, "offline"))
 copyTree(nextStatic, path.join(out, "_next", "static"))
 
 const alias = {
