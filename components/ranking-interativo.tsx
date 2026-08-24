@@ -166,6 +166,13 @@ export function RankingInterativo({ usuarioInicial }: { usuarioInicial: DadosRan
     const r = await fetch(`/api/quizzes/${quizManual.id}/responder`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ respostas: respostasManual }) })
     const j = await r.json()
     if (!r.ok) { setErro(j.erro || "Não foi possível enviar o quiz."); return }
+    if (j.queued || j.resultado?.offline_pendente) {
+      const quizId = quizManual.id
+      setMensagem("Respostas salvas no aparelho. O resultado será calculado quando a internet voltar.")
+      setQuizzes((atuais) => atuais.map((q) => q.id === quizId ? { ...q, respondido: true } : q))
+      setQuizManual(null)
+      return
+    }
     setMensagem(`Quiz avulso concluído: ${j.resultado.acertos}/${quizManual.perguntas.length} acertos.`); setQuizManual(null); await carregarDados()
   }
 
