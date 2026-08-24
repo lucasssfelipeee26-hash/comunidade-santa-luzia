@@ -119,6 +119,7 @@ export function CentralAtrasos() {
       if (!resultado.ok) throw new Error(resultado.erro || "Não foi possível enviar o relato.")
       if (resultado.pendente) {
         setMensagem("Sem internet: relato salvo neste aparelho. Ele será enviado automaticamente quando a conexão voltar.")
+        await carregar()
       } else {
         const resposta = resultado.resposta as { mensagem?: string }
         setMensagem(resposta?.mensagem || "Relato enviado ao moderador.")
