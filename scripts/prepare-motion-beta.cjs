@@ -48,7 +48,7 @@ for (const [key, [name, meta]] of Object.entries(windows)) {
 }
 
 const jsRequired = {
-  "android-motion-beta.js": ["Santa Luzia"],
+  "android-motion-beta.js": ["motionBetaAndroid", "Registro de pontualidade confirmado"],
   "android-native-fetch-beta10.js": ["2.0.0-beta.10", "SyncHttp", "formDataJson", "bodyBase64", "liturgia-completa"],
   "android-local-first-beta8.js": ["motionLocalFirstFetch", "createQueuedMutation", "replayQueue", "indexedDB"],
   "android-member-state-beta8.js": ["motionMemberStateFetch", "/promover", "/registros"],
