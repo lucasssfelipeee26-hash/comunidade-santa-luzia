@@ -1,5 +1,6 @@
 "use strict";
 
+// Santa Luzia Motion Beta — camada complementar de comportamento Android.
 (() => {
   const VERSION = "2.0.0-beta.1";
   const ROOT_FLAG = "motionBetaAndroid";
