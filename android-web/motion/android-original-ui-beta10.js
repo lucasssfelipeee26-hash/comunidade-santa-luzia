@@ -36,7 +36,6 @@
     } catch {}
     return false;
   }
-
   async function getJson(path) {
     try {
       const response = await fetch(path, { cache: "no-store", credentials: "same-origin" });
@@ -44,13 +43,26 @@
       return await response.clone().json().catch(() => null);
     } catch { return null; }
   }
-
+  async function warmBinary(path) {
+    try {
+      const response = await fetch(path, { cache: "no-store", credentials: "same-origin" });
+      return response.ok;
+    } catch { return false; }
+  }
   async function warmMemberDetails() {
     const data = await getJson("/api/membros");
     const members = Array.isArray(data?.membros) ? data.membros : [];
     for (const member of members.slice(0, 160)) {
       if (!member?.id) continue;
       await getJson(`/api/membros/${encodeURIComponent(member.id)}`);
+    }
+  }
+  async function warmFormationDownloads() {
+    const data = await getJson("/api/formacoes");
+    const formations = Array.isArray(data?.formacoes) ? data.formacoes : [];
+    for (const formation of formations.slice(0, 60)) {
+      if (!formation?.id || !formation?.arquivo) continue;
+      await warmBinary(`/api/formacoes/${encodeURIComponent(formation.id)}/download`);
     }
   }
 
@@ -66,6 +78,7 @@
       if (!session?.usuario?.id) return;
       const apis = [...COMMON_APIS, ...(session.tipo === "moderador" ? MODERATOR_APIS : [])];
       for (const api of apis) await getJson(api);
+      await warmFormationDownloads();
       if (session.tipo === "moderador") await warmMemberDetails();
       localStorage.setItem(LAST_WARM, String(Date.now()));
       window.dispatchEvent(new CustomEvent("santa-luzia:beta10-data-ready", { detail: { tipo: session.tipo } }));
