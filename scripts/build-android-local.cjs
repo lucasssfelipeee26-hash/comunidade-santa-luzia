@@ -48,10 +48,6 @@ function prepareAndroidILiturgia(dir) {
     fail(`Fonte geral do iLiturgia inválida: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  // Os 12 pacotes públicos evangelhos-XX foram gerados separadamente e alguns
-  // chegaram corrompidos ao repositório. O acervo geral íntegro já contém esse
-  // conjunto de documentos (a auditoria histórica contabiliza 475 entradas).
-  // Na Beta Android usamos essa fonte íntegra uma única vez, sem duplicar dados.
   const evangelho = Array.isArray(manifest.categorias) ? manifest.categorias.find((c) => c?.id === "evangelho") : null
   if (!evangelho) fail("Categoria evangelho ausente no manifesto iLiturgia.")
   evangelho.arquivos = ["gerais.html.json.gz"]
@@ -62,9 +58,6 @@ function prepareAndroidILiturgia(dir) {
     if (/^evangelhos-\d{2}\.html\.json\.gz$/i.test(file)) fs.rmSync(path.join(iliturgiaDir, file), { force: true })
   }
 
-  // Arquivo legado que não é referenciado pelo manifesto. O Rosário atual usa
-  // rosario.html.json.gz, validado acima/abaixo. Retirar apenas a cópia gerada
-  // para o APK evita que o Asset Merger tente abrir um GZIP antigo corrompido.
   const rosarioLegado = path.join(iliturgiaDir, "rosario.json.gz")
   if (fs.existsSync(rosarioLegado)) {
     fs.rmSync(rosarioLegado, { force: true })
@@ -93,7 +86,17 @@ function prepareAndroidILiturgia(dir) {
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
 ensure(path.join(root, "android-local", "entry.tsx"), "entry React local")
 ensure(nextStatic, ".next/static — execute npm run build antes")
-for (const name of ["android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-member-state-beta8.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js", "android-original-ui-beta10.js"]) ensure(path.join(out, "motion", name), `motion/${name}`)
+for (const name of [
+  "android-native-fetch-beta10.js",
+  "android-local-first-beta8.js",
+  "android-member-state-beta8.js",
+  "android-domain-bridge-beta10.js",
+  "android-quiz-offline-beta10.js",
+  "android-local-navigation-beta10.js",
+  "android-original-ui-beta10.js",
+  "android-report-bridge-beta11.js",
+  "android-motion-parity-beta11.js",
+]) ensure(path.join(out, "motion", name), `motion/${name}`)
 
 fs.mkdirSync(out, { recursive: true })
 copyTree(publicDir, out)
@@ -132,8 +135,8 @@ const cssLinks = cssFiles.map((file) => {
   return `    <link rel="stylesheet" href="/_next/static/${rel}" />`
 }).join("\n")
 
-// Ordem obrigatória: base nativa -> fila genérica -> estado de membros ->
-// regras de domínio -> quiz local -> navegação local -> aquecimento -> React.
+// Ordem obrigatória: base Windows -> fetch/fila/estado/domínio -> quiz/navegação ->
+// relatório e paridade Motion da Beta 11 -> aquecimento -> React original.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -146,6 +149,8 @@ const requiredScripts = [
   "android-domain-bridge-beta10.js",
   "android-quiz-offline-beta10.js",
   "android-local-navigation-beta10.js",
+  "android-report-bridge-beta11.js",
+  "android-motion-parity-beta11.js",
   "android-original-ui-beta10.js",
 ]
 for (const file of requiredScripts) ensure(path.join(out, "motion", file), `motion/${file}`)
@@ -182,5 +187,13 @@ for (const marker of mandatory) if (!entryText.includes(marker)) fail(`Rota/comp
 const outputJs = fs.readFileSync(path.join(out, "local-app.js"), "utf8")
 if (outputJs.length < 250_000) fail(`Bundle local parece incompleto (${outputJs.length} bytes).`)
 if (/offline\.html|offline-bridge\.html/.test(html)) fail("Interface paralela offline reapareceu no HTML local.")
-for (const marker of ["android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js", "/local-app.js"]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
-console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios.`)
+for (const marker of [
+  "android-native-fetch-beta10.js",
+  "android-domain-bridge-beta10.js",
+  "android-quiz-offline-beta10.js",
+  "android-local-navigation-beta10.js",
+  "android-report-bridge-beta11.js",
+  "android-motion-parity-beta11.js",
+  "/local-app.js",
+]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
+console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios; correções Beta 11 incluídas.`)
