@@ -3,13 +3,13 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.10").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.11").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-// O Android oficial mantém seu comportamento atual. A Motion Beta 10, porém,
-// nunca usa server.url: sua interface React é compilada para android-web e nasce
-// dentro do APK. O Railway é acessado exclusivamente pelo SyncHttpPlugin.
+// O Android oficial mantém seu comportamento atual. A Motion Beta 11 mantém a
+// arquitetura aprovada na Beta 10: a interface React nasce dentro do APK e não
+// usa server.url. O Railway é acessado exclusivamente para autenticação/sync.
 if (!motionBeta && valorServidor) {
   const url = new URL(valorServidor)
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
