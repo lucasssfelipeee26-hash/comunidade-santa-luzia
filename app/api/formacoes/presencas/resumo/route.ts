@@ -17,17 +17,13 @@ export async function GET(request: NextRequest) {
   const sessao = await lerSessao()
   const escopoPessoal = request.nextUrl.searchParams.get("escopo") === "me"
 
-  if (!sessao) {
-    return NextResponse.json({ erro: "Sessão necessária." }, { status: 403 })
-  }
+  if (!sessao) return NextResponse.json({ erro: "Sessão necessária." }, { status: 403 })
   if (!escopoPessoal && sessao.tipo !== "moderador") {
     return NextResponse.json({ erro: "Acesso exclusivo do moderador." }, { status: 403 })
   }
 
   const equipeCompleta = listarEquipeAprovada()
-  const equipe = escopoPessoal
-    ? equipeCompleta.filter((usuario) => usuario.id === sessao.sub)
-    : equipeCompleta
+  const equipe = escopoPessoal ? equipeCompleta.filter((usuario) => usuario.id === sessao.sub) : equipeCompleta
   const formacoes = listarFormacoes()
   const escalas = listarEscalas()
   const usuariosPorId = new Map(equipe.map((usuario) => [usuario.id, usuario]))
@@ -35,19 +31,15 @@ export async function GET(request: NextRequest) {
   const registros = listarTodasPresencasFormacao()
     .filter((registro) => usuariosPorId.has(registro.usuario_id) && formacoesPorId.has(registro.formacao_id))
 
-  // O centro do moderador recebe o histórico administrativo completo. No
-  // relatório pessoal, o próprio usuário vê o que afeta seu histórico
-  // (faltas, justificativas e advertências), mas observações internas continuam
-  // restritas ao controle administrativo.
+  // O histórico pessoal mostra ao próprio usuário o que afeta sua situação.
+  // Observações administrativas internas continuam exclusivas da moderação.
   const registrosAdministrativos = (db.prepare("SELECT * FROM registros").all() as RegistroRow[])
     .filter((registro) => usuariosPorId.has(registro.usuario_id))
     .filter((registro) => !escopoPessoal || registro.tipo !== "observacoes")
-  const atrasos = listarPontualidadeOcorrencias(false)
-    .filter((atraso) => usuariosPorId.has(atraso.usuario_id))
-  const justificativasEscala = listarJustificativasEscala()
-    .filter((item) => usuariosPorId.has(item.usuario_id))
+  const atrasos = listarPontualidadeOcorrencias(false).filter((atraso) => usuariosPorId.has(atraso.usuario_id))
+  const justificativasEscala = listarJustificativasEscala().filter((item) => usuariosPorId.has(item.usuario_id))
 
-  const contar = (itens: typeof registros) => ({
+  const contarFormacao = (itens: typeof registros) => ({
     presencas: itens.filter((item) => item.status === "presente").length,
     faltas: itens.filter((item) => item.status === "falta").length,
     justificadas: itens.filter((item) => item.status === "justificada").length,
@@ -55,16 +47,29 @@ export async function GET(request: NextRequest) {
   })
 
   const pessoas = equipe.map((usuario) => {
-    const itens = registros.filter((registro) => registro.usuario_id === usuario.id)
+    const itensFormacao = registros.filter((registro) => registro.usuario_id === usuario.id)
+    const base = contarFormacao(itensFormacao)
+    const itensAdmin = registrosAdministrativos.filter((registro) => registro.usuario_id === usuario.id)
+    const faltasAdmin = itensAdmin.filter((registro) => registro.tipo === "faltas").length
+    const justificativasAdmin = itensAdmin.filter((registro) => registro.tipo === "justificativas").length
+    const advertencias = itensAdmin.filter((registro) => registro.tipo === "advertencias").length
+    const observacoes = itensAdmin.filter((registro) => registro.tipo === "observacoes").length
+    const justificativasDeEscala = justificativasEscala.filter((item) => item.usuario_id === usuario.id).length
+    const atrasosDoUsuario = atrasos.filter((atraso) => atraso.usuario_id === usuario.id).length
+    const faltas = base.faltas + faltasAdmin
+    const justificadas = base.justificadas + justificativasAdmin + justificativasDeEscala
+    const total = base.presencas + faltas + justificadas + advertencias + atrasosDoUsuario + observacoes
     return {
       id: usuario.id,
       nome: usuario.nome,
       funcao: usuario.funcao,
       tipo: usuario.tipo,
-      advertencias: registrosAdministrativos.filter((registro) => registro.usuario_id === usuario.id && registro.tipo === "advertencias").length,
-      atrasos: atrasos.filter((atraso) => atraso.usuario_id === usuario.id).length,
-      ...contar(itens),
-      justificadas: contar(itens).justificadas + justificativasEscala.filter((item) => item.usuario_id === usuario.id).length,
+      presencas: base.presencas,
+      faltas,
+      justificadas,
+      advertencias,
+      atrasos: atrasosDoUsuario,
+      total,
     }
   }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
 
@@ -78,7 +83,7 @@ export async function GET(request: NextRequest) {
       horario: formacao.horario,
       status: formacao.status,
       naoRegistrados: Math.max(0, equipe.length - itens.length),
-      ...contar(itens),
+      ...contarFormacao(itens),
     }
   })
 
@@ -110,22 +115,10 @@ export async function GET(request: NextRequest) {
       usuarioFuncao: usuario.funcao,
       usuarioTipo: usuario.tipo,
       formacaoId: null,
-      formacaoTitulo: registro.tipo === "advertencias"
-        ? "Advertência"
-        : registro.tipo === "faltas"
-          ? "Falta administrativa"
-          : registro.tipo === "justificativas"
-            ? "Justificativa"
-            : "Observação",
+      formacaoTitulo: registro.tipo === "advertencias" ? "Advertência" : registro.tipo === "faltas" ? "Falta administrativa" : registro.tipo === "justificativas" ? "Justificativa" : "Observação",
       formacaoData: registro.data,
       formacaoHorario: null,
-      status: registro.tipo === "advertencias"
-        ? "advertencia"
-        : registro.tipo === "faltas"
-          ? "falta"
-          : registro.tipo === "justificativas"
-            ? "justificada"
-            : "observacao",
+      status: registro.tipo === "advertencias" ? "advertencia" : registro.tipo === "faltas" ? "falta" : registro.tipo === "justificativas" ? "justificada" : "observacao",
       justificativa: registro.descricao,
       atualizadoEm: registro.criado_em,
     }
@@ -172,14 +165,26 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
     .slice(0, 500)
 
+  const baseResumo = contarFormacao(registros)
+  const faltasAdmin = registrosAdministrativos.filter((registro) => registro.tipo === "faltas").length
+  const justificativasAdmin = registrosAdministrativos.filter((registro) => registro.tipo === "justificativas").length
+  const advertencias = registrosAdministrativos.filter((registro) => registro.tipo === "advertencias").length
+  const observacoes = registrosAdministrativos.filter((registro) => registro.tipo === "observacoes").length
+  const faltas = baseResumo.faltas + faltasAdmin
+  const justificadas = baseResumo.justificadas + justificativasAdmin + justificativasEscala.length
+  const total = baseResumo.presencas + faltas + justificadas + advertencias + atrasos.length + observacoes
+
   return NextResponse.json(
     {
       escopo: escopoPessoal ? "me" : "equipe",
       resumo: {
-        ...contar(registros),
-        justificadas: contar(registros).justificadas + justificativasEscala.length,
-        advertencias: registrosAdministrativos.filter((registro) => registro.tipo === "advertencias").length,
+        presencas: baseResumo.presencas,
+        faltas,
+        justificadas,
+        advertencias,
         atrasos: atrasos.length,
+        observacoes,
+        total,
         naoRegistrados: Math.max(0, (equipe.length * formacoes.filter((item) => item.status !== "cancelada").length) - registros.length),
         participantes: equipe.length,
         formacoes: formacoes.length,
