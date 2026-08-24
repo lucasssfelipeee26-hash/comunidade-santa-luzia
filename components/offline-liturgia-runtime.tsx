@@ -4,6 +4,11 @@ import { useEffect } from "react"
 
 export function OfflineLiturgiaRuntime() {
   useEffect(() => {
+    // A Motion Beta 10 já nasce de um frontend empacotado. Registrar o Service
+    // Worker do site aqui recriaria a arquitetura de páginas/cache remoto e
+    // poderia disputar navegação e /api com o SyncHttp. A Liturgia da Beta 10
+    // vem diretamente do pacote anual dentro do APK.
+    if (navigator.userAgent.includes("SantaLuziaOriginalUIOffline/2")) return
     if (!("serviceWorker" in navigator)) return
 
     let cancelado = false
@@ -45,16 +50,9 @@ export function OfflineLiturgiaRuntime() {
 
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(async (registration) => {
       if (cancelado) return
-      try {
-        await registration.update()
-      } catch {}
-      try {
-        // Faz a primeira sincronização da Liturgia local enquanto houver conexão.
-        await fetch("/api/liturgia-local", { cache: "no-store" })
-      } catch {}
-      try {
-        await navigator.serviceWorker.ready
-      } catch {}
+      try { await registration.update() } catch {}
+      try { await fetch("/api/liturgia-local", { cache: "no-store" }) } catch {}
+      try { await navigator.serviceWorker.ready } catch {}
       aquecerPrivado()
       window.setTimeout(aquecerPrivado, 1200)
     }).catch(() => {})
