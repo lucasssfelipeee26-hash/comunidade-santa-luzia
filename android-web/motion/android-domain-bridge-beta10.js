@@ -8,10 +8,9 @@
 
   const previousFetch = window.fetch.bind(window);
   let physicalOnline = true;
+  let networkListenerInstalled = false;
 
-  function jsonResponse(data, status = 200) {
-    return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
-  }
+  function jsonResponse(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } }); }
   function pathOf(url) { try { return new URL(url, location.href).pathname; } catch { return ""; } }
   function requestBody(input, init, request) {
     if (typeof init?.body === "string") { try { return JSON.parse(init.body); } catch { return null; } }
@@ -24,6 +23,21 @@
     } catch { physicalOnline = false; }
     return physicalOnline;
   }
+  async function installNetworkListener() {
+    if (networkListenerInstalled) return;
+    networkListenerInstalled = true;
+    try {
+      const network = window.Capacitor?.Plugins?.Network;
+      if (!network?.addListener) return;
+      await network.addListener("networkStatusChange", (status) => {
+        const was = physicalOnline;
+        physicalOnline = !!status?.connected;
+        document.documentElement.dataset.physicalNetwork = physicalOnline ? "online" : "offline";
+        if (!was && physicalOnline) window.dispatchEvent(new Event("online"));
+        if (was && !physicalOnline) window.dispatchEvent(new Event("offline"));
+      });
+    } catch {}
+  }
 
   async function cacheNames() {
     if (!("caches" in window)) return [];
@@ -35,10 +49,7 @@
     if (!("caches" in window)) return null;
     const key = keyFor(path);
     for (const name of await cacheNames()) {
-      try {
-        const response = await (await caches.open(name)).match(key);
-        if (response) return await response.clone().json();
-      } catch {}
+      try { const response = await (await caches.open(name)).match(key); if (response) return await response.clone().json(); } catch {}
     }
     return null;
   }
@@ -63,14 +74,14 @@
       return value?.dados?.eu && Array.isArray(value?.dados?.ranking) ? value : null;
     } catch { return null; }
   }
-  function saveLocalRanking(data) {
-    try { localStorage.setItem("santa-luzia:offline:v1:ranking", JSON.stringify({ atualizadoEm: Date.now(), dados: data })); } catch {}
-  }
-  function validRanking(data) {
-    return !!data?.eu?.id && Array.isArray(data?.ranking) && Array.isArray(data?.membros) && Array.isArray(data?.ocorrencias);
-  }
+  function saveLocalRanking(data) { try { localStorage.setItem("santa-luzia:offline:v1:ranking", JSON.stringify({ atualizadoEm: Date.now(), dados: data })); } catch {} }
+  function validRanking(data) { return !!data?.eu?.id && Array.isArray(data?.ranking) && Array.isArray(data?.membros) && Array.isArray(data?.ocorrencias); }
   async function safeRankingResponse(response) {
-    if (!response?.ok) return response;
+    if (!response?.ok) {
+      const local = localRankingEnvelope()?.dados;
+      if (validRanking(local)) return jsonResponse(local);
+      return response;
+    }
     const data = await response.clone().json().catch(() => null);
     if (validRanking(data)) { saveLocalRanking(data); return response; }
     const cache = await readCached("/api/ranking");
@@ -81,15 +92,16 @@
   }
 
   async function optimisticModeration(payload) {
-    if (!payload?.ocorrenciaId || !["confirmado", "rejeitado"].includes(payload.status)) return;
+    if (!payload?.ocorrenciaId || !["confirmir", "confirmado", "rejeitado"].includes(payload.status)) return;
+    const status = payload.status === "confirmir" ? "confirmado" : payload.status;
     const apply = (data) => {
       if (!validRanking(data)) return data;
-      return { ...data, ocorrencias: data.ocorrencias.map((row) => String(row.id) === String(payload.ocorrenciaId) ? { ...row, status: payload.status, offline_pendente: true } : row) };
+      return { ...data, ocorrencias: data.ocorrencias.map((row) => String(row.id) === String(payload.ocorrenciaId) ? { ...row, status, offline_pendente: true } : row) };
     };
-    const next = await updateCached("/api/ranking", apply);
+    await updateCached("/api/ranking", apply);
     const local = localRankingEnvelope()?.dados;
     if (local) saveLocalRanking(apply(local));
-    if (next) window.dispatchEvent(new CustomEvent("santa-luzia:offline-data", { detail: { tipo: "ranking" } }));
+    window.dispatchEvent(new CustomEvent("santa-luzia:offline-data", { detail: { tipo: "ranking" } }));
   }
 
   async function optimisticTheme(payload) {
@@ -148,27 +160,24 @@
     const payload = await Promise.resolve(requestBody(input, init, request));
     const online = await updatePhysical();
 
-    // Estes dois fluxos já possuem filas de domínio e mensagens de "pendente".
-    // Forçamos o catch deles quando não há rede para impedir falso "enviado".
-    if (!online && path === "/api/ranking" && payload?.action === "reportar_atraso") throw new TypeError("Operação guardada no aparelho.");
+    // Fluxos que já têm uma fila própria devem cair no catch do componente para
+    // manter a mensagem correta e nunca afirmar que houve confirmação do servidor.
+    if (!online && path === "/api/ranking" && payload?.action === "reportar_atraso") throw new TypeError("Relato guardado no aparelho.");
     if (!online && /^\/api\/formacoes\/[^/]+\/minha-presenca$/.test(path) && method === "PUT") throw new TypeError("Presença guardada no aparelho.");
+    if (!online && (path === "/api/jogo/caminho-da-luz/resultado" || path === "/api/jogo/whatajong/resultado")) throw new TypeError("Resultado do jogo guardado no aparelho.");
 
     const response = await previousFetch(input, init);
     let queued = false;
-    if (response?.ok) {
-      try { queued = !!(await response.clone().json())?.queued; } catch {}
-    }
-
+    if (response?.ok) { try { queued = !!(await response.clone().json())?.queued; } catch {} }
     if (path === "/api/ranking" && payload?.action === "moderar_atraso" && (queued || response.ok)) await optimisticModeration(payload);
     if (path === "/api/configuracao/tema" && method === "POST" && response.ok) await optimisticTheme(payload);
     if (path === "/api/quizzes" && method === "POST" && response.ok) await optimisticAdminQuiz(payload);
     return response;
   };
 
-  window.addEventListener("santa-luzia:offline-data", (event) => {
-    if (event?.detail?.tipo === "atrasos") mergePendingDelays();
-  });
+  window.addEventListener("santa-luzia:offline-data", (event) => { if (event?.detail?.tipo === "atrasos") mergePendingDelays(); });
   window.addEventListener("online", () => { physicalOnline = true; });
   window.addEventListener("offline", () => { physicalOnline = false; });
-  void updatePhysical();
+  void updatePhysical().then(() => { document.documentElement.dataset.physicalNetwork = physicalOnline ? "online" : "offline"; });
+  void installNetworkListener();
 })();
