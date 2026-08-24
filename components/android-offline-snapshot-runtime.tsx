@@ -58,6 +58,12 @@ export function AndroidOfflineSnapshotRuntime() {
     let salvando = false
     let drenando = false
     const usaNativo = Capacitor.isPluginAvailable("OfflineStore")
+    const beta10Local = navigator.userAgent.includes("SantaLuziaOriginalUIOffline/2")
+
+    // Na Beta 10 a interface alternativa offline foi removida de propósito.
+    // Se o plugin nativo não estiver disponível, não tentamos ressuscitar o
+    // antigo offline-bridge.html; as demais camadas locais continuam isoladas.
+    if (beta10Local && !usaNativo) return
 
     function enviarBridge(message: Record<string, unknown>) {
       if (!bridgePronto || !iframe?.contentWindow) return
