@@ -1,9 +1,9 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.10";
+  const VERSION = "2.0.0-beta.11";
   const FLAG = "motionOriginalUiBeta10";
-  const LAST_WARM = "santa-luzia:beta10:last-data-warm";
+  const LAST_WARM = "santa-luzia:beta11:last-data-warm";
   const WARM_INTERVAL = 5 * 60 * 1000;
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
@@ -19,6 +19,7 @@
     "/api/notificacoes",
     "/api/quizzes",
     "/api/biblioteca",
+    "/api/formacoes/presencas/resumo?escopo=me",
   ];
   const MODERATOR_APIS = [
     "/api/membros",
@@ -81,7 +82,7 @@
       await warmFormationDownloads();
       if (session.tipo === "moderador") await warmMemberDetails();
       localStorage.setItem(LAST_WARM, String(Date.now()));
-      window.dispatchEvent(new CustomEvent("santa-luzia:beta10-data-ready", { detail: { tipo: session.tipo } }));
+      window.dispatchEvent(new CustomEvent("santa-luzia:beta11-data-ready", { detail: { tipo: session.tipo } }));
     })().finally(() => { warming = null; });
     return warming;
   }
