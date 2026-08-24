@@ -52,6 +52,8 @@ const jsRequired = {
   "android-native-fetch-beta10.js": ["2.0.0-beta.10", "SyncHttp", "formDataJson", "bodyBase64"],
   "android-local-first-beta8.js": ["motionLocalFirstFetch", "createQueuedMutation", "replayQueue", "indexedDB"],
   "android-member-state-beta8.js": ["motionMemberStateFetch", "/promover", "/registros"],
+  "android-domain-bridge-beta10.js": ["2.0.0-beta.10", "reportar_atraso", "minha-presenca", "moderar_atraso", "optimisticAdminQuiz", "optimisticTheme"],
+  "android-local-navigation-beta10.js": ["2.0.0-beta.10", "santa-luzia:local-route", "downloadApi", "/api/"],
   "android-original-ui-beta10.js": ["2.0.0-beta.10", "/api/auth/me", "/api/escalas", "/api/formacoes", "/api/ranking"],
 }
 for (const [name, markers] of Object.entries(jsRequired)) {
@@ -63,7 +65,7 @@ for (const [name, markers] of Object.entries(jsRequired)) {
 const localApp = path.join(assets, "local-app.js")
 if (!fs.existsSync(localApp) || fs.statSync(localApp).size < 250000) fail("Bundle React original local ausente ou incompleto.")
 const index = read(path.join(assets, "index.html"))
-for (const marker of ["/local-app.js", "android-native-fetch-beta10.js", "android-local-first-beta8.js", "windows-beta-runtime.js"]) if (!index.includes(marker)) fail(`index.html local sem ${marker}`)
+for (const marker of ["/local-app.js", "android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-domain-bridge-beta10.js", "android-local-navigation-beta10.js", "windows-beta-runtime.js"]) if (!index.includes(marker)) fail(`index.html local sem ${marker}`)
 if (/offline\.html|offline-bridge\.html/.test(index)) fail("index.html referencia interface offline paralela.")
 
 const capConfig = read(path.join(root, "android", "app", "src", "main", "assets", "capacitor.config.json"))
@@ -80,4 +82,4 @@ for (const marker of ["multipart/form-data", "bodyBase64", "formDataJson", "Cook
 
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId Beta não aplicado.")
 if (!read(strings).includes(config.appName)) fail("Nome Motion Beta não aplicado.")
-console.log(`[motion-beta10] ${config.versionName}/code${config.versionCode}: frontend React original local + Windows Beta 19 + fila local-first + SyncHttp validados.`)
+console.log(`[motion-beta10] ${config.versionName}/code${config.versionCode}: frontend React original local + Windows Beta 19 + fila local-first + regras de domínio + SyncHttp validados.`)
