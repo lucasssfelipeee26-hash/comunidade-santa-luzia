@@ -1,25 +1,27 @@
-name: Android — Santa Luzia Motion Beta
+name: Android — Santa Luzia Motion Beta 10
 
 on:
   push:
     branches:
       - beta/android-motion-2.0-beta1
+      - work/android-motion-beta10-original-ui-offline
   pull_request:
     branches:
       - main
+      - beta/android-motion-2.0-beta1
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-motion-beta-${{ github.ref }}
+  group: android-motion-beta10-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  motion-beta:
+  motion-beta10:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 60
     env:
       SANTA_LUZIA_MOTION_BETA: "1"
       AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
@@ -47,10 +49,19 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-motion-gradle-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-motion-beta10-gradle-${{ hashFiles('package.json') }}
           restore-keys: |
-            ${{ runner.os }}-motion-gradle-
+            ${{ runner.os }}-motion-beta10-gradle-
             ${{ runner.os }}-gradle-
+
+      # A chave debug é exclusiva do pacote Motion Beta. O cache constante faz a
+      # primeira chave criada na Beta 10 ser reutilizada nas próximas builds,
+      # preservando SQLite/sessão quando o APK Beta for atualizado.
+      - name: Restaurar assinatura estável da Motion Beta
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: santa-luzia-motion-beta-debug-keystore-v1
 
       - name: Carregar configuração da Beta
         run: |
@@ -61,7 +72,6 @@ jobs:
             APP_VERSION_CODE: c.versionCode,
             APP_VERSION_NAME: c.versionName,
             SANTA_LUZIA_MOTION_VERSION: c.versionName,
-            CAPACITOR_SERVER_URL: c.serverUrl,
             MOTION_APP_ID: c.applicationId,
             WINDOWS_BETA_COMMIT: c.windowsBeta.commit,
             SYNC_SERVER_URL: c.serverUrl,
@@ -72,22 +82,26 @@ jobs:
       - name: Instalar dependências
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Validar sintaxe da portabilidade
+      - name: Validar scripts Beta 10
         run: |
           node --check android-web/motion/android-motion-beta.js
-          node --check android-web/motion/android-offline-first-beta7.js
+          node --check android-web/motion/android-native-fetch-beta10.js
           node --check android-web/motion/android-local-first-beta8.js
           node --check android-web/motion/android-member-state-beta8.js
-          node --check android-web/motion/android-rsc-guard-beta8.js
+          node --check android-web/motion/android-domain-bridge-beta10.js
+          node --check android-web/motion/android-local-navigation-beta10.js
+          node --check android-web/motion/android-original-ui-beta10.js
           node --check scripts/fetch-windows-beta-stack.cjs
+          node --check scripts/build-android-local.cjs
           node --check scripts/prepare-motion-beta.cjs
           node --check scripts/auditar-motion-beta.cjs
 
-      - name: Fixar stack completa da Beta Windows
+      - name: Fixar stack completa da Windows Beta 19
         run: node scripts/fetch-windows-beta-stack.cjs
 
-      - name: Confirmar cinco camadas Windows
+      - name: Confirmar referência Windows Beta
         run: |
+          test "$WINDOWS_BETA_COMMIT" = "1c798019ebcb7ace6fbaa762fab398b92385a361"
           test -s android-web/motion/windows-motion-fixes.css
           test -s android-web/motion/windows-behavior-fixes.js
           test -s android-web/motion/windows-beta7-polish.js
@@ -102,20 +116,37 @@ jobs:
       - name: Auditar TypeScript
         run: npx tsc --noEmit
 
-      - name: Auditar dependências declaradas
+      - name: Auditar dependências
         run: npm ls --depth=0
 
-      - name: Auditar robustez crítica
-        run: npm run audit:robustez
+      - name: Auditar robustez e núcleo offline
+        run: |
+          npm run audit:robustez
+          npm run audit:offline
 
-      - name: Auditar núcleo offline
-        run: npm run audit:offline
-
-      - name: Auditar paridade Windows para Android
+      - name: Auditar contrato Beta 10
         run: node scripts/auditar-motion-beta.cjs
 
-      - name: Validar aplicação web
+      - name: Compilar aplicação Next de referência
         run: npm run build
+
+      - name: Empacotar interface React original para Android
+        run: npm run build:android-local
+
+      - name: Validar frontend local produzido
+        run: |
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          grep -Fq '/local-app.js' android-web/index.html
+          grep -Fq 'android-native-fetch-beta10.js' android-web/index.html
+          grep -Fq 'android-domain-bridge-beta10.js' android-web/index.html
+          grep -Fq 'android-local-navigation-beta10.js' android-web/index.html
+          grep -Fq 'windows-beta-runtime.js' android-web/index.html
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+          test ! -e android-web/motion/android-offline-first-beta7.js
+          test ! -e android-web/motion/android-rsc-guard-beta8.js
 
       - name: Criar e sincronizar Capacitor Android
         run: |
@@ -123,36 +154,36 @@ jobs:
           npx cap sync android
           APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
           node scripts/prepare-motion-beta.cjs
+
+      - name: Auditar projeto Android gerado
+        run: |
+          set -euo pipefail
           grep -Eq "applicationId[[:space:]]+\"${MOTION_APP_ID//./\\.}\"" android/app/build.gradle
           grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
           grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
           grep -Fq "Santa Luzia Motion Beta" android/app/src/main/res/values/strings.xml
-          test -f android/app/src/main/assets/capacitor.config.json
-          grep -Fq '"server"' android/app/src/main/assets/capacitor.config.json
-          grep -Fq "$CAPACITOR_SERVER_URL" android/app/src/main/assets/capacitor.config.json
-          if grep -Fq '"errorPath"' android/app/src/main/assets/capacitor.config.json; then
-            echo "Motion Beta não pode cair em offline.html; deve manter a mesma interface local-first." >&2
-            cat android/app/src/main/assets/capacitor.config.json >&2
-            exit 1
-          fi
-          if grep -Fq 'offline.html' android/app/src/main/assets/capacitor.config.json; then
-            echo "APK final ainda aponta para uma interface offline separada." >&2
-            cat android/app/src/main/assets/capacitor.config.json >&2
-            exit 1
-          fi
-          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-offline-first-beta7.js android-local-first-beta8.js android-member-state-beta8.js android-rsc-guard-beta8.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
-          grep -Fq "windows-beta7-polish.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "windows-preload-v5.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "android-offline-first-beta7.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "android-local-first-beta8.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "android-member-state-beta8.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "android-rsc-guard-beta8.js" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "30000" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "LOAD_CACHE_ELSE_NETWORK" android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
-          grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" android/app/src/main/assets/capacitor.config.json
-          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" android/app/src/main/assets/capacitor.config.json
+          CONFIG=android/app/src/main/assets/capacitor.config.json
+          test -f "$CONFIG"
+          if grep -Fq '"server"' "$CONFIG"; then echo "ERRO: Motion Beta 10 ainda contém server.url" >&2; cat "$CONFIG" >&2; exit 1; fi
+          if grep -Eq 'offline\.html|offline-bridge\.html|errorPath' "$CONFIG"; then echo "ERRO: interface alternativa no Capacitor" >&2; exit 1; fi
+          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$CONFIG"
+          grep -Fq "SantaLuziaOriginalUIOffline/2" "$CONFIG"
+          grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" "$CONFIG"
+          test -s android/app/src/main/assets/public/index.html
+          test -s android/app/src/main/assets/public/local-app.js
+          test "$(stat -c%s android/app/src/main/assets/public/local-app.js)" -gt 250000
+          test -d android/app/src/main/assets/public/_next/static
+          test -d android/app/src/main/assets/public/images
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-native-fetch-beta10.js android-local-first-beta8.js android-member-state-beta8.js android-domain-bridge-beta10.js android-local-navigation-beta10.js android-original-ui-beta10.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
+          MAIN=android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq 'SyncHttpPlugin.class' "$MAIN"
+          grep -Fq 'OfflineStorePlugin.class' "$MAIN"
+          grep -Fq 'CaminhoDaLuzPlugin.class' "$MAIN"
+          grep -Fq 'WhatajongPlugin.class' "$MAIN"
+          if grep -Eq 'MotionOfflineWebViewClient|LOAD_CACHE_ELSE_NETWORK|evaluateJavascript' "$MAIN"; then echo "ERRO: arquitetura remota antiga no MainActivity" >&2; exit 1; fi
+          test ! -e android/app/src/main/java/br/com/comunidadesantaluzia/app/MotionOfflineWebViewClient.java
 
-      - name: Compilar APK Motion Beta de teste
+      - name: Compilar APK Motion Beta 10
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
@@ -169,66 +200,59 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/motion-apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test -n "$CERT"
-          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-offline-first-beta7.js android-local-first-beta8.js android-member-state-beta8.js android-rsc-guard-beta8.js; do unzip -l "$APK" | grep -Fq "assets/public/motion/$f"; done
-          unzip -p "$APK" assets/capacitor.config.json | tee "$RUNNER_TEMP/motion-capacitor-config.json"
-          grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"
-          grep -Fq "$CAPACITOR_SERVER_URL" "$RUNNER_TEMP/motion-capacitor-config.json"
-          if grep -Fq '"errorPath"' "$RUNNER_TEMP/motion-capacitor-config.json; then
-            echo "APK final ainda contém errorPath/offline.html." >&2
-            exit 1
-          fi
-          if grep -Fq 'offline.html' "$RUNNER_TEMP/motion-capacitor-config.json; then
-            echo "APK final ainda contém uma segunda interface offline." >&2
-            exit 1
-          fi
-          grep -Fq "SantaLuziaWindowsBeta/0.1.0-beta.19" "$RUNNER_TEMP/motion-capacitor-config.json"
-          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$RUNNER_TEMP/motion-capacitor-config.json"
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/index.html' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/local-app.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/_next/static/' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/images/' "$RUNNER_TEMP/apk-files.txt"
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-native-fetch-beta10.js android-local-first-beta8.js android-member-state-beta8.js android-domain-bridge-beta10.js android-local-navigation-beta10.js android-original-ui-beta10.js; do grep -Fq "assets/public/motion/$f" "$RUNNER_TEMP/apk-files.txt"; done
+          if grep -Eq 'assets/public/(offline\.html|offline-bridge\.html)|android-offline-first-beta7|android-rsc-guard-beta8' "$RUNNER_TEMP/apk-files.txt"; then echo "ERRO: arquitetura offline antiga dentro do APK" >&2; exit 1; fi
+          unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/motion-capacitor-config.json"
+          if grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"; then echo "ERRO: APK depende de server.url" >&2; exit 1; fi
+          grep -Fq "SantaLuziaOriginalUIOffline/2" "$RUNNER_TEMP/motion-capacitor-config.json"
           mkdir -p dist
-          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta8.apk"
-          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta8.apk | awk '{print $1}')"
-          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta8.apk)"
-          cat > dist/RELATORIO-MOTION-BETA8.txt <<EOF
+          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta10.apk"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta10.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta10.apk)"
+          cat > dist/RELATORIO-MOTION-BETA10.txt <<EOF
           Santa Luzia Motion Beta Android
           Versão: $APP_VERSION_NAME
           VersionCode: $APP_VERSION_CODE
           ApplicationId: $MOTION_APP_ID
           Tamanho: $SIZE bytes
           SHA-256: $SHA
-          Certificado debug: $CERT
-          Windows Beta fixada: $WINDOWS_BETA_COMMIT
-          Servidor de sincronização/bootstrap: $SYNC_SERVER_URL
-          Arquitetura Beta 8: operação local-first. A Beta 7 permanece responsável pela navegação/rotas HTML em cache; a Beta 8 adiciona cache ampliado de leituras GET, fila IndexedDB durável para mutações elegíveis, estado otimista local e reenvio automático ao servidor quando a conexão retorna.
-          Estado otimista coberto explicitamente: Escalas, Formações, lista de Presenças, presença individual, Perfil, notificações, status de membros, promoção e Registros do moderador.
-          Arquivos anexados a formações criadas offline permanecem na fila local e podem ser reabertos enquanto pendentes; IDs temporários são reconciliados com IDs do servidor após sincronização.
-          O guard RSC mantém respostas internas do Next.js separadas dos documentos HTML, impedindo que refresh/prefetch substitua a página offline por payload RSC incompatível.
-          Componentes antigos que bloqueavam botões apenas por navigator.onLine passam a executar normalmente; a conectividade física é acompanhada separadamente pela camada nativa/Capacitor para decidir entre envio e fila.
-          Dados ainda nunca sincronizados não são fabricados. Relatórios/leituras previamente recebidos são reutilizados offline; novidades chegam na próxima sincronização.
-          Jogos nativos e stack visual/animações continuam empacotados no APK.
-          Identidade do WebView: SantaLuziaMotionBeta/$APP_VERSION_NAME e SantaLuziaWindowsBeta/0.1.0-beta.19.
-          Camadas: motion-fixes.css; behavior-fixes.js; beta7-polish.js; preload-v5.cjs; windows-beta-runtime.js revisão 14; complemento Android; android-offline-first-beta7.js; android-local-first-beta8.js; android-member-state-beta8.js; android-rsc-guard-beta8.js.
-          Paridade exigida: Navegação, Atrasos, Presenças, Registros, Escala, Formação, Perfil/Painel, Ranking, Liturgia, Login diário, Quiz/Kiss/Jornada, Jogos, transições e animações com conteúdo local disponível offline.
+          Certificado Beta SHA-256: $CERT
+          Windows Beta fixada: $WINDOWS_BETA_COMMIT (0.1.0-beta.19)
+          Servidor: $SYNC_SERVER_URL — usado somente para autenticação/sincronização de dados.
+          Arquitetura: frontend React original empacotado no APK; sem server.url, sem offline.html, sem shell reduzido e sem proxy/cache de páginas remotas.
+          Persistência: SQLite nativo + CacheStorage/IndexedDB para snapshots, leituras, fila de mutações e anexos pendentes.
+          Interface original exigida: painéis de membro/moderador, menus, ícones, Escala, Formação, Atrasos, Jornada/Quiz, Ranking, Perfis, Presenças, Registros, Cores, Biblioteca, Liturgia e jogos.
+          Sincronização: ações elegíveis funcionam localmente e aguardam rede; novidades do servidor descem quando a conexão retorna.
+          Jogos locais: Joias da Luz/Caminho da Luz e Whatajong empacotados no APK.
           Android estável preservado: 1.0.6 / code18.
           Canal: artefato de teste; nenhuma release oficial publicada.
           EOF
           echo "MOTION_APK_SHA=$SHA" >> "$GITHUB_ENV"
           echo "MOTION_APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+          echo "MOTION_CERT=$CERT" >> "$GITHUB_ENV"
 
-      - name: Guardar APK de teste
+      - name: Guardar APK Beta 10
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-2.0-beta8
+          name: santa-luzia-motion-2.0-beta10
           path: |
-            dist/Santa-Luzia-Motion-2.0-beta8.apk
-            dist/RELATORIO-MOTION-BETA8.txt
+            dist/Santa-Luzia-Motion-2.0-beta10.apk
+            dist/RELATORIO-MOTION-BETA10.txt
           if-no-files-found: error
           retention-days: 14
 
       - name: Resumo
         run: |
-          echo "### Santa Luzia Motion Beta 8" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Santa Luzia Motion Beta 10" >> "$GITHUB_STEP_SUMMARY"
           echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Pacote separado: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Pacote: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Local-first: rotas/GETs em cache + fila transacional durável + estado otimista + isolamento RSC/HTML + sincronização posterior." >> "$GITHUB_STEP_SUMMARY"
-          echo "- Android oficial não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certificado Beta: $MOTION_CERT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- UI original empacotada; servidor somente sincronizador; Windows Beta 19 fixada." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Android oficial 1.0.6/code18 não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
