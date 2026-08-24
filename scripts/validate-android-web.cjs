@@ -4,47 +4,33 @@ const vm = require("node:vm")
 
 const root = path.resolve(__dirname, "..")
 const required = {
-  splash: path.join(root, "android-web", "index.html"),
+  index: path.join(root, "android-web", "index.html"),
   mission: path.join(root, "android-web", "caminho-da-luz", "index.html"),
   motion10: path.join(root, "android-web", "motion", "android-original-ui-beta10.js"),
+  nativeFetch: path.join(root, "android-web", "motion", "android-native-fetch-beta10.js"),
+  entry: path.join(root, "android-local", "entry.tsx"),
+}
+for (const [name, file] of Object.entries(required)) if (!fs.existsSync(file)) throw new Error(`Arquivo Android obrigatório ausente (${name}): ${path.relative(root, file)}`)
+for (const forbidden of ["offline.html", "offline-bridge.html"]) if (fs.existsSync(path.join(root, "android-web", forbidden))) throw new Error(`Beta 10 não pode conter interface offline paralela: android-web/${forbidden}`)
+
+const index = fs.readFileSync(required.index, "utf8")
+if (!/<!doctype html>/i.test(index) || !index.includes("SANTA LUZIA")) throw new Error("index.html Android inválido.")
+
+for (const [file, label] of [[required.motion10, "runtime de sincronização"], [required.nativeFetch, "ponte de fetch nativa"]]) {
+  const js = fs.readFileSync(file, "utf8")
+  new vm.Script(js, { filename: path.relative(root, file) })
+  if (!js.includes('2.0.0-beta.10')) throw new Error(`${label} sem versão Beta 10.`)
 }
 
-for (const [name, file] of Object.entries(required)) {
-  if (!fs.existsSync(file)) throw new Error(`Arquivo Android obrigatório ausente (${name}): ${path.relative(root, file)}`)
-}
-
-for (const forbidden of ["offline.html", "offline-bridge.html"]) {
-  if (fs.existsSync(path.join(root, "android-web", forbidden))) {
-    throw new Error(`Beta 10 não pode conter interface offline paralela: android-web/${forbidden}`)
-  }
-}
-
-const splash = fs.readFileSync(required.splash, "utf8")
-if (!/<!doctype html>/i.test(splash) || !splash.includes("SANTA LUZIA")) throw new Error("Splash local inválido.")
-if (/Área Restrita|Gerenciar Formação|Central de Atrasos|Jornada Litúrgica/.test(splash)) {
-  throw new Error("index.html local deve ser apenas splash, nunca uma segunda interface do aplicativo.")
-}
+const nativeFetch = fs.readFileSync(required.nativeFetch, "utf8")
+for (const marker of ["SyncHttp", "FormData", "bodyBase64", "formDataJson", "/api/"]) if (!nativeFetch.includes(marker)) throw new Error(`Ponte nativa sem marcador: ${marker}`)
 
 const motion10 = fs.readFileSync(required.motion10, "utf8")
-new vm.Script(motion10, { filename: "android-web/motion/android-original-ui-beta10.js" })
-for (const marker of [
-  'const VERSION = "2.0.0-beta.10"',
-  "/area-restrita/membro",
-  "/area-restrita/moderador",
-  "/area-restrita/atrasos",
-  "/area-restrita/moderador/presencas",
-  "/area-restrita/moderador/registro",
-  "/api/auth/me",
-  "/api/escalas",
-  "/api/formacoes",
-  "/api/ranking",
-  "fullWarm",
-  "recoverAuthenticatedOfflineRoute",
-]) {
-  if (!motion10.includes(marker)) throw new Error(`Runtime Beta 10 sem marcador obrigatório: ${marker}`)
-}
+for (const marker of ["/api/auth/me", "/api/escalas", "/api/formacoes", "/api/ranking", "/api/membros", "physicallyOnline", "warmMemberDetails"]) if (!motion10.includes(marker)) throw new Error(`Runtime Beta 10 sem marcador: ${marker}`)
+
+const entry = fs.readFileSync(required.entry, "utf8")
+for (const marker of ["MembroDashboard", "ModeradorDashboard", "CentralAtrasos", "FormacaoMembros", "RankingInterativo", "ModeradorPresencasPage", "GerenciadorRanking", "GerenciadorTema", "MobileBottomNav"]) if (!entry.includes(marker)) throw new Error(`Frontend local sem componente original: ${marker}`)
 
 const mission = fs.readFileSync(required.mission, "utf8")
 if (!mission.includes("<script") || mission.length < 1000) throw new Error("Pacote local da Missão do Altar parece incompleto.")
-
-console.log("Beta 10 validada: nenhuma interface offline paralela; splash + runtime da interface original + jogo local presentes.")
+console.log("Pré-validação Beta 10: frontend original, ponte SyncHttp, dados locais e jogos presentes; nenhuma segunda interface offline.")
