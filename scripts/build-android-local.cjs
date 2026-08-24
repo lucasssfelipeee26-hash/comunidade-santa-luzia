@@ -7,13 +7,8 @@ const out = path.join(root, "android-web")
 const nextStatic = path.join(root, ".next", "static")
 const publicDir = path.join(root, "public")
 
-function fail(message) {
-  console.error(`[android-local] ${message}`)
-  process.exit(1)
-}
-function ensure(file, label = file) {
-  if (!fs.existsSync(file)) fail(`Ausente: ${label}`)
-}
+function fail(message) { console.error(`[android-local] ${message}`); process.exit(1) }
+function ensure(file, label = file) { if (!fs.existsSync(file)) fail(`Ausente: ${label}`) }
 function walk(dir) {
   if (!fs.existsSync(dir)) return []
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -35,9 +30,7 @@ function copyTree(source, target) {
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
 ensure(path.join(root, "android-local", "entry.tsx"), "entry React local")
 ensure(nextStatic, ".next/static — execute npm run build antes")
-ensure(path.join(out, "motion", "android-native-fetch-beta10.js"), "ponte SyncHttp Beta 10")
-ensure(path.join(out, "motion", "android-local-first-beta8.js"), "fila local-first")
-ensure(path.join(out, "motion", "android-member-state-beta8.js"), "estado otimista de membros")
+for (const name of ["android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-member-state-beta8.js", "android-domain-bridge-beta10.js", "android-local-navigation-beta10.js", "android-original-ui-beta10.js"]) ensure(path.join(out, "motion", name), `motion/${name}`)
 
 fs.mkdirSync(out, { recursive: true })
 copyTree(publicDir, out)
@@ -75,6 +68,8 @@ const cssLinks = cssFiles.map((file) => {
   return `    <link rel="stylesheet" href="/_next/static/${rel}" />`
 }).join("\n")
 
+// Ordem obrigatória: base nativa -> fila genérica -> estado de membros ->
+// regras de domínio -> navegação local -> aquecimento de dados -> React.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -84,11 +79,13 @@ const requiredScripts = [
   "android-native-fetch-beta10.js",
   "android-local-first-beta8.js",
   "android-member-state-beta8.js",
+  "android-domain-bridge-beta10.js",
+  "android-local-navigation-beta10.js",
   "android-original-ui-beta10.js",
 ]
 for (const file of requiredScripts) ensure(path.join(out, "motion", file), `motion/${file}`)
-
 const scriptTags = requiredScripts.map((file) => `    <script defer src="/motion/${file}"></script>`).join("\n")
+
 const html = `<!doctype html>
 <html lang="pt-BR" data-site-theme="manto-rubi" data-native-platform="android">
   <head>
@@ -115,26 +112,11 @@ ${scriptTags}
 fs.writeFileSync(path.join(out, "index.html"), html)
 
 const entryText = fs.readFileSync(path.join(root, "android-local", "entry.tsx"), "utf8")
-const mandatory = [
-  "MembroDashboard",
-  "ModeradorDashboard",
-  "CentralAtrasos",
-  "FormacaoMembros",
-  "RankingInterativo",
-  "ModeradorEscalaPage",
-  "ModeradorFormacaoPage",
-  "ModeradorPresencasPage",
-  "NovoRegistroModerador",
-  "GerenciadorRanking",
-  "GerenciadorTema",
-  "ImportarAcervoLiturgico",
-  "PerfisEquipe",
-  "PerfilModerador",
-  "MobileBottomNav",
-]
+const mandatory = ["MembroDashboard", "ModeradorDashboard", "CentralAtrasos", "FormacaoMembros", "RankingInterativo", "ModeradorEscalaPage", "ModeradorFormacaoPage", "ModeradorPresencasPage", "NovoRegistroModerador", "GerenciadorRanking", "GerenciadorTema", "ImportarAcervoLiturgico", "PerfisEquipe", "PerfilModerador", "MobileBottomNav"]
 for (const marker of mandatory) if (!entryText.includes(marker)) fail(`Rota/componente original obrigatório ausente: ${marker}`)
 
 const outputJs = fs.readFileSync(path.join(out, "local-app.js"), "utf8")
 if (outputJs.length < 250_000) fail(`Bundle local parece incompleto (${outputJs.length} bytes).`)
 if (/offline\.html|offline-bridge\.html/.test(html)) fail("Interface paralela offline reapareceu no HTML local.")
+for (const marker of ["android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-local-navigation-beta10.js", "/local-app.js"]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
 console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios.`)
