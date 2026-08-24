@@ -62,6 +62,15 @@ function prepareAndroidILiturgia(dir) {
     if (/^evangelhos-\d{2}\.html\.json\.gz$/i.test(file)) fs.rmSync(path.join(iliturgiaDir, file), { force: true })
   }
 
+  // Arquivo legado que não é referenciado pelo manifesto. O Rosário atual usa
+  // rosario.html.json.gz, validado acima/abaixo. Retirar apenas a cópia gerada
+  // para o APK evita que o Asset Merger tente abrir um GZIP antigo corrompido.
+  const rosarioLegado = path.join(iliturgiaDir, "rosario.json.gz")
+  if (fs.existsSync(rosarioLegado)) {
+    fs.rmSync(rosarioLegado, { force: true })
+    console.log("[android-local] removido do APK: offline/iliturgia/rosario.json.gz (legado não referenciado).")
+  }
+
   const gzipFiles = walk(dir).filter((file) => file.toLowerCase().endsWith(".gz"))
   const invalid = []
   for (const file of gzipFiles) {
