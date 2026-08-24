@@ -4,14 +4,14 @@ const crypto = require("node:crypto")
 
 const root = path.resolve(__dirname, "..")
 const config = require(path.join(root, "config", "android-motion-beta.json"))
-function fail(message) { console.error(`[motion-beta10] ${message}`); process.exit(1) }
+function fail(message) { console.error(`[motion-beta11] ${message}`); process.exit(1) }
 function read(file) { if (!fs.existsSync(file)) fail(`Arquivo ausente: ${path.relative(root, file)}`); return fs.readFileSync(file, "utf8") }
 function write(file, content) { fs.writeFileSync(file, content) }
 function gitBlobSha(buffer) { return crypto.createHash("sha1").update(Buffer.from(`blob ${buffer.length}\0`)).update(buffer).digest("hex") }
 function assertJavascript(content, label) { try { new Function(content) } catch (error) { fail(`${label}: JavaScript inválido: ${error instanceof Error ? error.message : String(error)}`) } }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
-if (config.versionName !== "2.0.0-beta.10" || config.versionCode !== 20010) fail(`Configuração Beta 10 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
+if (config.versionName !== "2.0.0-beta.11" || config.versionCode !== 20011) fail(`Configuração Beta 11 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
 if (config.applicationId !== "br.com.comunidadesantaluzia.motionbeta") fail("Pacote Beta isolado incorreto.")
 
 const gradle = path.join(root, "android", "app", "build.gradle")
@@ -55,7 +55,9 @@ const jsRequired = {
   "android-domain-bridge-beta10.js": ["2.0.0-beta.10", "reportar_atraso", "minha-presenca", "moderar_atraso", "caminho-da-luz", "whatajong", "optimisticAdminQuiz", "optimisticTheme"],
   "android-quiz-offline-beta10.js": ["2.0.0-beta.10", "quiz-liturgia", "OfflineStore", "/api/quizzes/liturgia/responder", "writeRankingCache"],
   "android-local-navigation-beta10.js": ["2.0.0-beta.10", "santa-luzia:local-route", "downloadApi", "/api/"],
-  "android-original-ui-beta10.js": ["2.0.0-beta.10", "/api/auth/me", "/api/escalas", "/api/formacoes", "/api/ranking"],
+  "android-report-bridge-beta11.js": ["2.0.0-beta.11", "escopo=me", "patchMyFormation", "patchFormationBatch", "patchAdministrative", "patchDelayModeration"],
+  "android-motion-parity-beta11.js": ["2.0.0-beta.11", "sl-b11-live-clock", "Pódio da equipe", "sl-b11-card-trophy", "data-motion-personal-report"],
+  "android-original-ui-beta10.js": ["2.0.0-beta.11", "/api/auth/me", "/api/escalas", "/api/formacoes", "/api/ranking", "/api/formacoes/presencas/resumo?escopo=me"],
 }
 for (const [name, markers] of Object.entries(jsRequired)) {
   const text = read(path.join(motionDir, name))
@@ -66,12 +68,22 @@ for (const [name, markers] of Object.entries(jsRequired)) {
 const localApp = path.join(assets, "local-app.js")
 if (!fs.existsSync(localApp) || fs.statSync(localApp).size < 250000) fail("Bundle React original local ausente ou incompleto.")
 const index = read(path.join(assets, "index.html"))
-for (const marker of ["/local-app.js", "android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js", "windows-beta-runtime.js"]) if (!index.includes(marker)) fail(`index.html local sem ${marker}`)
+for (const marker of [
+  "/local-app.js",
+  "android-native-fetch-beta10.js",
+  "android-local-first-beta8.js",
+  "android-domain-bridge-beta10.js",
+  "android-quiz-offline-beta10.js",
+  "android-local-navigation-beta10.js",
+  "android-report-bridge-beta11.js",
+  "android-motion-parity-beta11.js",
+  "windows-beta-runtime.js",
+]) if (!index.includes(marker)) fail(`index.html local sem ${marker}`)
 if (/offline\.html|offline-bridge\.html/.test(index)) fail("index.html referencia interface offline paralela.")
 
 const capConfig = read(path.join(root, "android", "app", "src", "main", "assets", "capacitor.config.json"))
-if (/"server"\s*:/.test(capConfig)) fail("Motion Beta 10 não pode conter server.url no Capacitor.")
-if (!capConfig.includes(`SantaLuziaMotionBeta/${config.versionName}`)) fail("User-Agent Beta 10 ausente.")
+if (/"server"\s*:/.test(capConfig)) fail("Motion Beta 11 não pode conter server.url no Capacitor.")
+if (!capConfig.includes(`SantaLuziaMotionBeta/${config.versionName}`)) fail("User-Agent Beta 11 ausente.")
 if (!capConfig.includes("SantaLuziaWindowsBeta/0.1.0-beta.19")) fail("Identidade da Windows Beta 19 ausente.")
 
 const main = read(path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", "MainActivity.java"))
@@ -83,4 +95,4 @@ for (const marker of ["multipart/form-data", "bodyBase64", "formDataJson", "Cook
 
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId Beta não aplicado.")
 if (!read(strings).includes(config.appName)) fail("Nome Motion Beta não aplicado.")
-console.log(`[motion-beta10] ${config.versionName}/code${config.versionCode}: frontend React original local + Windows Beta 19 + fila local-first + quiz local + regras de domínio + SyncHttp validados.`)
+console.log(`[motion-beta11] ${config.versionName}/code${config.versionCode}: offline da Beta 10 + relatório pessoal/histórico + Motion de Atrasos/Pódio + Windows Beta 19 + SyncHttp validados.`)
