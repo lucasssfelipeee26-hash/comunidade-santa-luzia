@@ -15,22 +15,37 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   const sessao = await lerSessao()
-  const windowsBeta = request.headers.get("user-agent")?.includes("SantaLuziaWindowsBeta/") || request.headers.get("x-santa-luzia-windows-beta") === "1"
-  if (!sessao || (sessao.tipo !== "moderador" && !windowsBeta)) {
+  const escopoPessoal = request.nextUrl.searchParams.get("escopo") === "me"
+
+  if (!sessao) {
+    return NextResponse.json({ erro: "Sessão necessária." }, { status: 403 })
+  }
+  if (!escopoPessoal && sessao.tipo !== "moderador") {
     return NextResponse.json({ erro: "Acesso exclusivo do moderador." }, { status: 403 })
   }
 
   const equipeCompleta = listarEquipeAprovada()
-  const equipe = sessao.tipo === "moderador" ? equipeCompleta : equipeCompleta.filter((usuario) => usuario.id === sessao.sub)
+  const equipe = escopoPessoal
+    ? equipeCompleta.filter((usuario) => usuario.id === sessao.sub)
+    : equipeCompleta
   const formacoes = listarFormacoes()
   const escalas = listarEscalas()
   const usuariosPorId = new Map(equipe.map((usuario) => [usuario.id, usuario]))
   const formacoesPorId = new Map(formacoes.map((formacao) => [formacao.id, formacao]))
   const registros = listarTodasPresencasFormacao()
     .filter((registro) => usuariosPorId.has(registro.usuario_id) && formacoesPorId.has(registro.formacao_id))
-  const registrosAdministrativos = windowsBeta ? db.prepare("SELECT * FROM registros").all() as RegistroRow[] : []
-  const atrasos = windowsBeta ? listarPontualidadeOcorrencias(false) : []
-  const justificativasEscala = windowsBeta ? listarJustificativasEscala().filter((item) => usuariosPorId.has(item.usuario_id)) : []
+
+  // O centro do moderador recebe o histórico administrativo completo. No
+  // relatório pessoal, o próprio usuário vê o que afeta seu histórico
+  // (faltas, justificativas e advertências), mas observações internas continuam
+  // restritas ao controle administrativo.
+  const registrosAdministrativos = (db.prepare("SELECT * FROM registros").all() as RegistroRow[])
+    .filter((registro) => usuariosPorId.has(registro.usuario_id))
+    .filter((registro) => !escopoPessoal || registro.tipo !== "observacoes")
+  const atrasos = listarPontualidadeOcorrencias(false)
+    .filter((atraso) => usuariosPorId.has(atraso.usuario_id))
+  const justificativasEscala = listarJustificativasEscala()
+    .filter((item) => usuariosPorId.has(item.usuario_id))
 
   const contar = (itens: typeof registros) => ({
     presencas: itens.filter((item) => item.status === "presente").length,
@@ -85,28 +100,38 @@ export async function GET(request: NextRequest) {
       atualizadoEm: registro.atualizado_em,
     }
   })
-  const recentesAdministrativos = windowsBeta
-    ? registrosAdministrativos
-      .filter((registro) => usuariosPorId.has(registro.usuario_id))
-      .map((registro) => {
-        const usuario = usuariosPorId.get(registro.usuario_id)!
-        return {
-          id: `administrativo-${registro.id}`,
-          usuarioId: usuario.id,
-          usuarioNome: usuario.nome,
-          usuarioFuncao: usuario.funcao,
-          usuarioTipo: usuario.tipo,
-          formacaoId: null,
-          formacaoTitulo: registro.tipo === "advertencias" ? "Advertência" : registro.tipo === "faltas" ? "Falta administrativa" : registro.tipo === "justificativas" ? "Justificativa" : "Observação",
-          formacaoData: registro.data,
-          formacaoHorario: null,
-          status: registro.tipo === "advertencias" ? "advertencia" : registro.tipo === "faltas" ? "falta" : registro.tipo === "justificativas" ? "justificada" : "observacao",
-          justificativa: registro.descricao,
-          atualizadoEm: registro.criado_em,
-        }
-      })
-    : []
-  const recentesAtrasos = windowsBeta ? atrasos.map((atraso) => {
+
+  const recentesAdministrativos = registrosAdministrativos.map((registro) => {
+    const usuario = usuariosPorId.get(registro.usuario_id)!
+    return {
+      id: `administrativo-${registro.id}`,
+      usuarioId: usuario.id,
+      usuarioNome: usuario.nome,
+      usuarioFuncao: usuario.funcao,
+      usuarioTipo: usuario.tipo,
+      formacaoId: null,
+      formacaoTitulo: registro.tipo === "advertencias"
+        ? "Advertência"
+        : registro.tipo === "faltas"
+          ? "Falta administrativa"
+          : registro.tipo === "justificativas"
+            ? "Justificativa"
+            : "Observação",
+      formacaoData: registro.data,
+      formacaoHorario: null,
+      status: registro.tipo === "advertencias"
+        ? "advertencia"
+        : registro.tipo === "faltas"
+          ? "falta"
+          : registro.tipo === "justificativas"
+            ? "justificada"
+            : "observacao",
+      justificativa: registro.descricao,
+      atualizadoEm: registro.criado_em,
+    }
+  })
+
+  const recentesAtrasos = atrasos.map((atraso) => {
     const usuario = usuariosPorId.get(atraso.usuario_id)
     return usuario ? {
       id: `atraso-${atraso.id}`,
@@ -122,8 +147,9 @@ export async function GET(request: NextRequest) {
       justificativa: atraso.observacao || `Limite de chegada: ${atraso.limite_chegada}`,
       atualizadoEm: atraso.moderado_em || atraso.criado_em,
     } : null
-  }).filter((item): item is NonNullable<typeof item> => Boolean(item)) : []
-  const recentesEscala = windowsBeta ? justificativasEscala.map((registro) => {
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item))
+
+  const recentesEscala = justificativasEscala.map((registro) => {
     const usuario = usuariosPorId.get(registro.usuario_id)
     const escala = escalas.find((item) => item.id === registro.escala_id)
     return usuario && escala ? {
@@ -140,16 +166,20 @@ export async function GET(request: NextRequest) {
       justificativa: registro.justificativa,
       atualizadoEm: registro.criado_em,
     } : null
-  }).filter((item): item is NonNullable<typeof item> => Boolean(item)) : []
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item))
+
   const recentes = [...recentesPresenca, ...recentesAdministrativos, ...recentesAtrasos, ...recentesEscala]
     .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
     .slice(0, 500)
 
   return NextResponse.json(
     {
+      escopo: escopoPessoal ? "me" : "equipe",
       resumo: {
         ...contar(registros),
         justificadas: contar(registros).justificadas + justificativasEscala.length,
+        advertencias: registrosAdministrativos.filter((registro) => registro.tipo === "advertencias").length,
+        atrasos: atrasos.length,
         naoRegistrados: Math.max(0, (equipe.length * formacoes.filter((item) => item.status !== "cancelada").length) - registros.length),
         participantes: equipe.length,
         formacoes: formacoes.length,
