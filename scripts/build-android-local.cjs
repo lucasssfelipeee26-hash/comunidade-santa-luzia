@@ -30,7 +30,7 @@ function copyTree(source, target) {
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
 ensure(path.join(root, "android-local", "entry.tsx"), "entry React local")
 ensure(nextStatic, ".next/static — execute npm run build antes")
-for (const name of ["android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-member-state-beta8.js", "android-domain-bridge-beta10.js", "android-local-navigation-beta10.js", "android-original-ui-beta10.js"]) ensure(path.join(out, "motion", name), `motion/${name}`)
+for (const name of ["android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-member-state-beta8.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js", "android-original-ui-beta10.js"]) ensure(path.join(out, "motion", name), `motion/${name}`)
 
 fs.mkdirSync(out, { recursive: true })
 copyTree(publicDir, out)
@@ -69,7 +69,7 @@ const cssLinks = cssFiles.map((file) => {
 }).join("\n")
 
 // Ordem obrigatória: base nativa -> fila genérica -> estado de membros ->
-// regras de domínio -> navegação local -> aquecimento de dados -> React.
+// regras de domínio -> quiz local -> navegação local -> aquecimento -> React.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -80,6 +80,7 @@ const requiredScripts = [
   "android-local-first-beta8.js",
   "android-member-state-beta8.js",
   "android-domain-bridge-beta10.js",
+  "android-quiz-offline-beta10.js",
   "android-local-navigation-beta10.js",
   "android-original-ui-beta10.js",
 ]
@@ -114,9 +115,8 @@ fs.writeFileSync(path.join(out, "index.html"), html)
 const entryText = fs.readFileSync(path.join(root, "android-local", "entry.tsx"), "utf8")
 const mandatory = ["MembroDashboard", "ModeradorDashboard", "CentralAtrasos", "FormacaoMembros", "RankingInterativo", "ModeradorEscalaPage", "ModeradorFormacaoPage", "ModeradorPresencasPage", "NovoRegistroModerador", "GerenciadorRanking", "GerenciadorTema", "ImportarAcervoLiturgico", "PerfisEquipe", "PerfilModerador", "MobileBottomNav"]
 for (const marker of mandatory) if (!entryText.includes(marker)) fail(`Rota/componente original obrigatório ausente: ${marker}`)
-
 const outputJs = fs.readFileSync(path.join(out, "local-app.js"), "utf8")
 if (outputJs.length < 250_000) fail(`Bundle local parece incompleto (${outputJs.length} bytes).`)
 if (/offline\.html|offline-bridge\.html/.test(html)) fail("Interface paralela offline reapareceu no HTML local.")
-for (const marker of ["android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-local-navigation-beta10.js", "/local-app.js"]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
+for (const marker of ["android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js", "/local-app.js"]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
 console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios.`)
