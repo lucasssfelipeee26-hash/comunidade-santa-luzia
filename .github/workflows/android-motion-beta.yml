@@ -89,6 +89,7 @@ jobs:
           node --check android-web/motion/android-local-first-beta8.js
           node --check android-web/motion/android-member-state-beta8.js
           node --check android-web/motion/android-domain-bridge-beta10.js
+          node --check android-web/motion/android-quiz-offline-beta10.js
           node --check android-web/motion/android-local-navigation-beta10.js
           node --check android-web/motion/android-original-ui-beta10.js
           node --check scripts/fetch-windows-beta-stack.cjs
@@ -119,9 +120,13 @@ jobs:
       - name: Auditar dependências
         run: npm ls --depth=0
 
+      # A auditoria UX da 1.0.6 ainda exige android-web/offline.html. A Motion
+      # Beta 10 remove esse shell intencionalmente, então aqui executamos a
+      # auditoria robusta compartilhada e a auditoria offline específica sem
+      # reintroduzir a arquitetura antiga.
       - name: Auditar robustez e núcleo offline
         run: |
-          npm run audit:robustez
+          node scripts/auditar-robustez.cjs
           npm run audit:offline
 
       - name: Auditar contrato Beta 10
@@ -141,6 +146,7 @@ jobs:
           grep -Fq '/local-app.js' android-web/index.html
           grep -Fq 'android-native-fetch-beta10.js' android-web/index.html
           grep -Fq 'android-domain-bridge-beta10.js' android-web/index.html
+          grep -Fq 'android-quiz-offline-beta10.js' android-web/index.html
           grep -Fq 'android-local-navigation-beta10.js' android-web/index.html
           grep -Fq 'windows-beta-runtime.js' android-web/index.html
           test ! -e android-web/offline.html
@@ -174,7 +180,7 @@ jobs:
           test "$(stat -c%s android/app/src/main/assets/public/local-app.js)" -gt 250000
           test -d android/app/src/main/assets/public/_next/static
           test -d android/app/src/main/assets/public/images
-          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-native-fetch-beta10.js android-local-first-beta8.js android-member-state-beta8.js android-domain-bridge-beta10.js android-local-navigation-beta10.js android-original-ui-beta10.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-native-fetch-beta10.js android-local-first-beta8.js android-member-state-beta8.js android-domain-bridge-beta10.js android-quiz-offline-beta10.js android-local-navigation-beta10.js android-original-ui-beta10.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
           MAIN=android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
           grep -Fq 'SyncHttpPlugin.class' "$MAIN"
           grep -Fq 'OfflineStorePlugin.class' "$MAIN"
@@ -205,7 +211,7 @@ jobs:
           grep -Fq 'assets/public/local-app.js' "$RUNNER_TEMP/apk-files.txt"
           grep -Fq 'assets/public/_next/static/' "$RUNNER_TEMP/apk-files.txt"
           grep -Fq 'assets/public/images/' "$RUNNER_TEMP/apk-files.txt"
-          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-native-fetch-beta10.js android-local-first-beta8.js android-member-state-beta8.js android-domain-bridge-beta10.js android-local-navigation-beta10.js android-original-ui-beta10.js; do grep -Fq "assets/public/motion/$f" "$RUNNER_TEMP/apk-files.txt"; done
+          for f in windows-motion-fixes.css windows-behavior-fixes.js windows-beta7-polish.js windows-preload-v5.js windows-beta-runtime.js android-motion-beta.js android-native-fetch-beta10.js android-local-first-beta8.js android-member-state-beta8.js android-domain-bridge-beta10.js android-quiz-offline-beta10.js android-local-navigation-beta10.js android-original-ui-beta10.js; do grep -Fq "assets/public/motion/$f" "$RUNNER_TEMP/apk-files.txt"; done
           if grep -Eq 'assets/public/(offline\.html|offline-bridge\.html)|android-offline-first-beta7|android-rsc-guard-beta8' "$RUNNER_TEMP/apk-files.txt"; then echo "ERRO: arquitetura offline antiga dentro do APK" >&2; exit 1; fi
           unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/motion-capacitor-config.json"
           if grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"; then echo "ERRO: APK depende de server.url" >&2; exit 1; fi
@@ -227,6 +233,7 @@ jobs:
           Arquitetura: frontend React original empacotado no APK; sem server.url, sem offline.html, sem shell reduzido e sem proxy/cache de páginas remotas.
           Persistência: SQLite nativo + CacheStorage/IndexedDB para snapshots, leituras, fila de mutações e anexos pendentes.
           Interface original exigida: painéis de membro/moderador, menus, ícones, Escala, Formação, Atrasos, Jornada/Quiz, Ranking, Perfis, Presenças, Registros, Cores, Biblioteca, Liturgia e jogos.
+          Quiz Litúrgico: runtime offline empacotado e auditado no APK; respostas elegíveis ficam locais até a sincronização.
           Sincronização: ações elegíveis funcionam localmente e aguardam rede; novidades do servidor descem quando a conexão retorna.
           Jogos locais: Joias da Luz/Caminho da Luz e Whatajong empacotados no APK.
           Android estável preservado: 1.0.6 / code18.
@@ -255,4 +262,5 @@ jobs:
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "- Certificado Beta: $MOTION_CERT" >> "$GITHUB_STEP_SUMMARY"
           echo "- UI original empacotada; servidor somente sincronizador; Windows Beta 19 fixada." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Quiz Litúrgico offline está incluído e validado nos assets do APK." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial 1.0.6/code18 não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
