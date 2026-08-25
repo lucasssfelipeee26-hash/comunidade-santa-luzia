@@ -32,6 +32,7 @@ import { NovoRegistroModerador } from "@/components/novo-registro-moderador"
 import { GerenciadorRanking } from "@/components/gerenciador-ranking"
 import { GerenciadorTema } from "@/components/gerenciador-tema"
 import { ImportarAcervoLiturgico } from "@/components/importar-acervo-liturgico"
+import { DiagnosticoSantaLuzia } from "@/components/diagnostico-santa-luzia"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu } from "@/components/area-menu"
 import { PrayerPersonIcon } from "@/components/prayer-person-icon"
@@ -80,7 +81,7 @@ function LiturgiaRoute() {
 }
 
 function EscalaRoute() {
-  return <div className="min-h-screen bg-background"><SiteHeader /><main className="mx-auto max-w-5xl px-4 py-12"><p className="text-sm uppercase tracking-[.2em] text-accent-foreground/70">Serviço do altar</p><h1 className="mt-2 font-serif text-4xl font-semibold text-primary">Escala do Dia</h1><p className="mb-8 mt-3 text-muted-foreground">Consulte as escalas publicadas com o sacerdote celebrante, acólitos, coroinhas e suas funções.</p><EscalaPublica /></main><SiteFooter /></div>
+  return <div className="min-h-screen bg-background"><SiteHeader /><main className="mx-auto max-w-5xl px-4 py-12"><p className="text-sm uppercase tracking-[.2em] text-accent-foreground/70">Serviço do altar</p><h1 className="mt-2 font-serif text-4xl font-semibold text-primary">Escalas</h1><p className="mb-8 mt-3 text-muted-foreground">Consulte as próximas escalas e o histórico das celebrações já realizadas, com sacerdote, acólitos, coroinhas e funções.</p><EscalaPublica /></main><SiteFooter /></div>
 }
 
 function BibliotecaRoute() {
@@ -185,6 +186,10 @@ function AcervoRoute() {
   return <div className="min-h-screen bg-[#fffaf0]"><AreaHeader titulo="Acervo Litúrgico Offline" subtitulo="Instalação e atualização da biblioteca autorizada" voltarHref="/area-restrita/moderador" menu={<ModeradorMenu />} /><main className="mx-auto max-w-5xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><ImportarAcervoLiturgico /></main></div>
 }
 
+function DiagnosticoRoute() {
+  return <div className="min-h-screen bg-background"><AreaHeader titulo="Diagnóstico do Aplicativo" subtitulo="Auditoria de erros, desempenho, offline e armazenamento" voltarHref="/area-restrita/moderador" voltarLabel="Voltar ao painel" menu={<ModeradorMenu />} /><main className="mx-auto max-w-6xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><DiagnosticoSantaLuzia /></main></div>
+}
+
 function RouterView() {
   const pathname = usePathname()
   const perfilId = useMemo(() => pathname.match(/^\/area-restrita\/perfil\/([^/]+)$/)?.[1] || "", [pathname])
@@ -211,6 +216,7 @@ function RouterView() {
   if (pathname === "/area-restrita/moderador/ranking") return <Guarded tipo="moderador"><GerenciadorRanking /></Guarded>
   if (pathname === "/area-restrita/moderador/tema") return <Guarded tipo="moderador"><TemaRoute /></Guarded>
   if (pathname === "/area-restrita/moderador/acervo-liturgico") return <Guarded tipo="moderador"><AcervoRoute /></Guarded>
+  if (pathname === "/area-restrita/moderador/diagnostico") return <Guarded tipo="moderador"><DiagnosticoRoute /></Guarded>
   return <PublicHome />
 }
 
