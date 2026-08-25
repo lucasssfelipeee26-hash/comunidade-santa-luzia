@@ -61,9 +61,9 @@ if (!nativeFetch.includes("window.__santaLuziaBrowserFetch") || !localFirst.incl
 const main = requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java", ["SyncHttpPlugin.class", "OfflineStorePlugin.class", "CaminhoDaLuzPlugin.class", "WhatajongPlugin.class", "LOAD_DEFAULT"], "MainActivity local")
 for (const forbidden of ["MotionOfflineWebViewClient", "ServiceWorkerController", "evaluateJavascript", "LOAD_CACHE_ELSE_NETWORK"]) if (main.includes(forbidden)) throw new Error(`MainActivity contém arquitetura remota antiga: ${forbidden}`)
 requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/SyncHttpPlugin.java", ["BASE_URL", "multipart/form-data", "formDataJson", "bodyBase64", "CookieManager", "completedRound", "SantaLuziaWindowsBeta/0.1.0-beta.19"], "SyncHttp")
-requireAll("native-assets/android/src/main/java/br/comunidadesantaluzia/app/OfflineStorePlugin.java", ["santa_luzia_local.db", "TABLE_DOCUMENTS", "saveDocument", "loadDocument", "saveQueue", "loadQueue"], "SQLite local")
+requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java", ["santa_luzia_local.db", "TABLE_DOCUMENTS", "saveDocument", "loadDocument", "saveQueue", "loadQueue"], "SQLite local")
 
-for (const forbidden of ["android-web/offline.html", "android-web/offline-bridge.html", "native-assets/android/src/main/java/br/comunidadesantaluzia/app/MotionOfflineWebViewClient.java"]) if (fs.existsSync(path.join(root, forbidden))) throw new Error(`Artefato da arquitetura antiga ainda existe: ${forbidden}`)
+for (const forbidden of ["android-web/offline.html", "android-web/offline-bridge.html", "native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MotionOfflineWebViewClient.java"]) if (fs.existsSync(path.join(root, forbidden))) throw new Error(`Artefato da arquitetura antiga ainda existe: ${forbidden}`)
 
 const bundle = path.join(root, "android-web", "local-app.js")
 if (fs.existsSync(bundle) && fs.statSync(bundle).size < 250000) throw new Error("Bundle local gerado parece incompleto.")
