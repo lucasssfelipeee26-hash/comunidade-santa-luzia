@@ -162,9 +162,9 @@ jobs:
           test "$(stat -c%s android-web/local-app.js)" -gt 250000
           for f in android-auditor-beta12.js android-performance-beta12.js android-scroll-stability-beta12.js android-podium-beta12.js android-constancia-luz-beta11.js android-domain-bridge-beta10.js windows-beta-runtime.js; do grep -Fq "$f" android-web/index.html; done
           grep -Fq 'data-escala-history-enabled' components/escala-publica.tsx
-          grep -Fq 'data-equipe-horizontal' components/equipe-no-painel.tsx
-          grep -Fq 'Excluir cadastro' components/equipe-no-painel.tsx
-          grep -Fq 'Resetar ranking' components/equipe-no-painel.tsx
+          grep -Fq 'data-team-profile-rail' components/equipe-no-painel.tsx
+          grep -Fq 'Excluir cadastro do banco' components/administracao-moderador.tsx
+          grep -Fq 'Resetar placar do ranking' components/administracao-moderador.tsx
           grep -Fq 'DiagnosticoSantaLuzia' android-local/entry.tsx
           grep -Fq 'integrity_check' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
           grep -Fq 'journal_mode=WAL' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
