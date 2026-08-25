@@ -40,9 +40,7 @@ function prepareAndroidILiturgia(dir) {
   ensure(geralFile, "fonte íntegra gerais.html.json.gz do iLiturgia")
   try {
     const pacoteGeral = JSON.parse(zlib.gunzipSync(fs.readFileSync(geralFile)).toString("utf8"))
-    if (!Array.isArray(pacoteGeral?.documents) || pacoteGeral.documents.length < 450) {
-      fail(`Fonte geral do iLiturgia incompleta (${pacoteGeral?.documents?.length || 0} documentos).`)
-    }
+    if (!Array.isArray(pacoteGeral?.documents) || pacoteGeral.documents.length < 450) fail(`Fonte geral do iLiturgia incompleta (${pacoteGeral?.documents?.length || 0} documentos).`)
     console.log(`[android-local] fonte iLiturgia geral validada: ${pacoteGeral.documents.length} documentos.`)
   } catch (error) {
     fail(`Fonte geral do iLiturgia inválida: ${error instanceof Error ? error.message : String(error)}`)
@@ -54,10 +52,7 @@ function prepareAndroidILiturgia(dir) {
   evangelho.androidFonteIntegra = "gerais.html.json.gz"
   fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`)
 
-  for (const file of fs.readdirSync(iliturgiaDir)) {
-    if (/^evangelhos-\d{2}\.html\.json\.gz$/i.test(file)) fs.rmSync(path.join(iliturgiaDir, file), { force: true })
-  }
-
+  for (const file of fs.readdirSync(iliturgiaDir)) if (/^evangelhos-\d{2}\.html\.json\.gz$/i.test(file)) fs.rmSync(path.join(iliturgiaDir, file), { force: true })
   const rosarioLegado = path.join(iliturgiaDir, "rosario.json.gz")
   if (fs.existsSync(rosarioLegado)) {
     fs.rmSync(rosarioLegado, { force: true })
@@ -80,7 +75,7 @@ function prepareAndroidILiturgia(dir) {
     }
   }
   if (invalid.length) fail(`GZIP offline inválido após saneamento:\n- ${invalid.join("\n- ")}`)
-  console.log(`[android-local] ${gzipFiles.length} arquivo(s) GZIP offline validado(s)/normalizado(s); Evangelhos Android ligados à fonte geral íntegra.`)
+  console.log(`[android-local] ${gzipFiles.length} arquivo(s) GZIP offline validado(s)/normalizado(s).`)
 }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
@@ -98,6 +93,7 @@ for (const name of [
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
   "android-auditor-beta12.js",
+  "android-db-health-beta12.js",
   "android-performance-beta12.js",
   "android-scroll-stability-beta12.js",
   "android-podium-beta12.js",
@@ -140,8 +136,6 @@ const cssLinks = cssFiles.map((file) => {
   return `    <link rel="stylesheet" href="/_next/static/${rel}" />`
 }).join("\n")
 
-// Ordem: Windows Beta -> pontes de dados -> recursos Beta 11 -> aquecimento ->
-// Auditor Beta 12 -> performance -> estabilidade do scroll -> pódio atual -> React.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -159,6 +153,7 @@ const requiredScripts = [
   "android-motion-parity-beta11.js",
   "android-original-ui-beta10.js",
   "android-auditor-beta12.js",
+  "android-db-health-beta12.js",
   "android-performance-beta12.js",
   "android-scroll-stability-beta12.js",
   "android-podium-beta12.js",
@@ -176,17 +171,11 @@ const html = `<!doctype html>
     <title>Santa Luzia</title>
 ${cssLinks}
     <link rel="stylesheet" href="/motion/windows-motion-fixes.css" />
-    <style>
-      html,body,#root{min-height:100%;margin:0}body{background:#fff8ee}
-      #sl-boot{min-height:100vh;display:grid;place-items:center;padding:24px;color:#7b1326;background:#fff8ee;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-      #sl-boot>div{text-align:center}.sl-seal{width:76px;height:76px;margin:auto;display:grid;place-items:center;border-radius:999px;border:2px solid #d4af37;background:#fff;font-family:Georgia,serif;font-size:28px;font-weight:700}.sl-name{margin:16px 0 4px;font-family:Georgia,serif;font-size:26px}.sl-sub{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#705e52}
-    </style>
+    <style>html,body,#root{min-height:100%;margin:0}body{background:#fff8ee}#sl-boot{min-height:100vh;display:grid;place-items:center;padding:24px;color:#7b1326;background:#fff8ee;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}#sl-boot>div{text-align:center}.sl-seal{width:76px;height:76px;margin:auto;display:grid;place-items:center;border-radius:999px;border:2px solid #d4af37;background:#fff;font-family:Georgia,serif;font-size:28px;font-weight:700}.sl-name{margin:16px 0 4px;font-family:Georgia,serif;font-size:26px}.sl-sub{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#705e52}</style>
 ${scriptTags}
     <script defer src="/local-app.js"></script>
   </head>
-  <body class="app-mobile-shell font-sans antialiased">
-    <div id="root"><div id="sl-boot"><div><div class="sl-seal">SL</div><div class="sl-name">SANTA LUZIA</div><div class="sl-sub">Acólitos e Coroinhas São Padre Pio</div></div></div></div>
-  </body>
+  <body class="app-mobile-shell font-sans antialiased"><div id="root"><div id="sl-boot"><div><div class="sl-seal">SL</div><div class="sl-name">SANTA LUZIA</div><div class="sl-sub">Acólitos e Coroinhas São Padre Pio</div></div></div></div></body>
 </html>
 `
 fs.writeFileSync(path.join(out, "index.html"), html)
@@ -198,17 +187,8 @@ const outputJs = fs.readFileSync(path.join(out, "local-app.js"), "utf8")
 if (outputJs.length < 250_000) fail(`Bundle local parece incompleto (${outputJs.length} bytes).`)
 if (/offline\.html|offline-bridge\.html/.test(html)) fail("Interface paralela offline reapareceu no HTML local.")
 for (const marker of [
-  "android-native-fetch-beta10.js",
-  "android-domain-bridge-beta10.js",
-  "android-quiz-offline-beta10.js",
-  "android-local-navigation-beta10.js",
-  "android-constancia-luz-beta11.js",
-  "android-report-bridge-beta11.js",
-  "android-motion-parity-beta11.js",
-  "android-auditor-beta12.js",
-  "android-performance-beta12.js",
-  "android-scroll-stability-beta12.js",
-  "android-podium-beta12.js",
-  "/local-app.js",
+  "android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js",
+  "android-constancia-luz-beta11.js", "android-report-bridge-beta11.js", "android-motion-parity-beta11.js", "android-auditor-beta12.js",
+  "android-db-health-beta12.js", "android-performance-beta12.js", "android-scroll-stability-beta12.js", "android-podium-beta12.js", "/local-app.js",
 ]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
-console.log(`[android-local] Beta 12 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos; histórico, Auditor, performance, scroll estável e pódio atual incluídos.`)
+console.log(`[android-local] Beta 12 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next; histórico, Auditor, integridade SQLite, performance, scroll estável e pódio incluídos.`)
