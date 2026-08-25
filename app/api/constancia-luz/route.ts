@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
 import { buscarUsuario, listarRankingAjustes, salvarRankingAjuste } from "@/lib/db"
 import { notificarMudancasRanking, snapshotRanking } from "@/lib/notificacoes-ranking"
@@ -6,6 +6,7 @@ import { notificarMudancasRanking, snapshotRanking } from "@/lib/notificacoes-ra
 const PONTOS_POR_DIA = 2
 const DIAS_DA_SEMANA = 7
 const PREFIXO = "Constância de Luz"
+const MAX_DIAS_OFFLINE = 14
 
 function dataCuiaba() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -20,6 +21,12 @@ function deslocarData(iso: string, dias: number) {
   const data = new Date(`${iso}T12:00:00Z`)
   data.setUTCDate(data.getUTCDate() + dias)
   return data.toISOString().slice(0, 10)
+}
+
+function dataIsoValida(iso: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false
+  const data = new Date(`${iso}T12:00:00Z`)
+  return Number.isFinite(data.getTime()) && data.toISOString().slice(0, 10) === iso
 }
 
 function semanaDaData(hoje: string) {
@@ -78,13 +85,19 @@ export async function GET() {
   return NextResponse.json({ ok: true, constancia: statusDaSemana(usuario.id) })
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const usuario = await usuarioAtual()
   if (!usuario) return NextResponse.json({ erro: "Não autorizado." }, { status: 401 })
 
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const hoje = dataCuiaba()
-  const ano = Number(hoje.slice(0, 4))
-  const motivo = motivoDaData(hoje)
+  const solicitada = String(body.data || hoje)
+  if (!dataIsoValida(solicitada) || solicitada > hoje || solicitada < deslocarData(hoje, -MAX_DIAS_OFFLINE)) {
+    return NextResponse.json({ erro: "Data da presença diária inválida ou fora da janela de sincronização." }, { status: 400 })
+  }
+
+  const ano = Number(solicitada.slice(0, 4))
+  const motivo = motivoDaData(solicitada)
   const existente = listarRankingAjustes(ano).find((ajuste) =>
     ajuste.usuario_id === usuario.id && ajuste.pontos === PONTOS_POR_DIA && ajuste.motivo === motivo
   )
@@ -94,6 +107,7 @@ export async function POST() {
       ok: true,
       jaContabilizado: true,
       pontosAdicionados: 0,
+      data: solicitada,
       constancia: statusDaSemana(usuario.id, hoje),
     })
   }
@@ -106,12 +120,13 @@ export async function POST() {
     ano,
     criado_por: usuario.id,
   })
-  notificarMudancasRanking(ano, antes, usuario.id, `constancia-luz:${hoje}`)
+  notificarMudancasRanking(ano, antes, usuario.id, `constancia-luz:${solicitada}`)
 
   return NextResponse.json({
     ok: true,
     jaContabilizado: false,
     pontosAdicionados: PONTOS_POR_DIA,
+    data: solicitada,
     ajusteId: ajuste.id,
     constancia: statusDaSemana(usuario.id, hoje),
   })
