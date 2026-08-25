@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   BookOpen,
   BrainCircuit,
+  Bug,
   CalendarCheck2,
   CalendarDays,
   ClipboardCheck,
@@ -115,6 +116,7 @@ export function ModeradorMenu() {
     { href: "/area-restrita/moderador/registro", label: "Novo Registro", curto: "Registro", icon: <ClipboardPlus className="size-5" />, motion: "record" },
     { href: "/area-restrita/moderador/ranking", label: "Gerenciar Quizzes", curto: "Quizzes", icon: <BrainCircuit className="size-5" /> },
     { href: "/area-restrita/moderador/tema", label: "Cores do Site", curto: "Cores", icon: <Palette className="size-5" /> },
+    { href: "/area-restrita/moderador/diagnostico", label: "Diagnóstico do Aplicativo", curto: "Diagnóstico", icon: <Bug className="size-5" />, motion: "record" },
     { href: "/escala", label: "Ver Escala", curto: "Escala pública", icon: <CalendarDays className="size-5" /> },
   ]
   return <MenuArea itens={itens} rotulo="Abrir navegação do moderador" />
