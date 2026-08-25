@@ -84,6 +84,24 @@
     </svg>`;
   }
 
+  function normalizeTrophy(card, rank) {
+    // Camadas antigas de Motion também injetavam um troféu. Elas podem rodar
+    // novamente depois desta camada; por isso a limpeza precisa acontecer em
+    // toda passagem do MutationObserver, e não somente na primeira criação.
+    card.querySelectorAll('[class*="card-trophy"]:not(.sl-b11-card-trophy)').forEach((element) => element.remove());
+    const atuais = [...card.querySelectorAll(":scope > .sl-b11-card-trophy")];
+    atuais.slice(1).forEach((element) => element.remove());
+    let trophy = atuais[0] || null;
+    if (!trophy) {
+      trophy = document.createElement("span");
+      trophy.className = "sl-b11-card-trophy";
+      trophy.innerHTML = trophyMarkup();
+      card.appendChild(trophy);
+    }
+    trophy.dataset.rank = String(rank);
+    trophy.setAttribute("aria-label", `Troféu do ${rank}º lugar`);
+  }
+
   function enhancePodium() {
     const title = [...document.querySelectorAll("main h1,main h2,main h3")].find((element) => text(element) === "Pódio da equipe");
     const section = title?.closest("section");
@@ -100,15 +118,7 @@
         element.style.removeProperty("opacity");
         element.style.removeProperty("filter");
       });
-      if (!card.querySelector(".sl-b11-card-trophy")) {
-        card.querySelectorAll(".sl-r5-card-trophy").forEach((element) => element.remove());
-        const trophy = document.createElement("span");
-        trophy.className = "sl-b11-card-trophy";
-        trophy.dataset.rank = String(rank);
-        trophy.setAttribute("aria-label", `Troféu do ${rank}º lugar`);
-        trophy.innerHTML = trophyMarkup();
-        card.appendChild(trophy);
-      }
+      normalizeTrophy(card, rank);
     }
   }
 
