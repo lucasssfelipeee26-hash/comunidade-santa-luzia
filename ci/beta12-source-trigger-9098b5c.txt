@@ -1,0 +1,2 @@
+Fonte unificada Beta 12: 9098b5c2b39c8e88c7bdf2d60eea520b5f8ad3ad
+Motivo: novo build após alinhar validação da busca horizontal ao texto real da interface.
