@@ -14,11 +14,28 @@ if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1
 if (config.versionName !== "2.0.0-beta.11" || config.versionCode !== 20011) fail(`Configuração Beta 11 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
 if (config.applicationId !== "br.com.comunidadesantaluzia.motionbeta") fail("Pacote Beta isolado incorreto.")
 
+// A chave da Beta 10 era a debug temporária do runner e não foi persistida.
+// A partir da Beta 11 a CI cria/restaura um keystore beta explícito e este
+// script obriga o Gradle a usá-lo. A chave oficial do Santa Luzia não participa.
+const signingEnv = {
+  keystore: process.env.MOTION_BETA_KEYSTORE,
+  storePassword: process.env.MOTION_BETA_STORE_PASSWORD,
+  keyAlias: process.env.MOTION_BETA_KEY_ALIAS,
+  keyPassword: process.env.MOTION_BETA_KEY_PASSWORD,
+}
+for (const [key, value] of Object.entries(signingEnv)) if (!value) fail(`Variável de assinatura ausente: ${key}`)
+if (!fs.existsSync(signingEnv.keystore) || fs.statSync(signingEnv.keystore).size < 1000) fail("Keystore persistente da Motion Beta ausente ou inválido.")
+
 const gradle = path.join(root, "android", "app", "build.gradle")
 let gradleText = read(gradle)
 gradleText = gradleText.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${config.applicationId}"`)
 gradleText = gradleText.replace(/versionCode\s+\d+/, `versionCode ${config.versionCode}`)
 gradleText = gradleText.replace(/versionName\s+["'][^"']+["']/, `versionName "${config.versionName}"`)
+const signingBlock = `    signingConfigs {\n        motionBeta {\n            storeFile file(System.getenv("MOTION_BETA_KEYSTORE"))\n            storePassword System.getenv("MOTION_BETA_STORE_PASSWORD")\n            keyAlias System.getenv("MOTION_BETA_KEY_ALIAS")\n            keyPassword System.getenv("MOTION_BETA_KEY_PASSWORD")\n        }\n    }\n`
+if (!gradleText.includes("signingConfigs {")) gradleText = gradleText.replace(/(\s+defaultConfig\s*\{)/, `\n${signingBlock}$1`)
+if (!gradleText.includes("signingConfig signingConfigs.motionBeta")) {
+  gradleText = gradleText.replace(/(\s+buildTypes\s*\{)/, `$1\n        debug {\n            signingConfig signingConfigs.motionBeta\n        }`)
+}
 write(gradle, gradleText)
 
 const strings = path.join(root, "android", "app", "src", "main", "res", "values", "strings.xml")
@@ -93,6 +110,8 @@ for (const forbidden of ["MotionOfflineWebViewClient", "evaluateJavascript", "LO
 const syncHttp = read(path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", "SyncHttpPlugin.java"))
 for (const marker of ["multipart/form-data", "bodyBase64", "formDataJson", "CookieManager", "completedRound", "SantaLuziaWindowsBeta/0.1.0-beta.19"]) if (!syncHttp.includes(marker)) fail(`SyncHttp sem marcador: ${marker}`)
 
-if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(read(gradle))) fail("applicationId Beta não aplicado.")
+const gradleFinal = read(gradle)
+if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(gradleFinal)) fail("applicationId Beta não aplicado.")
+for (const marker of ["signingConfigs", "motionBeta", "MOTION_BETA_KEYSTORE", "signingConfig signingConfigs.motionBeta"]) if (!gradleFinal.includes(marker)) fail(`Gradle sem assinatura beta persistente: ${marker}`)
 if (!read(strings).includes(config.appName)) fail("Nome Motion Beta não aplicado.")
-console.log(`[motion-beta11] ${config.versionName}/code${config.versionCode}: offline da Beta 10 + relatório pessoal/histórico + Motion de Atrasos/Pódio + Windows Beta 19 + SyncHttp validados.`)
+console.log(`[motion-beta11] ${config.versionName}/code${config.versionCode}: offline da Beta 10 + relatório pessoal/histórico + Motion de Atrasos/Pódio + assinatura beta persistente + Windows Beta 19 + SyncHttp validados.`)
