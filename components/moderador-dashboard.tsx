@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu } from "@/components/area-menu"
 import { useStore } from "@/lib/store"
-import { MeuRelatorioWindows } from "@/components/meu-relatorio-windows"
 
 function iniciais(nome: string) {
   return nome.split(" ").slice(0, 2).map((p) => p[0]).join("").toUpperCase()
@@ -66,8 +65,6 @@ export function ModeradorDashboard() {
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </Link>
         </div>
-
-        <MeuRelatorioWindows />
 
         {pendentes.length > 0 && (
           <details className="group mb-3 overflow-hidden rounded-2xl border border-border bg-white/80 shadow-sm">
