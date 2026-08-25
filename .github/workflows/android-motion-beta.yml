@@ -26,10 +26,10 @@ jobs:
       MOTION_BETA_KEY_PASSWORD: android
 
     steps:
-      - name: Checkout código da Motion Beta 12
+      - name: Checkout código unificado da Motion Beta 12
         uses: actions/checkout@v4
         with:
-          ref: work/android-motion-beta12-stability-audit
+          ref: work/android-motion-beta12-hardening-audit
           fetch-depth: 0
 
       - name: Configurar Node
@@ -107,6 +107,7 @@ jobs:
             android-web/motion/android-original-ui-beta10.js \
             android-web/motion/android-auditor-beta12.js \
             android-web/motion/android-performance-beta12.js \
+            android-web/motion/android-scroll-stability-beta12.js \
             android-web/motion/android-podium-beta12.js \
             scripts/fetch-windows-beta-stack.cjs \
             scripts/build-android-local.cjs \
@@ -159,9 +160,14 @@ jobs:
           test -s android-web/index.html
           test -s android-web/local-app.js
           test "$(stat -c%s android-web/local-app.js)" -gt 250000
-          for f in android-auditor-beta12.js android-performance-beta12.js android-podium-beta12.js android-constancia-luz-beta11.js android-domain-bridge-beta10.js windows-beta-runtime.js; do grep -Fq "$f" android-web/index.html; done
+          for f in android-auditor-beta12.js android-performance-beta12.js android-scroll-stability-beta12.js android-podium-beta12.js android-constancia-luz-beta11.js android-domain-bridge-beta10.js windows-beta-runtime.js; do grep -Fq "$f" android-web/index.html; done
           grep -Fq 'data-escala-history-enabled' components/escala-publica.tsx
+          grep -Fq 'data-equipe-horizontal' components/equipe-no-painel.tsx
+          grep -Fq 'Excluir cadastro' components/equipe-no-painel.tsx
+          grep -Fq 'Resetar ranking' components/equipe-no-painel.tsx
           grep -Fq 'DiagnosticoSantaLuzia' android-local/entry.tsx
+          grep -Fq 'integrity_check' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+          grep -Fq 'journal_mode=WAL' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
           test ! -e android-web/offline.html
           test ! -e android-web/offline-bridge.html
 
@@ -182,7 +188,9 @@ jobs:
           CONFIG=android/app/src/main/assets/capacitor.config.json
           if grep -Fq '"server"' "$CONFIG"; then echo "ERRO: Motion Beta 12 contém server.url" >&2; exit 1; fi
           grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$CONFIG"
-          for f in windows-beta-runtime.js android-native-fetch-beta10.js android-local-first-beta8.js android-domain-bridge-beta10.js android-quiz-offline-beta10.js android-local-navigation-beta10.js android-constancia-luz-beta11.js android-report-bridge-beta11.js android-motion-parity-beta11.js android-original-ui-beta10.js android-auditor-beta12.js android-performance-beta12.js android-podium-beta12.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
+          for f in windows-beta-runtime.js android-native-fetch-beta10.js android-local-first-beta8.js android-domain-bridge-beta10.js android-quiz-offline-beta10.js android-local-navigation-beta10.js android-constancia-luz-beta11.js android-report-bridge-beta11.js android-motion-parity-beta11.js android-original-ui-beta10.js android-auditor-beta12.js android-performance-beta12.js android-scroll-stability-beta12.js android-podium-beta12.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
+          grep -Fq 'integrity_check' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+          grep -Fq 'journal_mode=WAL' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
 
       - name: Compilar APK Motion Beta 12
         working-directory: android
@@ -202,7 +210,7 @@ jobs:
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test "$CERT" = "$MOTION_EXPECTED_CERT"
           unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
-          for f in android-auditor-beta12.js android-performance-beta12.js android-podium-beta12.js android-constancia-luz-beta11.js android-domain-bridge-beta10.js; do grep -Fq "assets/public/motion/$f" "$RUNNER_TEMP/apk-files.txt"; done
+          for f in android-auditor-beta12.js android-performance-beta12.js android-scroll-stability-beta12.js android-podium-beta12.js android-constancia-luz-beta11.js android-domain-bridge-beta10.js; do grep -Fq "assets/public/motion/$f" "$RUNNER_TEMP/apk-files.txt"; done
           unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/motion-capacitor-config.json"
           if grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"; then echo "ERRO: APK depende de server.url" >&2; exit 1; fi
           mkdir -p dist
@@ -219,7 +227,7 @@ jobs:
           Certificado Beta SHA-256: $CERT
           Assinatura: certificado idêntico à Beta 11, recuperado pela ponte de assinatura sem expor a chave privada.
           Windows Beta visual: $WINDOWS_BETA_COMMIT (0.1.0-beta.19)
-          Beta 12: histórico de escalas; Auditor Santa Luzia; relatório técnico JSON; proteção de banco; auditoria offline/ícones; transição/rolagem/FPS/latência; pódio no desenho atual com troféu único.
+          Beta 12 unificada: histórico de escalas; perfis horizontais; controles administrativos; Auditor Santa Luzia; relatório técnico JSON; proteção SQLite/WAL/integridade; auditoria offline/ícones; estabilização de rolagem; FPS/latência; pódio com troféu único.
           Android oficial preservado: 1.0.6 / code18.
           Nenhuma release oficial publicada.
           EOF
@@ -240,7 +248,7 @@ jobs:
       - name: Resumo
         run: |
           echo "### Santa Luzia Motion Beta 12" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Código fonte: work/android-motion-beta12-stability-audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Código fonte: work/android-motion-beta12-hardening-audit" >> "$GITHUB_STEP_SUMMARY"
           echo "- Assinatura recuperada no escopo seguro da Beta 11." >> "$GITHUB_STEP_SUMMARY"
           echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
