@@ -9,6 +9,7 @@ import { lerSessao } from "@/lib/auth"
 const atalhos = [
   {
     icon: BookOpenText,
+    motion: "book",
     title: "Centro Litúrgico",
     text: "Liturgia diária, Liturgia das Horas, Rosário, guia da Missa e calendário.",
     href: "/liturgia",
@@ -16,6 +17,7 @@ const atalhos = [
   },
   {
     icon: CalendarDays,
+    motion: "calendar",
     title: "Escala do Dia",
     text: "Veja as escalas publicadas e as funções de cada celebração.",
     href: "/escala",
@@ -23,6 +25,7 @@ const atalhos = [
   },
   {
     icon: Library,
+    motion: "library",
     title: "Biblioteca",
     text: "Acesse o catálogo católico disponibilizado para consulta.",
     href: "/biblioteca",
@@ -30,6 +33,7 @@ const atalhos = [
   },
   {
     icon: UserPlus,
+    motion: "person",
     title: "Quero participar",
     text: "Acólitos e coroinhas podem solicitar cadastro para a área restrita.",
     href: "/area-restrita/cadastro",
@@ -44,6 +48,16 @@ export default async function VisitantePage() {
 
   return (
     <div className="public-home min-h-screen bg-[#fffaf0]">
+      <style>{`
+        .sl-home-shortcut-icon svg{transform-box:fill-box;transform-origin:center;will-change:transform}
+        .sl-home-shortcut-icon[data-motion="book"] svg,.sl-home-shortcut-icon[data-motion="library"] svg{animation:slHomeBook 5s ease-in-out infinite}
+        .sl-home-shortcut-icon[data-motion="calendar"] svg{animation:slHomeCalendar 5.2s ease-in-out .35s infinite}
+        .sl-home-shortcut-icon[data-motion="person"] svg{animation:slHomePerson 5s ease-in-out .7s infinite}
+        @keyframes slHomeBook{0%,75%,100%{transform:perspective(90px) rotateY(0)}82%{transform:perspective(90px) rotateY(-18deg)}90%{transform:perspective(90px) rotateY(9deg)}}
+        @keyframes slHomeCalendar{0%,76%,100%{transform:none}83%{transform:translateY(-2px) rotateX(16deg)}91%{transform:translateY(1px)}}
+        @keyframes slHomePerson{0%,76%,100%{transform:none}83%{transform:translateY(-2px) scale(1.06)}91%{transform:translateY(1px) scale(.98)}}
+        @media(prefers-reduced-motion:reduce){.sl-home-shortcut-icon svg{animation:none!important}}
+      `}</style>
       <SiteHeader />
       <main>
         {!autenticado && (
@@ -67,10 +81,10 @@ export default async function VisitantePage() {
                 href={item.href}
                 className="group min-w-0 rounded-xl border border-[#d9cfb9] bg-[#fffdf7] p-3 shadow-[0_4px_14px_rgba(72,55,21,.06)] transition active:scale-[.985] sm:rounded-2xl sm:p-5"
               >
-                <span className="mb-2 flex size-9 items-center justify-center rounded-xl border border-[#d4af37] bg-[#073b29] text-[#f2cf62] sm:mb-4 sm:size-11 sm:rounded-full">
+                <span className="sl-home-shortcut-icon mb-2 flex size-9 items-center justify-center rounded-full border border-[#d4af37] bg-[#5b071b] text-[#f2cf62] shadow-sm sm:mb-4 sm:size-11" data-motion={item.motion} data-original-home-icon="true">
                   <Icon className="size-[18px] sm:size-5" />
                 </span>
-                <h2 className="font-serif text-[15px] font-semibold leading-tight text-[#173d2d] sm:text-xl">{item.title}</h2>
+                <h2 className="font-serif text-[15px] font-semibold leading-tight text-[#5b071b] sm:text-xl">{item.title}</h2>
                 <p className="mt-1.5 line-clamp-3 text-[10px] leading-4 text-[#5f5a4e] sm:mt-2 sm:text-sm sm:leading-relaxed">{item.text}</p>
                 <span className="mt-2 inline-block text-[8px] font-bold uppercase tracking-wide text-[#9a731d] group-hover:underline sm:mt-3 sm:text-[11px]">
                   {item.cta} →
@@ -82,7 +96,7 @@ export default async function VisitantePage() {
 
         <section id="liturgia" className="mx-auto max-w-7xl scroll-mt-20 px-3 py-6 sm:px-4 sm:py-10 lg:px-6">
           <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[.18em] text-[#9a731d] sm:text-xs">Palavra de Deus</p>
-          <h1 className="font-serif text-2xl font-semibold text-[#0b4b35] sm:text-4xl">Liturgia Diária</h1>
+          <h1 className="font-serif text-2xl font-semibold text-[#5b071b] sm:text-4xl">Liturgia Diária</h1>
           <p className="mb-4 mt-2 max-w-2xl text-xs leading-5 text-[#665f50] sm:mb-6 sm:mt-3 sm:text-base sm:leading-6">
             Conteúdo atualizado para preparar o coração e o serviço em cada celebração.
           </p>
