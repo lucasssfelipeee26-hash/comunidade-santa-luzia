@@ -25,6 +25,10 @@ jobs:
     env:
       SANTA_LUZIA_MOTION_BETA: "1"
       AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
+      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta.keystore
+      MOTION_BETA_STORE_PASSWORD: android
+      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta
+      MOTION_BETA_KEY_PASSWORD: android
 
     steps:
       - name: Checkout Motion Beta
@@ -55,13 +59,36 @@ jobs:
             ${{ runner.os }}-motion-beta10-gradle-
             ${{ runner.os }}-gradle-
 
-      # Mantém a mesma assinatura iniciada na Beta 10 para permitir atualização
-      # sobre a Beta 10 sem perder SQLite/sessão.
-      - name: Restaurar assinatura estável da Motion Beta
+      # A Beta 10 usou a chave debug temporária do runner e ela não foi salva.
+      # A partir da Beta 11 usamos um keystore beta explícito, separado da chave
+      # oficial, em um caminho que o actions/cache consegue realmente persistir.
+      - name: Restaurar assinatura persistente da Motion Beta
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: santa-luzia-motion-beta-debug-keystore-v1
+          path: /home/runner/.android/santa-luzia-motion-beta.keystore
+          key: santa-luzia-motion-beta-keystore-v2
+
+      - name: Criar ou validar keystore Beta 11
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$MOTION_BETA_KEYSTORE")"
+          if [ ! -s "$MOTION_BETA_KEYSTORE" ]; then
+            keytool -genkeypair -v \
+              -keystore "$MOTION_BETA_KEYSTORE" \
+              -storepass "$MOTION_BETA_STORE_PASSWORD" \
+              -alias "$MOTION_BETA_KEY_ALIAS" \
+              -keypass "$MOTION_BETA_KEY_PASSWORD" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Santa Luzia Motion Beta, O=Comunidade Santa Luzia, C=BR"
+          fi
+          test -s "$MOTION_BETA_KEYSTORE"
+          keytool -list -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" >/dev/null
+          EXPECTED="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test -n "$EXPECTED"
+          echo "MOTION_EXPECTED_CERT=$EXPECTED" >> "$GITHUB_ENV"
+          echo "Certificado beta esperado: $EXPECTED"
 
       - name: Carregar configuração da Beta
         run: |
@@ -160,6 +187,8 @@ jobs:
           grep -Eq "applicationId[[:space:]]+\"${MOTION_APP_ID//./\\.}\"" android/app/build.gradle
           grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
           grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
+          grep -Fq "signingConfig signingConfigs.motionBeta" android/app/build.gradle
+          grep -Fq "MOTION_BETA_KEYSTORE" android/app/build.gradle
           grep -Fq "Santa Luzia Motion Beta" android/app/src/main/res/values/strings.xml
           CONFIG=android/app/src/main/assets/capacitor.config.json
           test -f "$CONFIG"
@@ -198,6 +227,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/motion-apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
           test -n "$CERT"
+          test "$CERT" = "$MOTION_EXPECTED_CERT"
           unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
           grep -Fq 'assets/public/index.html' "$RUNNER_TEMP/apk-files.txt"
           grep -Fq 'assets/public/local-app.js' "$RUNNER_TEMP/apk-files.txt"
@@ -219,6 +249,7 @@ jobs:
           Tamanho: $SIZE bytes
           SHA-256: $SHA
           Certificado Beta SHA-256: $CERT
+          Assinatura: keystore beta persistente exclusivo, separado da chave oficial; certificado conferido contra o keystore antes e depois da compilação.
           Windows Beta fixada: $WINDOWS_BETA_COMMIT (0.1.0-beta.19)
           Servidor: $SYNC_SERVER_URL — usado somente para autenticação/sincronização de dados.
           Base offline: arquitetura local da Beta 10 preservada; frontend React original dentro do APK; sem server.url, sem offline.html e sem shell reduzido.
@@ -249,6 +280,6 @@ jobs:
           echo "- Pacote: $MOTION_APP_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certificado Beta: $MOTION_CERT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certificado Beta persistente: $MOTION_CERT" >> "$GITHUB_STEP_SUMMARY"
           echo "- Offline da Beta 10 preservado; relatório/histórico e Motion Android corrigidos." >> "$GITHUB_STEP_SUMMARY"
           echo "- Android oficial 1.0.6/code18 não foi publicado nem alterado." >> "$GITHUB_STEP_SUMMARY"
