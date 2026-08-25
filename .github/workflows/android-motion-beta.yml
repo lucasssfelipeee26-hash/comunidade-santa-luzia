@@ -167,7 +167,7 @@ jobs:
           grep -Fq 'Resetar placar do ranking' components/administracao-moderador.tsx
           grep -Fq 'DiagnosticoSantaLuzia' android-local/entry.tsx
           grep -Fq 'integrity_check' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
-          grep -Fq 'journal_mode=WAL' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+          grep -Fq 'setWriteAheadLoggingEnabled(true)' native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
           test ! -e android-web/offline.html
           test ! -e android-web/offline-bridge.html
 
@@ -190,7 +190,7 @@ jobs:
           grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$CONFIG"
           for f in windows-beta-runtime.js android-native-fetch-beta10.js android-local-first-beta8.js android-domain-bridge-beta10.js android-quiz-offline-beta10.js android-local-navigation-beta10.js android-constancia-luz-beta11.js android-report-bridge-beta11.js android-motion-parity-beta11.js android-original-ui-beta10.js android-auditor-beta12.js android-performance-beta12.js android-scroll-stability-beta12.js android-podium-beta12.js; do test -s "android/app/src/main/assets/public/motion/$f"; done
           grep -Fq 'integrity_check' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
-          grep -Fq 'journal_mode=WAL' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+          grep -Fq 'setWriteAheadLoggingEnabled(true)' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
 
       - name: Compilar APK Motion Beta 12
         working-directory: android
