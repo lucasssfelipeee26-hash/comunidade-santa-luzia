@@ -73,6 +73,7 @@ const jsRequired = {
   "android-original-ui-beta10.js": ["/api/auth/me", "/api/escalas", "/api/formacoes", "/api/ranking"],
   "android-auditor-beta12.js": ["2.0.0-beta.12", "SantaLuziaAuditor", "route-transition", "fps-sample", "scroll-jump", "offline-functional-audit", "exportReport"],
   "android-performance-beta12.js": ["2.0.0-beta.12", "scroll-behavior:auto", "overflow-anchor:none", "duration:180", "slMotionPerformance"],
+  "android-scroll-stability-beta12.js": ["2.0.0-beta.12", "touchmove", "abruptUpwardJump", "maxYDuringDownGesture", "scroll-jump", "scrollRestoration"],
   "android-podium-beta12.js": ["2.0.0-beta.12", ".sl-r5-card-trophy", "normalizeCard", "valid.slice(1)", ".sl-b11-card-trophy"],
 }
 for (const [name, markers] of Object.entries(jsRequired)) {
@@ -90,13 +91,17 @@ for (const marker of [
   "/local-app.js", "android-native-fetch-beta10.js", "android-local-first-beta8.js", "android-domain-bridge-beta10.js",
   "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js", "android-constancia-luz-beta11.js",
   "android-report-bridge-beta11.js", "android-motion-parity-beta11.js", "android-auditor-beta12.js",
-  "android-performance-beta12.js", "android-podium-beta12.js", "windows-beta-runtime.js",
+  "android-performance-beta12.js", "android-scroll-stability-beta12.js", "android-podium-beta12.js", "windows-beta-runtime.js",
 ]) if (!index.includes(marker)) fail(`index.html local sem ${marker}`)
 if (/offline\.html|offline-bridge\.html/.test(index)) fail("index.html referencia interface offline paralela.")
 
 for (const marker of ["data-escala-history-enabled", "Histórico", "Realizada"]) if (!read(path.join(root, "components", "escala-publica.tsx")).includes(marker)) fail(`Histórico de escalas sem marcador: ${marker}`)
 for (const marker of ["DiagnosticoSantaLuzia", "/area-restrita/moderador/diagnostico"]) if (!read(path.join(root, "android-local", "entry.tsx")).includes(marker)) fail(`Diagnóstico local sem marcador: ${marker}`)
 for (const marker of ["backups-santa-luzia", "fs.fsyncSync", "recoverIfNeeded", "database-health.json"]) if (!read(path.join(root, "lib", "data-protection.ts")).includes(marker)) fail(`Proteção do banco sem marcador: ${marker}`)
+for (const marker of ["data-team-profile-rail", "overflow-x-auto", "snap-mandatory"]) if (!read(path.join(root, "components", "equipe-no-painel.tsx")).includes(marker)) fail(`Perfis horizontais sem marcador: ${marker}`)
+for (const marker of ["slDoorPersonEnterLoop", "slDoorPersonExitLoop", "direction?: \"enter\" | \"exit\""]) if (!read(path.join(root, "components", "profile-door-icon.tsx")).includes(marker)) fail(`Ícones de porta sem marcador: ${marker}`)
+for (const marker of ["AdministracaoModerador", "EquipeNoPainel"]) if (!read(path.join(root, "components", "moderador-dashboard.tsx")).includes(marker)) fail(`Painel moderador sem marcador: ${marker}`)
+for (const marker of ["EXCLUIR", "ZERAR", "/api/app/admin-dados"]) if (!read(path.join(root, "components", "administracao-moderador.tsx")).includes(marker)) fail(`Administração segura sem marcador: ${marker}`)
 
 const capConfig = read(path.join(root, "android", "app", "src", "main", "assets", "capacitor.config.json"))
 if (/"server"\s*:/.test(capConfig)) fail("Motion Beta 12 não pode conter server.url no Capacitor.")
@@ -114,4 +119,4 @@ const gradleFinal = read(gradle)
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(gradleFinal)) fail("applicationId Beta não aplicado.")
 for (const marker of ["signingConfigs", "motionBeta", "MOTION_BETA_KEYSTORE", "signingConfig signingConfigs.motionBeta"]) if (!gradleFinal.includes(marker)) fail(`Gradle sem assinatura beta persistente: ${marker}`)
 if (!read(strings).includes(config.appName)) fail("Nome Motion Beta não aplicado.")
-console.log(`[motion-beta12] ${config.versionName}/code${config.versionCode}: histórico de escalas + Auditor + proteção de dados + performance/rolagem + pódio atual + assinatura persistente + offline local validados.`)
+console.log(`[motion-beta12] ${config.versionName}/code${config.versionCode}: histórico + perfis horizontais + portas + administração + Auditor + proteção + performance/scroll + pódio + assinatura persistente validados.`)
