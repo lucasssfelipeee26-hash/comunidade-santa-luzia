@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20011,
-  "versionName": "2.0.0-beta.11",
+  "versionCode": 20012,
+  "versionName": "2.0.0-beta.12",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 11: mantém a arquitetura aprovada da Beta 10, com a interface React original empacotada integralmente no APK e servidor usado somente para autenticação e sincronização. Esta revisão corrige os pontos encontrados no vídeo de 24/08: relatório pessoal, integração de presenças/faltas/justificativas/advertências/atrasos e paridade Motion no Android. Sem shell offline, sem server.url e sem interface reduzida. Android estável 1.0.6/code18 permanece intocado."
+  "notes": "Beta 12: revisão estrutural sobre a arquitetura offline aprovada. Implementa histórico de escalas, paridade do design mais recente dos troféus, correções de transição/rolagem/FPS e tempo de resposta, auditoria funcional offline, restauração/auditoria de ícones, proteção adicional do banco de dados e Auditor Santa Luzia com exportação de relatório técnico. Sem shell offline, sem server.url e sem alterar o Android oficial 1.0.6/code18."
 }
