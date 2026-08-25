@@ -6,19 +6,18 @@ import { usePathname } from "next/navigation"
 import useSWR from "swr"
 import { BookOpenText, BrainCircuit, CalendarDays, GraduationCap, Home, Library, LogIn } from "lucide-react"
 import { carregarSessaoOffline } from "@/lib/offline-data"
+import { ProfileDoorIcon } from "@/components/profile-door-icon"
 
 const publicItems = [
-  { href: "/visitante", label: "Início", icon: Home, motion: "panel" },
+  { href: "/visitante", label: "Início", icon: Home, motion: "home" },
   { href: "/liturgia", label: "Liturgia", icon: BookOpenText, motion: "liturgy" },
   { href: "/escala", label: "Escala", icon: CalendarDays, motion: "scale" },
   { href: "/biblioteca", label: "Biblioteca", icon: Library, motion: "library" },
-  { href: "/area-restrita/login", label: "Entrar", icon: LogIn },
+  { href: "/area-restrita/login", label: "Entrar", icon: LogIn, motion: "login" },
 ]
 
-// Quem já entrou no aplicativo não precisa de uma aba Visitante. O início público
-// passa a ser a home do usuário, enquanto o perfil/painel continua acessível pelo menu superior.
 const areaItems = [
-  { href: "/visitante", label: "Início", icon: Home, motion: "panel" },
+  { href: "/area-restrita", label: "Perfil", icon: ProfileDoorIcon, motion: "profile" },
   { href: "/escala", label: "Escala", icon: CalendarDays, motion: "scale" },
   { href: "/formacao", label: "Formação", icon: GraduationCap, motion: "formation" },
   { href: "/area-restrita/ranking", label: "Quiz", icon: BrainCircuit, motion: "quiz" },
@@ -34,7 +33,9 @@ const authPaths = ["/area-restrita/login", "/area-restrita/cadastro", "/area-res
 function ativo(pathname: string, href: string) {
   const route = href.split("#")[0] || "/"
   if (href.includes("#")) return pathname === route
-  if (href === "/area-restrita") return ["/area-restrita", "/area-restrita/membro", "/area-restrita/moderador"].includes(pathname)
+  if (href === "/area-restrita") {
+    return pathname === "/area-restrita" || pathname === "/area-restrita/membro" || pathname === "/area-restrita/moderador" || pathname.startsWith("/area-restrita/perfil/")
+  }
   return pathname === route || (route !== "/" && pathname.startsWith(`${route}/`))
 }
 
@@ -56,7 +57,6 @@ export function MobileBottomNav() {
   }, [])
 
   if (ocultar) return null
-  // Evita o lampejo de navegação pública enquanto ainda estamos recuperando a sessão local.
   if (me === undefined && sessaoOffline === undefined) return null
 
   const sessao = me === undefined ? sessaoOffline : me.sessao
@@ -64,27 +64,55 @@ export function MobileBottomNav() {
   const colunas = sessao ? "grid-cols-4" : "grid-cols-5"
 
   return (
-    <nav aria-label="Navegação principal" data-no-pull-refresh className="mobile-app-bottom-nav fixed inset-x-2 bottom-2 z-[60] mx-auto max-w-md overflow-hidden rounded-[22px] border border-white/70 bg-white/75 shadow-[0_10px_35px_rgba(55,28,20,.16)] backdrop-blur-2xl md:hidden">
-      <div className={`grid ${colunas}`} style={{ paddingBottom: "max(env(safe-area-inset-bottom),2px)" }}>
-        {items.map((item) => {
-          const active = ativo(pathname, item.href)
-          const Icon = item.icon
-          const className = `flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition active:scale-95 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`
-          const conteudo = <><span className={`flex size-8 items-center justify-center rounded-xl transition ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white/70 text-[#7b1326]"}`}><Icon className="size-[18px]" /></span><span className="w-full truncate text-center text-[9px] leading-3">{item.label}</span></>
-          return (
-            <Link
-              prefetch={windowsBeta && item.label === "Quiz"}
-              key={item.href}
-              href={item.href}
-              data-sl-nav-motion={"motion" in item ? item.motion : undefined}
-              aria-current={active ? "page" : undefined}
-              className={className}
-            >
-              {conteudo}
-            </Link>
-          )
-        })}
-      </div>
-    </nav>
+    <>
+      <style>{`
+        .sl-nav-icon-shell svg { transform-box: fill-box; transform-origin: center; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="home"] svg { animation: slNavHome .62s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="liturgy"] svg { animation: slNavBook .68s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="scale"] svg { animation: slNavCalendar .68s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="formation"] svg { animation: slNavCap .72s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="quiz"] svg { animation: slNavBrain .78s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="library"] svg { animation: slNavBook .68s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item[data-active="true"] .sl-nav-icon-shell[data-motion="login"] svg { animation: slNavLogin .7s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-nav-item:active .sl-nav-icon-shell { transform: scale(.91); }
+        .sl-nav-icon-shell { transition: transform .16s ease, background-color .2s ease, color .2s ease; }
+        @keyframes slNavHome { 0%{transform:translateY(3px) scale(.88)} 55%{transform:translateY(-2px) scale(1.08)} 100%{transform:none} }
+        @keyframes slNavBook { 0%{transform:perspective(80px) rotateY(-18deg) scale(.92)} 60%{transform:perspective(80px) rotateY(8deg) scale(1.04)} 100%{transform:none} }
+        @keyframes slNavCalendar { 0%{transform:translateY(2px) rotateX(20deg) scale(.9)} 50%{transform:translateY(-2px) rotateX(-8deg) scale(1.05)} 100%{transform:none} }
+        @keyframes slNavCap { 0%{transform:rotate(-12deg) translateY(2px) scale(.9)} 50%{transform:rotate(8deg) translateY(-2px) scale(1.05)} 100%{transform:none} }
+        @keyframes slNavBrain { 0%{transform:scale(.86)} 40%{transform:scale(1.1)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
+        @keyframes slNavLogin { 0%{transform:translateX(-3px);opacity:.72} 55%{transform:translateX(2px);opacity:1} 100%{transform:none} }
+        @media (prefers-reduced-motion:reduce) {
+          .sl-nav-item[data-active="true"] .sl-nav-icon-shell svg { animation:none !important; }
+        }
+      `}</style>
+      <nav aria-label="Navegação principal" data-no-pull-refresh className="mobile-app-bottom-nav fixed inset-x-2 bottom-2 z-[60] mx-auto max-w-md overflow-hidden rounded-[22px] border border-white/70 bg-white/75 shadow-[0_10px_35px_rgba(55,28,20,.16)] backdrop-blur-2xl md:hidden">
+        <div className={`grid ${colunas}`} style={{ paddingBottom: "max(env(safe-area-inset-bottom),2px)" }}>
+          {items.map((item) => {
+            const active = ativo(pathname, item.href)
+            const Icon = item.icon
+            const isProfile = item.motion === "profile"
+            const className = `sl-nav-item flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition active:scale-95 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`
+            const iconClass = `sl-nav-icon-shell flex size-8 items-center justify-center rounded-xl ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white/70 text-[#7b1326]"}`
+            return (
+              <Link
+                prefetch={windowsBeta && item.label === "Quiz"}
+                key={item.href}
+                href={item.href}
+                data-sl-nav-motion={item.motion}
+                data-active={active ? "true" : "false"}
+                aria-current={active ? "page" : undefined}
+                className={className}
+              >
+                <span className={iconClass} data-motion={item.motion}>
+                  {isProfile ? <ProfileDoorIcon className="size-[19px]" animated loop direction="enter" /> : <Icon className="size-[18px]" />}
+                </span>
+                <span className="w-full truncate text-center text-[9px] leading-3">{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+    </>
   )
 }
