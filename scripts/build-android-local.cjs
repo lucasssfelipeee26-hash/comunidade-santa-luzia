@@ -99,6 +99,7 @@ for (const name of [
   "android-motion-parity-beta11.js",
   "android-auditor-beta12.js",
   "android-performance-beta12.js",
+  "android-scroll-stability-beta12.js",
   "android-podium-beta12.js",
 ]) ensure(path.join(out, "motion", name), `motion/${name}`)
 
@@ -140,7 +141,7 @@ const cssLinks = cssFiles.map((file) => {
 }).join("\n")
 
 // Ordem: Windows Beta -> pontes de dados -> recursos Beta 11 -> aquecimento ->
-// Auditor Beta 12 -> estabilização de performance -> pódio atual -> React.
+// Auditor Beta 12 -> performance -> estabilidade do scroll -> pódio atual -> React.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -159,6 +160,7 @@ const requiredScripts = [
   "android-original-ui-beta10.js",
   "android-auditor-beta12.js",
   "android-performance-beta12.js",
+  "android-scroll-stability-beta12.js",
   "android-podium-beta12.js",
 ]
 for (const file of requiredScripts) ensure(path.join(out, "motion", file), `motion/${file}`)
@@ -205,7 +207,8 @@ for (const marker of [
   "android-motion-parity-beta11.js",
   "android-auditor-beta12.js",
   "android-performance-beta12.js",
+  "android-scroll-stability-beta12.js",
   "android-podium-beta12.js",
   "/local-app.js",
 ]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
-console.log(`[android-local] Beta 12 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos; histórico de escalas, Auditor Santa Luzia, performance e pódio atual incluídos.`)
+console.log(`[android-local] Beta 12 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos; histórico, Auditor, performance, scroll estável e pódio atual incluídos.`)
