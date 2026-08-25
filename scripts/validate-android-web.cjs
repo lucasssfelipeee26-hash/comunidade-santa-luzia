@@ -91,7 +91,7 @@ for (const marker of ["backups-santa-luzia", "MAX_BACKUPS = 8", "fs.fsyncSync", 
 if (!fs.readFileSync(required.instrumentation, "utf8").includes("iniciarProtecaoDadosSantaLuzia")) throw new Error("Proteção do banco não é iniciada pelo servidor.")
 
 const profiles = fs.readFileSync(required.profiles, "utf8")
-for (const marker of ["data-team-profile-rail", "overflow-x-auto", "snap-mandatory", "Pesquisar", "setSelecionado", "santa-luzia:perfis-publicos:v1"]) if (!profiles.includes(marker)) throw new Error(`Faixa horizontal de perfis sem marcador: ${marker}`)
+for (const marker of ["data-team-profile-rail", "overflow-x-auto", "snap-mandatory", "placeholder=\"Buscar\"", "setSelecionado", "santa-luzia:perfis-publicos:v1"]) if (!profiles.includes(marker)) throw new Error(`Faixa horizontal de perfis sem marcador: ${marker}`)
 const door = fs.readFileSync(required.profileDoor, "utf8")
 for (const marker of ["direction = \"enter\"", "is-exit", "slDoorPersonEnterLoop", "slDoorPersonExitLoop", "infinite"]) if (!door.includes(marker)) throw new Error(`Ícone de porta animada sem marcador: ${marker}`)
 const areaHeader = fs.readFileSync(required.areaHeader, "utf8")
