@@ -12,11 +12,14 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.File;
+
 @CapacitorPlugin(name = "OfflineStore")
 public class OfflineStorePlugin extends Plugin {
     private static final String DB_NAME = "santa_luzia_local.db";
-    private static final int DB_VERSION = 1;
+    private static final int DB_VERSION = 2;
     private static final String TABLE_DOCUMENTS = "documents";
+    private static final String TABLE_BACKUPS = "document_backups";
     private static final String COL_KEY = "doc_key";
     private static final String COL_VALUE = "doc_value";
     private static final String COL_UPDATED_AT = "updated_at";
@@ -25,8 +28,6 @@ public class OfflineStorePlugin extends Plugin {
     private static final String KEY_QUEUE = "queue";
     private static final String KEY_MIGRATION = "__legacy_shared_preferences_migrated_v1";
 
-    // Nome da persistência usada pelas builds anteriores. É lida uma única vez
-    // para que a migração para SQLite não apague o estado offline já existente.
     private static final String LEGACY_PREFS = "santa_luzia_offline_store_v1";
     private static final String LEGACY_SNAPSHOT = "snapshot";
     private static final String LEGACY_QUEUE = "queue";
@@ -38,26 +39,51 @@ public class OfflineStorePlugin extends Plugin {
     private LocalDatabase helper;
     private boolean migrationChecked = false;
 
+    private static void createDocumentsTable(SQLiteDatabase db) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS " + TABLE_DOCUMENTS + " (" +
+                COL_KEY + " TEXT PRIMARY KEY NOT NULL, " +
+                COL_VALUE + " TEXT NOT NULL, " +
+                COL_UPDATED_AT + " INTEGER NOT NULL" +
+            ")"
+        );
+    }
+
+    private static void createBackupsTable(SQLiteDatabase db) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS " + TABLE_BACKUPS + " (" +
+                COL_KEY + " TEXT PRIMARY KEY NOT NULL, " +
+                COL_VALUE + " TEXT NOT NULL, " +
+                COL_UPDATED_AT + " INTEGER NOT NULL" +
+            ")"
+        );
+    }
+
     private static class LocalDatabase extends SQLiteOpenHelper {
         LocalDatabase(Context context) {
             super(context, DB_NAME, null, DB_VERSION);
+            // WAL reduz bloqueios e mantém o journal separado até o commit.
+            setWriteAheadLoggingEnabled(true);
+        }
+
+        @Override
+        public void onConfigure(SQLiteDatabase db) {
+            super.onConfigure(db);
+            // FULL prioriza durabilidade: só confirma a escrita depois de o
+            // SQLite solicitar sincronização do journal/dados ao armazenamento.
+            db.execSQL("PRAGMA synchronous=FULL");
         }
 
         @Override
         public void onCreate(SQLiteDatabase db) {
-            db.execSQL(
-                "CREATE TABLE IF NOT EXISTS " + TABLE_DOCUMENTS + " (" +
-                    COL_KEY + " TEXT PRIMARY KEY NOT NULL, " +
-                    COL_VALUE + " TEXT NOT NULL, " +
-                    COL_UPDATED_AT + " INTEGER NOT NULL" +
-                ")"
-            );
+            createDocumentsTable(db);
+            createBackupsTable(db);
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            // A primeira versão é deliberadamente simples. Migrações futuras
-            // devem ser aditivas para preservar os dados locais do membro.
+            // Migração aditiva: nunca apagamos a tabela principal.
+            if (oldVersion < 2) createBackupsTable(db);
         }
     }
 
@@ -70,9 +96,9 @@ public class OfflineStorePlugin extends Plugin {
         return databaseHelper().getWritableDatabase();
     }
 
-    private String rawGet(SQLiteDatabase db, String key, String fallback) {
+    private String rawGetFromTable(SQLiteDatabase db, String table, String key, String fallback) {
         try (Cursor cursor = db.query(
-            TABLE_DOCUMENTS,
+            table,
             new String[]{COL_VALUE},
             COL_KEY + " = ?",
             new String[]{key},
@@ -86,12 +112,27 @@ public class OfflineStorePlugin extends Plugin {
         }
     }
 
-    private void rawPut(SQLiteDatabase db, String key, String value) {
+    private String rawGet(SQLiteDatabase db, String key, String fallback) {
+        return rawGetFromTable(db, TABLE_DOCUMENTS, key, fallback);
+    }
+
+    private void rawPutIntoTable(SQLiteDatabase db, String table, String key, String value) {
         ContentValues values = new ContentValues();
         values.put(COL_KEY, key);
         values.put(COL_VALUE, value);
         values.put(COL_UPDATED_AT, System.currentTimeMillis());
-        db.insertWithOnConflict(TABLE_DOCUMENTS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        long result = db.insertWithOnConflict(table, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        if (result == -1L) throw new IllegalStateException("SQLite não confirmou a gravação em " + table + ".");
+    }
+
+    private void rawPut(SQLiteDatabase db, String key, String value) {
+        rawPutIntoTable(db, TABLE_DOCUMENTS, key, value);
+    }
+
+    private void backupPreviousValue(SQLiteDatabase db, String key, String nextValue) {
+        String previous = rawGet(db, key, null);
+        if (previous == null || previous.equals(nextValue)) return;
+        rawPutIntoTable(db, TABLE_BACKUPS, key, previous);
     }
 
     private synchronized void migrateLegacyIfNeeded() {
@@ -108,12 +149,8 @@ public class OfflineStorePlugin extends Plugin {
 
         db.beginTransaction();
         try {
-            if (snapshot != null && !snapshot.isEmpty() && rawGet(db, KEY_SNAPSHOT, "").isEmpty()) {
-                rawPut(db, KEY_SNAPSHOT, snapshot);
-            }
-            if (queue != null && !queue.isEmpty() && !"[]".equals(queue) && "[]".equals(rawGet(db, KEY_QUEUE, "[]"))) {
-                rawPut(db, KEY_QUEUE, queue);
-            }
+            if (snapshot != null && !snapshot.isEmpty() && rawGet(db, KEY_SNAPSHOT, "").isEmpty()) rawPut(db, KEY_SNAPSHOT, snapshot);
+            if (queue != null && !queue.isEmpty() && !"[]".equals(queue) && "[]".equals(rawGet(db, KEY_QUEUE, "[]"))) rawPut(db, KEY_QUEUE, queue);
             rawPut(db, KEY_MIGRATION, "1");
             db.setTransactionSuccessful();
         } finally {
@@ -144,10 +181,19 @@ public class OfflineStorePlugin extends Plugin {
         }
         try {
             migrateLegacyIfNeeded();
-            rawPut(database(), key, value);
+            SQLiteDatabase db = database();
+            db.beginTransaction();
+            try {
+                backupPreviousValue(db, key, value);
+                rawPut(db, key, value);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
             JSObject result = new JSObject();
             result.put("ok", true);
             result.put("savedAt", System.currentTimeMillis());
+            result.put("backupAvailable", !rawGetFromTable(db, TABLE_BACKUPS, key, "").isEmpty());
             call.resolve(result);
         } catch (Exception error) {
             call.reject("Não foi possível salvar o dado local.", error);
@@ -209,9 +255,43 @@ public class OfflineStorePlugin extends Plugin {
             migrateLegacyIfNeeded();
             JSObject result = new JSObject();
             result.put("value", rawGet(database(), key, ""));
+            result.put("backupAvailable", !rawGetFromTable(database(), TABLE_BACKUPS, key, "").isEmpty());
             call.resolve(result);
         } catch (Exception error) {
             call.reject("Não foi possível ler o dado local.", error);
+        }
+    }
+
+    @com.getcapacitor.PluginMethod
+    public void recoverDocument(PluginCall call) {
+        String key = call.getString("key", "");
+        if (!validDocumentKey(key) && !KEY_SNAPSHOT.equals(key) && !KEY_QUEUE.equals(key)) {
+            call.reject("Chave local inválida.");
+            return;
+        }
+        try {
+            migrateLegacyIfNeeded();
+            SQLiteDatabase db = database();
+            String backup = rawGetFromTable(db, TABLE_BACKUPS, key, "");
+            if (backup.isEmpty()) {
+                call.reject("Nenhum backup local disponível para este dado.");
+                return;
+            }
+            db.beginTransaction();
+            try {
+                String current = rawGet(db, key, "");
+                rawPut(db, key, backup);
+                if (!current.isEmpty()) rawPutIntoTable(db, TABLE_BACKUPS, key, current);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            result.put("recoveredAt", System.currentTimeMillis());
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Não foi possível recuperar o backup local.", error);
         }
     }
 
@@ -224,7 +304,16 @@ public class OfflineStorePlugin extends Plugin {
         }
         try {
             migrateLegacyIfNeeded();
-            database().delete(TABLE_DOCUMENTS, COL_KEY + " = ?", new String[]{key});
+            SQLiteDatabase db = database();
+            db.beginTransaction();
+            try {
+                String current = rawGet(db, key, "");
+                if (!current.isEmpty()) rawPutIntoTable(db, TABLE_BACKUPS, key, current);
+                db.delete(TABLE_DOCUMENTS, COL_KEY + " = ?", new String[]{key});
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
             JSObject result = new JSObject();
             result.put("ok", true);
             call.resolve(result);
@@ -234,9 +323,53 @@ public class OfflineStorePlugin extends Plugin {
     }
 
     @com.getcapacitor.PluginMethod
+    public void health(PluginCall call) {
+        try {
+            migrateLegacyIfNeeded();
+            SQLiteDatabase db = database();
+            String integrity = "unknown";
+            String journalMode = "unknown";
+            int documents = 0;
+            int backups = 0;
+            try (Cursor cursor = db.rawQuery("PRAGMA integrity_check", null)) {
+                if (cursor.moveToFirst()) integrity = cursor.getString(0);
+            }
+            try (Cursor cursor = db.rawQuery("PRAGMA journal_mode", null)) {
+                if (cursor.moveToFirst()) journalMode = cursor.getString(0);
+            }
+            try (Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_DOCUMENTS, null)) {
+                if (cursor.moveToFirst()) documents = cursor.getInt(0);
+            }
+            try (Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_BACKUPS, null)) {
+                if (cursor.moveToFirst()) backups = cursor.getInt(0);
+            }
+            File file = getContext().getDatabasePath(DB_NAME);
+            JSObject result = new JSObject();
+            result.put("ok", "ok".equalsIgnoreCase(integrity));
+            result.put("integrity", integrity);
+            result.put("journalMode", journalMode);
+            result.put("version", DB_VERSION);
+            result.put("documents", documents);
+            result.put("backups", backups);
+            result.put("sizeBytes", file.exists() ? file.length() : 0L);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Não foi possível auditar o banco local.", error);
+        }
+    }
+
+    @com.getcapacitor.PluginMethod
     public void clear(PluginCall call) {
         try {
-            database().delete(TABLE_DOCUMENTS, null, null);
+            SQLiteDatabase db = database();
+            db.beginTransaction();
+            try {
+                db.delete(TABLE_DOCUMENTS, null, null);
+                db.delete(TABLE_BACKUPS, null, null);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
             getContext().getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE).edit().clear().apply();
             migrationChecked = false;
             JSObject result = new JSObject();
