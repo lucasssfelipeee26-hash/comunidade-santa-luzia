@@ -93,6 +93,7 @@ for (const name of [
   "android-domain-bridge-beta10.js",
   "android-quiz-offline-beta10.js",
   "android-local-navigation-beta10.js",
+  "android-constancia-luz-beta11.js",
   "android-original-ui-beta10.js",
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
@@ -136,7 +137,7 @@ const cssLinks = cssFiles.map((file) => {
 }).join("\n")
 
 // Ordem obrigatória: base Windows -> fetch/fila/estado/domínio -> quiz/navegação ->
-// relatório e paridade Motion da Beta 11 -> aquecimento -> React original.
+// Constância/relatório/paridade Motion da Beta 11 -> aquecimento -> React original.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -149,6 +150,7 @@ const requiredScripts = [
   "android-domain-bridge-beta10.js",
   "android-quiz-offline-beta10.js",
   "android-local-navigation-beta10.js",
+  "android-constancia-luz-beta11.js",
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
   "android-original-ui-beta10.js",
@@ -192,8 +194,9 @@ for (const marker of [
   "android-domain-bridge-beta10.js",
   "android-quiz-offline-beta10.js",
   "android-local-navigation-beta10.js",
+  "android-constancia-luz-beta11.js",
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
   "/local-app.js",
 ]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
-console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios; correções Beta 11 incluídas.`)
+console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios; correções Beta 11 e Constância de Luz incluídas.`)
