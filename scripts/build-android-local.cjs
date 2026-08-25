@@ -97,6 +97,9 @@ for (const name of [
   "android-original-ui-beta10.js",
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
+  "android-auditor-beta12.js",
+  "android-performance-beta12.js",
+  "android-podium-beta12.js",
 ]) ensure(path.join(out, "motion", name), `motion/${name}`)
 
 fs.mkdirSync(out, { recursive: true })
@@ -136,8 +139,8 @@ const cssLinks = cssFiles.map((file) => {
   return `    <link rel="stylesheet" href="/_next/static/${rel}" />`
 }).join("\n")
 
-// Ordem obrigatória: base Windows -> fetch/fila/estado/domínio -> quiz/navegação ->
-// Constância/relatório/paridade Motion da Beta 11 -> aquecimento -> React original.
+// Ordem: Windows Beta -> pontes de dados -> recursos Beta 11 -> aquecimento ->
+// Auditor Beta 12 -> estabilização de performance -> pódio atual -> React.
 const requiredScripts = [
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
@@ -154,6 +157,9 @@ const requiredScripts = [
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
   "android-original-ui-beta10.js",
+  "android-auditor-beta12.js",
+  "android-performance-beta12.js",
+  "android-podium-beta12.js",
 ]
 for (const file of requiredScripts) ensure(path.join(out, "motion", file), `motion/${file}`)
 const scriptTags = requiredScripts.map((file) => `    <script defer src="/motion/${file}"></script>`).join("\n")
@@ -184,7 +190,7 @@ ${scriptTags}
 fs.writeFileSync(path.join(out, "index.html"), html)
 
 const entryText = fs.readFileSync(path.join(root, "android-local", "entry.tsx"), "utf8")
-const mandatory = ["MembroDashboard", "ModeradorDashboard", "CentralAtrasos", "FormacaoMembros", "RankingInterativo", "ModeradorEscalaPage", "ModeradorFormacaoPage", "ModeradorPresencasPage", "NovoRegistroModerador", "GerenciadorRanking", "GerenciadorTema", "ImportarAcervoLiturgico", "PerfisEquipe", "PerfilModerador", "MobileBottomNav"]
+const mandatory = ["MembroDashboard", "ModeradorDashboard", "CentralAtrasos", "FormacaoMembros", "RankingInterativo", "ModeradorEscalaPage", "ModeradorFormacaoPage", "ModeradorPresencasPage", "NovoRegistroModerador", "GerenciadorRanking", "GerenciadorTema", "ImportarAcervoLiturgico", "DiagnosticoSantaLuzia", "PerfisEquipe", "PerfilModerador", "MobileBottomNav"]
 for (const marker of mandatory) if (!entryText.includes(marker)) fail(`Rota/componente original obrigatório ausente: ${marker}`)
 const outputJs = fs.readFileSync(path.join(out, "local-app.js"), "utf8")
 if (outputJs.length < 250_000) fail(`Bundle local parece incompleto (${outputJs.length} bytes).`)
@@ -197,6 +203,9 @@ for (const marker of [
   "android-constancia-luz-beta11.js",
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
+  "android-auditor-beta12.js",
+  "android-performance-beta12.js",
+  "android-podium-beta12.js",
   "/local-app.js",
 ]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
-console.log(`[android-local] Interface original empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos obrigatórios; correções Beta 11 e Constância de Luz incluídas.`)
+console.log(`[android-local] Beta 12 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next, ${mandatory.length} módulos; histórico de escalas, Auditor Santa Luzia, performance e pódio atual incluídos.`)
