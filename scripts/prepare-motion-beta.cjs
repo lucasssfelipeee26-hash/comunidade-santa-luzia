@@ -72,8 +72,9 @@ const jsRequired = {
   "android-domain-bridge-beta10.js": ["2.0.0-beta.10", "reportar_atraso", "minha-presenca", "moderar_atraso", "caminho-da-luz", "whatajong", "optimisticAdminQuiz", "optimisticTheme"],
   "android-quiz-offline-beta10.js": ["2.0.0-beta.10", "quiz-liturgia", "OfflineStore", "/api/quizzes/liturgia/responder", "writeRankingCache"],
   "android-local-navigation-beta10.js": ["2.0.0-beta.10", "santa-luzia:local-route", "downloadApi", "/api/"],
+  "android-constancia-luz-beta11.js": ["2.0.0-beta.11", "Constância de Luz", "POINTS_PER_DAY = 2", "MAX_DAYS = 7", "maximoSemanal: 14", "/api/constancia-luz", "sincronização pendente"],
   "android-report-bridge-beta11.js": ["2.0.0-beta.11", "escopo=me", "patchMyFormation", "patchFormationBatch", "patchAdministrative", "patchDelayModeration"],
-  "android-motion-parity-beta11.js": ["2.0.0-beta.11", "sl-b11-live-clock", "Pódio da equipe", "sl-b11-card-trophy", "data-motion-personal-report"],
+  "android-motion-parity-beta11.js": ["2.0.0-beta.11", "sl-b11-live-clock", "Pódio da equipe", "sl-b11-card-trophy", "data-motion-personal-report", "normalizeTrophy", "atuais.slice(1)"],
   "android-original-ui-beta10.js": ["2.0.0-beta.11", "/api/auth/me", "/api/escalas", "/api/formacoes", "/api/ranking", "/api/formacoes/presencas/resumo?escopo=me"],
 }
 for (const [name, markers] of Object.entries(jsRequired)) {
@@ -92,6 +93,7 @@ for (const marker of [
   "android-domain-bridge-beta10.js",
   "android-quiz-offline-beta10.js",
   "android-local-navigation-beta10.js",
+  "android-constancia-luz-beta11.js",
   "android-report-bridge-beta11.js",
   "android-motion-parity-beta11.js",
   "windows-beta-runtime.js",
@@ -114,4 +116,4 @@ const gradleFinal = read(gradle)
 if (!new RegExp(`applicationId\\s+["']${config.applicationId.replace(/\./g, "\\.")}["']`).test(gradleFinal)) fail("applicationId Beta não aplicado.")
 for (const marker of ["signingConfigs", "motionBeta", "MOTION_BETA_KEYSTORE", "signingConfig signingConfigs.motionBeta"]) if (!gradleFinal.includes(marker)) fail(`Gradle sem assinatura beta persistente: ${marker}`)
 if (!read(strings).includes(config.appName)) fail("Nome Motion Beta não aplicado.")
-console.log(`[motion-beta11] ${config.versionName}/code${config.versionCode}: offline da Beta 10 + relatório pessoal/histórico + Motion de Atrasos/Pódio + assinatura beta persistente + Windows Beta 19 + SyncHttp validados.`)
+console.log(`[motion-beta11] ${config.versionName}/code${config.versionCode}: offline da Beta 10 + Meu relatório fora dos painéis + histórico preservado + troféu único + Constância de Luz 2 pts/dia, 14/semana + assinatura beta persistente + Windows Beta 19 + SyncHttp validados.`)
