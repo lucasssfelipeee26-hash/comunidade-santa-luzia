@@ -18,8 +18,8 @@
   let mutationAt = 0;
   let correctionCount = 0;
 
-  function audit(level, detail) {
-    try { window.SantaLuziaAuditor?.add?.("scroll-stability", level, detail); } catch {}
+  function audit(type, level, detail) {
+    try { window.SantaLuziaAuditor?.add?.(type, level, detail); } catch {}
   }
 
   function now() { return performance.now(); }
@@ -48,7 +48,6 @@
     const touch = event.touches?.[0];
     if (!touch) return;
     const deltaFinger = touch.clientY - lastTouchY;
-    // Dedo sobe => conteúdo/página deve avançar para baixo.
     if (Math.abs(deltaFinger) >= 1.5) direction = deltaFinger < 0 ? 1 : -1;
     lastTouchY = touch.clientY;
     lastInputAt = now();
@@ -58,7 +57,6 @@
   document.addEventListener("touchend", () => {
     touching = false;
     lastInputAt = now();
-    // Mantém a direção por um curto período para cobrir a inércia do Android.
     setTimeout(() => {
       if (!touching && now() - lastInputAt >= 680) direction = 0;
     }, 700);
@@ -96,7 +94,7 @@
         correcting = false;
       });
       correctionCount += 1;
-      audit("warning", { from: Math.round(lastScrollY), to: Math.round(y), restored: Math.round(target), corrections: correctionCount });
+      audit("scroll-jump", "warning", { from: Math.round(lastScrollY), to: Math.round(y), restored: Math.round(target), corrections: correctionCount });
       return;
     }
 
@@ -106,8 +104,7 @@
   window.addEventListener("santa-luzia:local-route", markRoute);
   window.addEventListener("popstate", markRoute);
 
-  // Evita âncoras automáticas do navegador em listas que mudam de tamanho.
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   document.documentElement.style.scrollBehavior = "auto";
-  audit("info", { version: VERSION, status: "armed" });
+  audit("scroll-stability", "info", { version: VERSION, status: "armed" });
 })();
