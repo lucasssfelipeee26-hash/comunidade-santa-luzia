@@ -2,9 +2,10 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, LogOut } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { NotificationCenter } from "@/components/notification-center"
+import { ProfileDoorIcon } from "@/components/profile-door-icon"
 import { site } from "@/lib/site"
 
 export function AreaHeader({
@@ -63,8 +64,10 @@ export function AreaHeader({
             onClick={handleLogout}
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-white text-primary shadow-sm transition active:scale-95 sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-sm sm:font-medium"
             aria-label="Sair da Área Restrita"
+            title="Sair"
+            data-sl-nav-motion="logout-door"
           >
-            <LogOut className="size-[17px]" aria-hidden="true" />
+            <ProfileDoorIcon className="size-[19px]" animated loop direction="exit" />
             <span className="hidden sm:inline">Sair</span>
           </button>
         </div>
