@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { AlertCircle, CalendarDays, CheckCircle2, Clock, Cross, Loader2, RefreshCw, ShieldCheck, Users, WifiOff } from "lucide-react"
+import { AlertCircle, CalendarDays, CheckCircle2, Clock, Cross, History, Loader2, RefreshCw, ShieldCheck, Users, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ordemFuncaoEscala } from "@/lib/escala-funcoes"
 import { carregarCacheEscalas, salvarCacheEscalas } from "@/lib/offline-data"
@@ -32,11 +32,12 @@ type Escala = {
 type EscalasResponse = { ok: boolean; escalas: Escala[]; usuarioId?: string | null; tipoUsuario?: "moderador" | "membro" | null; erro?: string }
 type EscalasCache = { atualizadoEm: number; dados: EscalasResponse }
 type LiturgiaDaEscala = { liturgia: string; tempoLiturgicoAtual: string; tempoCategoria?: string; cor: string; cicloDominical?: string; dataIso: string }
+type AbaEscala = "proximas" | "historico"
 
 async function fetcher(url: string): Promise<EscalasResponse> {
   const response = await fetch(url, { cache: "no-store", credentials: "same-origin" })
   const json = await response.json().catch(() => null)
-  if (!response.ok || !json) throw new Error(json?.erro ?? "Não foi possível carregar a escala.")
+  if (!response.ok || !json) throw new Error(json?.erro ?? "Não foi possível carregar as escalas.")
   return json
 }
 
@@ -68,6 +69,7 @@ export function EscalaPublica() {
   const [online, setOnline] = useState(true)
   const [windowsBeta, setWindowsBeta] = useState(false)
   const [liturgias, setLiturgias] = useState<Record<string, LiturgiaDaEscala>>({})
+  const [aba, setAba] = useState<AbaEscala>("proximas")
   const { data, error, isLoading, mutate } = useSWR<EscalasResponse>("/api/escalas", fetcher, {
     refreshInterval: 60_000,
     revalidateOnFocus: true,
@@ -114,94 +116,88 @@ export function EscalaPublica() {
 
   const dadosExibidos = data?.ok ? data : cacheLocal?.dados
   const usandoCache = Boolean(dadosExibidos && (error || !online))
+  const hoje = hojeCuiaba()
+  const todas = dadosExibidos?.escalas ?? []
+  const proximas = useMemo(() => todas
+    .filter((escala) => escala.data >= hoje)
+    .sort((a, b) => `${a.data} ${a.horario}`.localeCompare(`${b.data} ${b.horario}`))
+    .slice(0, 24), [todas, hoje])
+  const historico = useMemo(() => todas
+    .filter((escala) => escala.data < hoje)
+    .sort((a, b) => `${b.data} ${b.horario}`.localeCompare(`${a.data} ${a.horario}`))
+    .slice(0, 60), [todas, hoje])
 
-  if (isLoading && !dadosExibidos) {
-    return <p className="text-muted-foreground">Carregando escala...</p>
-  }
+  if (isLoading && !dadosExibidos) return <p className="text-muted-foreground">Carregando escalas...</p>
 
   if (error && !dadosExibidos) {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-        <p className="flex items-center gap-2 font-medium text-destructive">
-          <AlertCircle className="size-5" /> Não foi possível carregar a Escala do Dia.
-        </p>
+        <p className="flex items-center gap-2 font-medium text-destructive"><AlertCircle className="size-5" /> Não foi possível carregar as escalas.</p>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
-        <Button type="button" variant="outline" className="mt-4 gap-2" onClick={() => mutate()}>
-          <RefreshCw className="size-4" /> Tentar novamente
-        </Button>
+        <Button type="button" variant="outline" className="mt-4 gap-2" onClick={() => mutate()}><RefreshCw className="size-4" /> Tentar novamente</Button>
       </div>
     )
   }
 
-  const hoje = hojeCuiaba()
-  const proximas = (dadosExibidos?.escalas ?? [])
-    .filter((escala) => escala.data >= hoje)
-    .sort((a, b) => `${a.data} ${a.horario}`.localeCompare(`${b.data} ${b.horario}`))
-    .slice(0, 12)
-
-  if (!proximas.length) {
-    return (
-      <div className="rounded-xl border bg-card p-6 text-muted-foreground">
-        Nenhuma escala publicada para hoje ou para os próximos dias.
-      </div>
-    )
-  }
+  const lista = aba === "proximas" ? proximas : historico
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-4" data-escala-history-enabled="true">
       <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${usandoCache ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
         {usandoCache ? <WifiOff className="size-4 shrink-0" /> : <CheckCircle2 className="size-4 shrink-0" />}
-        <span>
-          {usandoCache
-            ? `Sem conexão: mostrando a última escala salva${cacheLocal?.atualizadoEm ? ` em ${new Date(cacheLocal.atualizadoEm).toLocaleString("pt-BR")}` : ""}.`
-            : "Escala atualizada e salva neste aparelho para consulta sem internet."}
-        </span>
+        <span>{usandoCache ? `Sem conexão: mostrando as escalas e o histórico salvos${cacheLocal?.atualizadoEm ? ` em ${new Date(cacheLocal.atualizadoEm).toLocaleString("pt-BR")}` : ""}.` : "Próximas escalas e histórico atualizados e salvos neste aparelho para consulta sem internet."}</span>
       </div>
-      {proximas.map((escala) => (
-        <article key={escala.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm" data-windows-beta-scale={windowsBeta ? escala.id : undefined}>
-          {windowsBeta && liturgias[escala.id] && <div className="mb-4 rounded-2xl border border-primary/10 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Celebração litúrgica</p><h2 className="mt-1 font-serif text-xl font-semibold text-primary">{liturgias[escala.id].liturgia}</h2><p className="mt-1 text-xs text-muted-foreground">{liturgias[escala.id].tempoLiturgicoAtual} · Ano {liturgias[escala.id].cicloDominical || "—"} · Cor {liturgias[escala.id].cor}</p></div>}
-          <div className="mb-4 flex flex-wrap items-center gap-4">
-            <span className="flex items-center gap-2 font-semibold capitalize text-primary">
-              <CalendarDays className="size-4" /> {formatarData(escala.data)}
-            </span>
-            <span className="flex items-center gap-2 text-sm">
-              <Clock className="size-4" /> {escala.horario}
-            </span>
-          </div>
 
-          <div className="mb-4 rounded-xl border border-primary/10 bg-primary/5 p-4">
-            <p className="flex items-center gap-2 font-medium">
-              <Cross className="size-4" /> Celebrante: {escala.celebrante}
-            </p>
-          </div>
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border bg-white/80 p-1.5 shadow-sm" role="tablist" aria-label="Período das escalas">
+        <button type="button" role="tab" aria-selected={aba === "proximas"} onClick={() => setAba("proximas")} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition ${aba === "proximas" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:bg-muted"}`}><CalendarDays className="size-4" />Próximas <span className={`rounded-full px-2 py-0.5 text-[9px] ${aba === "proximas" ? "bg-white/15" : "bg-muted"}`}>{proximas.length}</span></button>
+        <button type="button" role="tab" aria-selected={aba === "historico"} onClick={() => setAba("historico")} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition ${aba === "historico" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:bg-muted"}`}><History className="size-4" />Histórico <span className={`rounded-full px-2 py-0.5 text-[9px] ${aba === "historico" ? "bg-white/15" : "bg-muted"}`}>{historico.length}</span></button>
+      </div>
 
-          {windowsBeta && dadosExibidos?.usuarioId && escala.pessoas.some((pessoa) => pessoa.id === dadosExibidos.usuarioId) && <JustificarAusenciaEscala escala={escala} onAtualizada={() => void mutate()} />}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Grupo titulo="Acólitos" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "acolito").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
-            <Grupo titulo="Coroinhas" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "coroinha").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
-          </div>
-
-          {escala.observacoes && (
-            <p className="mt-4 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              <strong>Observações:</strong> {escala.observacoes}
-            </p>
-          )}
-        </article>
-      ))}
+      {lista.length === 0 ? (
+        <div className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">{aba === "proximas" ? "Nenhuma escala publicada para hoje ou para os próximos dias." : "Ainda não há escalas anteriores registradas no histórico."}</div>
+      ) : (
+        <div className="grid gap-5">
+          {lista.map((escala) => <EscalaCard key={escala.id} escala={escala} historico={aba === "historico"} windowsBeta={windowsBeta} liturgia={liturgias[escala.id]} usuarioId={dadosExibidos?.usuarioId ?? null} onAtualizada={() => void mutate()} />)}
+        </div>
+      )}
     </div>
+  )
+}
+
+function EscalaCard({ escala, historico, windowsBeta, liturgia, usuarioId, onAtualizada }: { escala: Escala; historico: boolean; windowsBeta: boolean; liturgia?: LiturgiaDaEscala; usuarioId: string | null; onAtualizada: () => void }) {
+  return (
+    <article className={`rounded-2xl border bg-card p-5 shadow-sm ${historico ? "border-border/80 opacity-[.96]" : "border-border"}`} data-windows-beta-scale={windowsBeta ? escala.id : undefined} data-escala-historico={historico ? "true" : "false"}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {windowsBeta && liturgia && <div className="mb-4 rounded-2xl border border-primary/10 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Celebração litúrgica</p><h2 className="mt-1 font-serif text-xl font-semibold text-primary">{liturgia.liturgia}</h2><p className="mt-1 text-xs text-muted-foreground">{liturgia.tempoLiturgicoAtual} · Ano {liturgia.cicloDominical || "—"} · Cor {liturgia.cor}</p></div>}
+        </div>
+        {historico && <span className="shrink-0 rounded-full border border-[#d7cbbf] bg-[#f8f3ed] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[#75655f]">Realizada</span>}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <span className="flex items-center gap-2 font-semibold capitalize text-primary"><CalendarDays className="size-4" /> {formatarData(escala.data)}</span>
+        <span className="flex items-center gap-2 text-sm"><Clock className="size-4" /> {escala.horario}</span>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-primary/10 bg-primary/5 p-4"><p className="flex items-center gap-2 font-medium"><Cross className="size-4" /> Celebrante: {escala.celebrante}</p></div>
+
+      {!historico && windowsBeta && usuarioId && escala.pessoas.some((pessoa) => pessoa.id === usuarioId) && <JustificarAusenciaEscala escala={escala} onAtualizada={onAtualizada} />}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Grupo titulo="Acólitos" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "acolito").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
+        <Grupo titulo="Coroinhas" compacto={windowsBeta} itens={escala.pessoas.filter((p) => p.categoria === "coroinha").sort((a, b) => ordemFuncaoEscala(a.funcao) - ordemFuncaoEscala(b.funcao))} />
+      </div>
+
+      {escala.observacoes && <p className="mt-4 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"><strong>Observações:</strong> {escala.observacoes}</p>}
+    </article>
   )
 }
 
 function Grupo({ titulo, itens, compacto = false }: { titulo: string; itens: PessoaEscala[]; compacto?: boolean }) {
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-2 font-serif text-lg text-primary">
-        <Users className="size-4" /> {titulo}
-      </h3>
-      {!itens.length ? (
-        <p className="text-sm text-muted-foreground">Nenhum nome informado.</p>
-      ) : (
+      <h3 className="mb-2 flex items-center gap-2 font-serif text-lg text-primary"><Users className="size-4" /> {titulo}</h3>
+      {!itens.length ? <p className="text-sm text-muted-foreground">Nenhum nome informado.</p> : (
         <ul className={compacto ? "divide-y overflow-hidden rounded-2xl border bg-white" : "space-y-2"}>
           {itens.map((pessoa, index) => (
             <li key={pessoa.id ?? index} className={compacto ? "flex items-center justify-between gap-3 px-3 py-2.5 text-sm" : "rounded-md border px-3 py-2 text-sm"}>
