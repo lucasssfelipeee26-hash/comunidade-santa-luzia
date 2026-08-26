@@ -1,0 +1,287 @@
+name: Android — Santa Luzia Motion Beta 14 — auditoria funcional
+
+on:
+  push:
+    branches:
+      - work/android-motion-beta11-video-audit
+    paths:
+      - .github/beta14-functional-trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-motion-beta14-functional-signing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beta14:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
+      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta.keystore
+      MOTION_BETA_STORE_PASSWORD: android
+      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta
+      MOTION_BETA_KEY_PASSWORD: android
+
+    steps:
+      - name: Checkout código completo da Beta 14
+        uses: actions/checkout@v4
+        with:
+          ref: work/android-motion-beta14-functional-fixes
+          fetch-depth: 0
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-motion-beta14-gradle-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-motion-beta13-gradle-
+            ${{ runner.os }}-motion-beta12-gradle-
+            ${{ runner.os }}-motion-beta11-gradle-
+            ${{ runner.os }}-gradle-
+
+      - name: Restaurar assinatura persistente da Motion Beta
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.android/santa-luzia-motion-beta.keystore
+          key: santa-luzia-motion-beta-keystore-v2
+
+      - name: Validar certificado das Betas 11 a 13
+        run: |
+          set -euo pipefail
+          test -s "$MOTION_BETA_KEYSTORE"
+          keytool -list -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" >/dev/null
+          EXPECTED="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test "$EXPECTED" = "0cf42dad25bd2673c81c6e47b87b77d5581c3de5cf23552e23088bdc447a4a21"
+          echo "MOTION_EXPECTED_CERT=$EXPECTED" >> "$GITHUB_ENV"
+
+      - name: Carregar configuração Beta 14
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const c = require('./config/android-motion-beta.json')
+          const stable = require('./config/android-build.json')
+          if (c.versionName !== '2.0.0-beta.14' || c.versionCode !== 20014) throw new Error(`Esperada Beta 14, encontrado ${c.versionName}/code${c.versionCode}`)
+          if (c.applicationId !== 'br.com.comunidadesantaluzia.motionbeta') throw new Error('Pacote Beta incorreto')
+          if (stable.versionName !== '1.0.6' || stable.versionCode !== 18) throw new Error(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}`)
+          const vars = {
+            APP_VERSION_CODE: c.versionCode,
+            APP_VERSION_NAME: c.versionName,
+            SANTA_LUZIA_MOTION_VERSION: c.versionName,
+            MOTION_APP_ID: c.applicationId,
+            SYNC_SERVER_URL: c.serverUrl,
+          }
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(vars).map(([k,v]) => `${k}=${v}\n`).join(''))
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validar scripts da Beta 14
+        run: |
+          set -euo pipefail
+          node --check scripts/auditar-beta14-funcional.cjs
+          node --check scripts/prepare-motion-beta14.cjs
+          node --check scripts/build-android-local.cjs
+          node --check scripts/validate-android-web.cjs
+          node --check scripts/auditar-offline-beta12.cjs
+          node --check scripts/auditar-icones-beta12.cjs
+          node scripts/auditar-beta14-funcional.cjs
+          node scripts/auditar-icones-beta12.cjs
+
+      - name: Fixar somente a referência visual histórica
+        run: node scripts/fetch-windows-beta-stack.cjs
+
+      - name: Auditar TypeScript
+        run: npx tsc --noEmit
+
+      - name: Auditar robustez, offline e completude
+        run: |
+          set -euo pipefail
+          node scripts/auditar-robustez.cjs
+          npm run audit:offline
+          node scripts/auditar-offline-beta12.cjs
+          node scripts/auditar-icones-beta12.cjs
+          node scripts/auditar-beta14-funcional.cjs
+          test "$(wc -c < android-web/motion/android-auditor-beta12.js)" -gt 15000
+          ! grep -Fxq 'PLACEHOLDER' android-web/motion/android-auditor-beta12.js
+
+      - name: Compilar aplicação Next de referência
+        run: npm run build
+
+      - name: Empacotar interface React original no APK
+        run: npm run build:android-local
+
+      - name: Auditar frontend local realmente produzido
+        run: |
+          set -euo pipefail
+          node scripts/validate-android-web.cjs
+          node scripts/auditar-beta14-funcional.cjs
+          node scripts/auditar-icones-beta12.cjs
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          for marker in \
+            'data-login-door-transition' \
+            'data-logout-door-transition' \
+            'data-door-scene' \
+            'data-team-profile-status-rail' \
+            'data-profile-viewer-banner' \
+            'data-profile-close' \
+            'data-profile-photo-frame' \
+            'data-admin-database-tools' \
+            '/area-restrita/moderador/administracao' \
+            'data-auditor-santa-luzia'; do
+            grep -Fq "$marker" android-web/local-app.js || { echo "ERRO: bundle local sem $marker" >&2; exit 1; }
+          done
+          grep -Fq 'sl-home-runtime-icon' android-web/motion/android-motion-beta.js
+          grep -Fq 'native-free-scroll' android-web/motion/android-scroll-stability-beta12.js
+          grep -Fq 'exportReport' android-web/motion/android-auditor-beta12.js
+          grep -Fq 'offlineReadinessAudit' android-web/motion/android-auditor-beta12.js
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Criar e sincronizar Capacitor Android
+        run: |
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta14.cjs
+
+      - name: Auditar projeto Android gerado
+        run: |
+          set -euo pipefail
+          grep -Eq "applicationId[[:space:]]+\"${MOTION_APP_ID//./\\.}\"" android/app/build.gradle
+          grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
+          grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
+          grep -Fq "signingConfig signingConfigs.motionBeta" android/app/build.gradle
+          CONFIG=android/app/src/main/assets/capacitor.config.json
+          if grep -Fq '"server"' "$CONFIG"; then echo "ERRO: Motion Beta contém server.url" >&2; exit 1; fi
+          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$CONFIG"
+          grep -Fq "SantaLuziaOriginalUIOffline/2" "$CONFIG"
+          grep -Fq 'DiagnosticReportPlugin.class' android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq 'setVerticalScrollBarEnabled(true)' android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq 'androidx.core.content.FileProvider' android/app/src/main/AndroidManifest.xml
+          grep -Fq '@xml/diagnostic_file_paths' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/xml/diagnostic_file_paths.xml
+          STORE=android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+          grep -Fq 'DB_VERSION = 2' "$STORE"
+          grep -Fq 'setWriteAheadLoggingEnabled(true)' "$STORE"
+          grep -Fq 'PRAGMA integrity_check' "$STORE"
+          grep -Fq 'recoverDocument' "$STORE"
+
+      - name: Compilar APK Motion Beta 14
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Auditar APK final por dentro e validar assinatura
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/motion-badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/motion-badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/motion-apksigner.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/motion-apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$MOTION_EXPECTED_CERT"
+
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/local-app.js' "$RUNNER_TEMP/apk-files.txt"
+          for f in android-auditor-beta12.js android-performance-beta12.js android-scroll-stability-beta12.js android-podium-beta12.js android-local-first-beta8.js android-domain-bridge-beta10.js android-motion-beta.js; do
+            grep -Fq "assets/public/motion/$f" "$RUNNER_TEMP/apk-files.txt"
+          done
+          unzip -p "$APK" assets/public/local-app.js > "$RUNNER_TEMP/local-app.js"
+          for marker in \
+            'data-login-door-transition' \
+            'data-logout-door-transition' \
+            'data-door-scene' \
+            'data-team-profile-status-rail' \
+            'data-profile-viewer-banner' \
+            'data-profile-close' \
+            'data-profile-photo-frame' \
+            'data-admin-database-tools' \
+            '/area-restrita/moderador/administracao' \
+            'data-auditor-santa-luzia'; do
+            grep -Fq "$marker" "$RUNNER_TEMP/local-app.js" || { echo "ERRO: APK final sem $marker" >&2; exit 1; }
+          done
+          unzip -p "$APK" assets/public/motion/android-auditor-beta12.js > "$RUNNER_TEMP/auditor.js"
+          test "$(wc -c < "$RUNNER_TEMP/auditor.js")" -gt 15000
+          grep -Fq 'runSelfAudit' "$RUNNER_TEMP/auditor.js"
+          grep -Fq 'exportReport' "$RUNNER_TEMP/auditor.js"
+          grep -Fq 'offlineReadinessAudit' "$RUNNER_TEMP/auditor.js"
+          grep -Fq '/api/app/admin-dados' "$RUNNER_TEMP/auditor.js"
+          unzip -p "$APK" assets/public/motion/android-scroll-stability-beta12.js | grep -Fq 'native-free-scroll'
+          unzip -p "$APK" assets/public/motion/android-motion-beta.js | grep -Fq 'sl-home-runtime-icon'
+          unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/motion-capacitor-config.json"
+          if grep -Fq '"server"' "$RUNNER_TEMP/motion-capacitor-config.json"; then echo "ERRO: APK depende de server.url" >&2; exit 1; fi
+
+          mkdir -p dist
+          cp "$APK" "dist/Santa-Luzia-Motion-2.0-beta14.apk"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta14.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta14.apk)"
+          cat > dist/RELATORIO-MOTION-BETA14.txt <<EOF
+          Santa Luzia Motion Beta Android
+          Versão: $APP_VERSION_NAME
+          VersionCode: $APP_VERSION_CODE
+          ApplicationId: $MOTION_APP_ID
+          Tamanho: $SIZE bytes
+          SHA-256: $SHA
+          Certificado Beta SHA-256: $CERT
+          Assinatura: certificado idêntico às Betas 11, 12 e 13.
+          Interface: React original local dentro do APK; sem server.url e sem shell offline alternativo.
+          Porta: cena completa no tema Santa Luzia; entrada de costas caminhando para a porta com aceno; saída vindo da porta para fora.
+          Perfis: faixa horizontal estilo Status, busca nominal, modal fechável, foto com proporção preservada, ranking, pontos e aproveitamento.
+          Auditor Santa Luzia: erros, rede, endpoints, FPS, long tasks, scroll, ícones, armazenamento, SQLite, fila offline, auditoria online/offline, exportação e compartilhamento JSON nativo.
+          Rolagem: vertical nativa livre até o rodapé, barra do WebView habilitada, sem reposicionamento artificial.
+          Ícones: cards da Home restaurados e Perfil separado da animação de porta.
+          Administração: disponível no menu do moderador; seleção de cadastro, confirmação EXCLUIR e reset do placar com ZERAR; endpoint do servidor protegido por sessão de moderador.
+          Banco local: SQLite v2, WAL, synchronous FULL, transações, backup anterior, recuperação e integrity_check.
+          Banco do servidor: gravação atômica, fsync, backups e recuperação preservados.
+          Android oficial preservado: 1.0.6 / code18.
+          Windows não alterado.
+          EOF
+          echo "MOTION_APK_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "MOTION_APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+          echo "MOTION_CERT=$CERT" >> "$GITHUB_ENV"
+
+      - name: Guardar APK Beta 14
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-2.0-beta14
+          path: |
+            dist/Santa-Luzia-Motion-2.0-beta14.apk
+            dist/RELATORIO-MOTION-BETA14.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Resumo final
+        run: |
+          echo "### Santa Luzia Motion Beta 14" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Fonte: work/android-motion-beta14-functional-fixes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Versão: $APP_VERSION_NAME / code $APP_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- APK: $MOTION_APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA-256: $MOTION_APK_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certificado: $MOTION_CERT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Auditoria do APK final: aprovada." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Android oficial 1.0.6/code18 e Windows preservados." >> "$GITHUB_STEP_SUMMARY"
