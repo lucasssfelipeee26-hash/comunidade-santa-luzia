@@ -13,7 +13,7 @@ function doorTransitionDelay() {
   try {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 120
   } catch {}
-  return 1550
+  return 1880
 }
 
 export function AreaHeader({
@@ -85,7 +85,7 @@ export function AreaHeader({
             data-sl-nav-motion="logout-door"
             data-logout-door-transition={leaving ? "running" : "idle"}
           >
-            <ProfileDoorIcon className="size-[19px]" animated loop={!leaving} direction="exit" />
+            <ProfileDoorIcon className="size-[19px]" animated={leaving} loop={false} direction="exit" />
             <span className="hidden sm:inline">{leaving ? "Saindo…" : "Sair"}</span>
           </button>
         </div>
