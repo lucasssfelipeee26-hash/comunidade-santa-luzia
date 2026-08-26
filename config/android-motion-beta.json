@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20014,
-  "versionName": "2.0.0-beta.14",
+  "versionCode": 20015,
+  "versionName": "2.0.0-beta.15",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 14: corrige os problemas observados em vídeo na Beta 13. Cena de entrada/saída com personagem e porta no tema Santa Luzia; perfis em faixa horizontal estilo Status com busca e modal fechável; Auditor Santa Luzia online/offline com exportação nativa; rolagem vertical livre até o rodapé; ícones restaurados na Home e Perfil; administração de dados movida ao menu do moderador e conectada ao endpoint de produção. Android oficial 1.0.6/code18 e Windows preservados."
+  "notes": "Beta 15: remove integralmente a animação cancelada de personagem/porta e restaura ícones convencionais. Corrige barra inferior com Início estável online/offline, simplifica o menu móvel público e usa as três barras como acesso ao perfil já logado. Limpa o banner principal, mantém quatro atalhos públicos, transforma Perfis da equipe em faixa horizontal estilo Status com busca e modal fechável, organiza histórico de Escalas com pesquisa por data e tempo litúrgico, mantém Administração de dados no menu do moderador, saída com confirmação Sim/Não, Auditor Santa Luzia online/offline com relatório nativo, rolagem, SQLite/WAL/integridade e local-first. Android oficial 1.0.6/code18 e Windows preservados."
 }
