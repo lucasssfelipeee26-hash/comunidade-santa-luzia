@@ -200,11 +200,11 @@ export function DiagnosticoSantaLuzia() {
   const filaPendente = Number(snapshot?.queue?.pending || 0)
 
   return (
-    <section className="space-y-4" data-auditor-santa-luzia="beta14">
+    <section className="space-y-4" data-auditor-santa-luzia="beta15">
       <div className="rounded-3xl border border-primary/15 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 14 · diagnóstico online e offline</p>
+            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 15 · diagnóstico online e offline</p>
             <h2 className="mt-1 flex items-center gap-2 font-serif text-2xl font-semibold text-primary"><Wrench className="size-5" /> Auditor Santa Luzia</h2>
             <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Monitora erros JavaScript, falhas e lentidão de rede, recursos offline, SQLite, fila de sincronização, FPS, saltos de rolagem e ícones. O relatório é salvo nativamente no Android e pode ser gerado mesmo sem internet.</p>
           </div>
@@ -235,7 +235,7 @@ export function DiagnosticoSantaLuzia() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <InfoCard icon={<ShieldCheck className="size-4" />} title="Versão monitorada" value={snapshot?.app.version ?? "2.0.0-beta.14"} />
+        <InfoCard icon={<ShieldCheck className="size-4" />} title="Versão monitorada" value={snapshot?.app.version ?? "2.0.0-beta.15"} />
         <InfoCard icon={<Gauge className="size-4" />} title="Dados locais" value={`${formatBytes(snapshot?.storage.localStorageApproxBytes ?? 0)} · ${cacheEntries} itens em cache`} />
         <InfoCard icon={<Activity className="size-4" />} title="Banco SQLite" value={snapshot?.database ? `${snapshot.database.integrity || "—"} · WAL ${snapshot.database.journalMode || "—"} · ${snapshot.database.documents ?? 0} docs` : "Aguardando auditoria"} />
         <InfoCard icon={<Activity className="size-4" />} title="Tela atual" value={snapshot?.app.route ?? (typeof location !== "undefined" ? location.pathname : "—")} />
