@@ -33,6 +33,7 @@ import { GerenciadorRanking } from "@/components/gerenciador-ranking"
 import { GerenciadorTema } from "@/components/gerenciador-tema"
 import { ImportarAcervoLiturgico } from "@/components/importar-acervo-liturgico"
 import { DiagnosticoSantaLuzia } from "@/components/diagnostico-santa-luzia"
+import { AdministracaoModerador } from "@/components/administracao-moderador"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu } from "@/components/area-menu"
 import { PrayerPersonIcon } from "@/components/prayer-person-icon"
@@ -76,29 +77,12 @@ function PublicHome() {
   </div>
 }
 
-function LiturgiaRoute() {
-  return <div className="min-h-screen bg-[#fffaf0]"><SiteHeader /><main className="mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-8 lg:px-6"><CentralLiturgicaILiturgia /></main><SiteFooter /></div>
-}
-
-function EscalaRoute() {
-  return <div className="min-h-screen bg-background"><SiteHeader /><main className="mx-auto max-w-5xl px-4 py-12"><p className="text-sm uppercase tracking-[.2em] text-accent-foreground/70">Serviço do altar</p><h1 className="mt-2 font-serif text-4xl font-semibold text-primary">Escalas</h1><p className="mb-8 mt-3 text-muted-foreground">Consulte as próximas escalas e o histórico das celebrações já realizadas, com sacerdote, acólitos, coroinhas e funções.</p><EscalaPublica /></main><SiteFooter /></div>
-}
-
-function BibliotecaRoute() {
-  return <div className="min-h-screen bg-[#fffaf0]"><SiteHeader /><main className="mx-auto max-w-7xl px-4 py-8 lg:px-6 lg:py-10"><BibliotecaCatolica /></main><SiteFooter /></div>
-}
-
-function LoginRoute() {
-  return <AuthShell icon={<PrayerPersonIcon className="size-7" />} titulo="Bem-vindo ao Santa Luzia" subtitulo="Entre para abrir seu painel ou continue como visitante" rodape="Seu acesso permanece neste aparelho até você sair."><LoginForm /></AuthShell>
-}
-
-function CadastroRoute() {
-  return <AuthShell icon={<UserPlus className="size-6" />} titulo="Cadastro de Acólito / Coroinha" subtitulo={`Solicite seu acesso à área restrita da ${site.comunidade}`} voltarHref="/area-restrita/login" voltarLabel="Voltar ao login"><p className="mb-6 text-pretty text-sm leading-relaxed text-muted-foreground">Preencha seus dados abaixo. O moderador da equipe precisa aprovar o cadastro antes que você possa entrar.</p><CadastroForm /></AuthShell>
-}
-
-function RecuperarRoute() {
-  return <AuthShell icon={<KeyRound className="size-6" />} titulo="Recuperar senha" subtitulo={`Área restrita da ${site.comunidade}`} voltarHref="/area-restrita/login" voltarLabel="Voltar ao login"><RecuperarSenhaForm /></AuthShell>
-}
+function LiturgiaRoute() { return <div className="min-h-screen bg-[#fffaf0]"><SiteHeader /><main className="mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-8 lg:px-6"><CentralLiturgicaILiturgia /></main><SiteFooter /></div> }
+function EscalaRoute() { return <div className="min-h-screen bg-background"><SiteHeader /><main className="mx-auto max-w-5xl px-4 py-12"><p className="text-sm uppercase tracking-[.2em] text-accent-foreground/70">Serviço do altar</p><h1 className="mt-2 font-serif text-4xl font-semibold text-primary">Escalas</h1><p className="mb-8 mt-3 text-muted-foreground">Consulte as próximas escalas e o histórico das celebrações já realizadas, com sacerdote, acólitos, coroinhas e funções.</p><EscalaPublica /></main><SiteFooter /></div> }
+function BibliotecaRoute() { return <div className="min-h-screen bg-[#fffaf0]"><SiteHeader /><main className="mx-auto max-w-7xl px-4 py-8 lg:px-6 lg:py-10"><BibliotecaCatolica /></main><SiteFooter /></div> }
+function LoginRoute() { return <AuthShell icon={<PrayerPersonIcon className="size-7" />} titulo="Bem-vindo ao Santa Luzia" subtitulo="Entre para abrir seu painel ou continue como visitante" rodape="Seu acesso permanece neste aparelho até você sair."><LoginForm /></AuthShell> }
+function CadastroRoute() { return <AuthShell icon={<UserPlus className="size-6" />} titulo="Cadastro de Acólito / Coroinha" subtitulo={`Solicite seu acesso à área restrita da ${site.comunidade}`} voltarHref="/area-restrita/login" voltarLabel="Voltar ao login"><p className="mb-6 text-pretty text-sm leading-relaxed text-muted-foreground">Preencha seus dados abaixo. O moderador da equipe precisa aprovar o cadastro antes que você possa entrar.</p><CadastroForm /></AuthShell> }
+function RecuperarRoute() { return <AuthShell icon={<KeyRound className="size-6" />} titulo="Recuperar senha" subtitulo={`Área restrita da ${site.comunidade}`} voltarHref="/area-restrita/login" voltarLabel="Voltar ao login"><RecuperarSenhaForm /></AuthShell> }
 
 function useGuard(tipo?: "membro" | "moderador") {
   const store = useStore()
@@ -117,25 +101,21 @@ function AreaIndexRoute() {
   useEffect(() => { if (ready) router.replace(sessao?.tipo === "moderador" ? "/area-restrita/moderador" : sessao ? "/area-restrita/membro" : "/area-restrita/login") }, [ready, sessao, router])
   return <Loading />
 }
-
 function MemberRoute() {
   const store = useGuard("membro")
   if (!store.ready || !store.sessao || store.sessao.tipo !== "membro" || !store.membroAtual) return <Loading texto="Abrindo seu perfil…" />
   return <MembroDashboard membro={store.membroAtual} />
 }
-
 function ModeratorRoute() {
   const store = useGuard("moderador")
   if (!store.ready || !store.sessao || store.sessao.tipo !== "moderador") return <Loading texto="Abrindo painel…" />
   return <ModeradorDashboard />
 }
-
 function Guarded({ children, tipo }: { children: React.ReactNode; tipo?: "membro" | "moderador" }) {
   const store = useGuard(tipo)
   if (!store.ready || !store.sessao || (tipo && store.sessao.tipo !== tipo)) return <Loading />
   return <>{children}</>
 }
-
 function FormacaoRoute() {
   const { sessao } = useGuard()
   if (!sessao) return <Loading />
@@ -155,20 +135,17 @@ function RankingRoute() {
   if (!store.sessao || !usuario) return <Loading texto="Abrindo Jornada Litúrgica…" />
   return <RankingInterativo usuarioInicial={usuario} />
 }
-
 function PerfisRoute() {
   const { sessao } = useGuard()
   if (!sessao) return <Loading />
   return <PerfisEquipe tipoUsuario={sessao.tipo} />
 }
-
 function PerfilIndividualRoute({ id }: { id: string }) {
   const store = useGuard("moderador")
   if (!store.sessao || store.sessao.tipo !== "moderador") return <Loading />
   const membro = store.membros.find(m => m.id === id)
   return membro ? <PerfilModerador membro={membro} /> : <Loading texto="Carregando perfil…" />
 }
-
 function TemaRoute() {
   const [tema, setTema] = useState<TemaSite>(TEMA_PADRAO)
   useEffect(() => {
@@ -181,14 +158,9 @@ function TemaRoute() {
   }, [])
   return <div className="min-h-screen bg-background"><AreaHeader titulo="Cores do Site" subtitulo="Temas inspirados em Santa Luzia" voltarHref="/area-restrita/moderador" voltarLabel="Voltar ao painel" menu={<ModeradorMenu />} /><main className="mx-auto max-w-6xl px-4 py-8"><GerenciadorTema temaInicial={tema} /></main></div>
 }
-
-function AcervoRoute() {
-  return <div className="min-h-screen bg-[#fffaf0]"><AreaHeader titulo="Acervo Litúrgico Offline" subtitulo="Instalação e atualização da biblioteca autorizada" voltarHref="/area-restrita/moderador" menu={<ModeradorMenu />} /><main className="mx-auto max-w-5xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><ImportarAcervoLiturgico /></main></div>
-}
-
-function DiagnosticoRoute() {
-  return <div className="min-h-screen bg-background"><AreaHeader titulo="Diagnóstico do Aplicativo" subtitulo="Auditoria de erros, desempenho, offline e armazenamento" voltarHref="/area-restrita/moderador" voltarLabel="Voltar ao painel" menu={<ModeradorMenu />} /><main className="mx-auto max-w-6xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><DiagnosticoSantaLuzia /></main></div>
-}
+function AcervoRoute() { return <div className="min-h-screen bg-[#fffaf0]"><AreaHeader titulo="Acervo Litúrgico Offline" subtitulo="Instalação e atualização da biblioteca autorizada" voltarHref="/area-restrita/moderador" menu={<ModeradorMenu />} /><main className="mx-auto max-w-5xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><ImportarAcervoLiturgico /></main></div> }
+function DiagnosticoRoute() { return <div className="min-h-screen bg-background"><AreaHeader titulo="Diagnóstico do Aplicativo" subtitulo="Auditoria de erros, desempenho, offline e armazenamento" voltarHref="/area-restrita/moderador" voltarLabel="Voltar ao painel" menu={<ModeradorMenu />} /><main className="mx-auto max-w-6xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><DiagnosticoSantaLuzia /></main></div> }
+function AdministracaoRoute() { return <div className="min-h-screen bg-background"><AreaHeader titulo="Administração de dados" subtitulo="Cadastros e controle do placar" voltarHref="/area-restrita/moderador" voltarLabel="Voltar ao painel" menu={<ModeradorMenu />} /><main className="mx-auto max-w-5xl px-3 py-5 pb-24 sm:px-4 sm:py-8"><AdministracaoModerador /></main></div> }
 
 function RouterView() {
   const pathname = usePathname()
@@ -214,6 +186,7 @@ function RouterView() {
   if (pathname === "/area-restrita/moderador/presencas") return <Guarded tipo="moderador"><ModeradorPresencasPage /></Guarded>
   if (pathname === "/area-restrita/moderador/registro") return <Guarded tipo="moderador"><NovoRegistroModerador /></Guarded>
   if (pathname === "/area-restrita/moderador/ranking") return <Guarded tipo="moderador"><GerenciadorRanking /></Guarded>
+  if (pathname === "/area-restrita/moderador/administracao") return <Guarded tipo="moderador"><AdministracaoRoute /></Guarded>
   if (pathname === "/area-restrita/moderador/tema") return <Guarded tipo="moderador"><TemaRoute /></Guarded>
   if (pathname === "/area-restrita/moderador/acervo-liturgico") return <Guarded tipo="moderador"><AcervoRoute /></Guarded>
   if (pathname === "/area-restrita/moderador/diagnostico") return <Guarded tipo="moderador"><DiagnosticoRoute /></Guarded>
