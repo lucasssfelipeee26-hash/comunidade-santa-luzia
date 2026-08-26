@@ -1,8 +1,8 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.12";
-  const FLAG = "scrollStabilityBeta12";
+  const VERSION = "2.0.0-beta.14";
+  const FLAG = "scrollStabilityBeta14";
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
 
@@ -10,28 +10,21 @@
   let routeChangedAt = performance.now();
   let touching = false;
   let lastTouchY = 0;
-  let direction = 0; // 1 = usuário está descendo a página; -1 = subindo
+  let direction = 0;
   let lastInputAt = 0;
-  let maxYDuringDownGesture = window.scrollY;
-  let lastScrollY = window.scrollY;
-  let correcting = false;
+  let lastScrollY = Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0);
   let mutationAt = 0;
-  let correctionCount = 0;
-
-  function audit(type, level, detail) {
-    try { window.SantaLuziaAuditor?.add?.(type, level, detail); } catch {}
-  }
 
   function now() { return performance.now(); }
   function currentY() { return Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0); }
+  function audit(type, level, detail) { try { window.SantaLuziaAuditor?.add?.(type, level, detail); } catch {} }
 
   function markRoute() {
     routeKey = `${location.pathname}${location.search}${location.hash}`;
     routeChangedAt = now();
     touching = false;
     direction = 0;
-    maxYDuringDownGesture = 0;
-    lastScrollY = 0;
+    lastScrollY = currentY();
   }
 
   document.addEventListener("touchstart", (event) => {
@@ -41,7 +34,6 @@
     lastTouchY = touch.clientY;
     direction = 0;
     lastInputAt = now();
-    maxYDuringDownGesture = currentY();
   }, { passive: true, capture: true });
 
   document.addEventListener("touchmove", (event) => {
@@ -51,60 +43,57 @@
     if (Math.abs(deltaFinger) >= 1.5) direction = deltaFinger < 0 ? 1 : -1;
     lastTouchY = touch.clientY;
     lastInputAt = now();
-    if (direction === 1) maxYDuringDownGesture = Math.max(maxYDuringDownGesture, currentY());
   }, { passive: true, capture: true });
 
   document.addEventListener("touchend", () => {
     touching = false;
     lastInputAt = now();
-    setTimeout(() => {
-      if (!touching && now() - lastInputAt >= 680) direction = 0;
-    }, 700);
+    setTimeout(() => { if (!touching && now() - lastInputAt >= 650) direction = 0; }, 700);
   }, { passive: true, capture: true });
 
   document.addEventListener("wheel", (event) => {
     direction = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
     lastInputAt = now();
-    if (direction === 1) maxYDuringDownGesture = Math.max(maxYDuringDownGesture, currentY());
   }, { passive: true, capture: true });
 
   new MutationObserver(() => { mutationAt = now(); }).observe(document.documentElement, { childList: true, subtree: true });
 
   window.addEventListener("scroll", () => {
-    if (correcting) return;
     const y = currentY();
     const t = now();
     const sameRoute = routeKey === `${location.pathname}${location.search}${location.hash}`;
     const nearRouteChange = t - routeChangedAt < 900;
     const activeDownIntent = direction === 1 && t - lastInputAt < 950;
-    const abruptUpwardJump = lastScrollY - y > 72;
-    const layoutWasChanging = t - mutationAt < 280;
+    const abruptUpwardJump = lastScrollY - y > Math.max(90, window.innerHeight * 0.16);
+    const layoutWasChanging = t - mutationAt < 320;
 
-    if (activeDownIntent) maxYDuringDownGesture = Math.max(maxYDuringDownGesture, lastScrollY, y);
-
-    // O bug observado no vídeo é uma queda brusca de scroll enquanto o usuário
-    // continua tentando descer. Só corrigimos quando há intenção explícita de
-    // descer + mutação/layout recente, e nunca durante navegação de rota.
-    if (sameRoute && !nearRouteChange && activeDownIntent && abruptUpwardJump && layoutWasChanging && maxYDuringDownGesture > y + 60) {
-      const target = maxYDuringDownGesture;
-      correcting = true;
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: target, behavior: "instant" });
-        lastScrollY = target;
-        correcting = false;
+    if (sameRoute && !nearRouteChange && activeDownIntent && abruptUpwardJump && layoutWasChanging) {
+      audit("scroll-jump", "warning", {
+        from: Math.round(lastScrollY),
+        to: Math.round(y),
+        delta: Math.round(y - lastScrollY),
+        touching,
+        correction: "none-beta14-native-scroll",
       });
-      correctionCount += 1;
-      audit("scroll-jump", "warning", { from: Math.round(lastScrollY), to: Math.round(y), restored: Math.round(target), corrections: correctionCount });
-      return;
     }
-
     lastScrollY = y;
   }, { passive: true });
 
   window.addEventListener("santa-luzia:local-route", markRoute);
   window.addEventListener("popstate", markRoute);
-
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   document.documentElement.style.scrollBehavior = "auto";
-  audit("scroll-stability", "info", { version: VERSION, status: "armed" });
+
+  const style = document.createElement("style");
+  style.id = "sl-scroll-native-beta14";
+  style.textContent = `
+    html,body,#root{height:auto!important;min-height:100%!important;}
+    html{overflow-y:auto!important;overscroll-behavior-y:auto!important;}
+    body.app-mobile-shell{overflow-y:visible!important;touch-action:pan-y pinch-zoom!important;overscroll-behavior-y:auto!important;}
+    body.app-mobile-shell #root{overflow:visible!important;min-height:100dvh!important;}
+    body.app-mobile-shell main{overflow-y:visible!important;max-height:none!important;}
+    body.app-mobile-shell footer{position:relative;z-index:1;}
+  `;
+  document.head.appendChild(style);
+  audit("scroll-stability", "info", { version: VERSION, mode: "native-free-scroll" });
 })();
