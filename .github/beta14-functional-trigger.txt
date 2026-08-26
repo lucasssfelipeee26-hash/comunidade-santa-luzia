@@ -1,0 +1,3 @@
+Santa Luzia Motion Beta 14 functional build
+source: work/android-motion-beta14-functional-fixes
+head: f64befdf739a8b2f9a7ca5447efa5dd8fcc14f91
