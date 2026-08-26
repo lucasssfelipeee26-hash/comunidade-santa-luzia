@@ -18,6 +18,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WhatajongPlugin.class);
         registerPlugin(OfflineStorePlugin.class);
         registerPlugin(SyncHttpPlugin.class);
+        registerPlugin(DiagnosticReportPlugin.class);
         super.onCreate(savedInstanceState);
 
         if (ehMotionBeta()) prepararWebViewLocal();
@@ -44,10 +45,8 @@ public class MainActivity extends BridgeActivity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
 
-        // A Beta 10 não carrega a interface do Railway. O Capacitor inicia o
-        // android-web/index.html empacotado; a rede é usada somente pelos plugins
-        // de sincronização e atualização quando uma ação realmente precisa subir
-        // ou descer dados.
+        // A Motion Beta carrega a interface React empacotada no APK. A rede é
+        // usada somente para autenticação e sincronização quando disponível.
         webView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
     }
 }
