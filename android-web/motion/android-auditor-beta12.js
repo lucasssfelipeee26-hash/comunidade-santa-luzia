@@ -1,13 +1,13 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.14";
+  const VERSION = "2.0.0-beta.15";
   const STORAGE_KEY = "santa-luzia:auditor:v1";
   const MAX_EVENTS = 700;
   const MAX_TEXT = 420;
   const SLOW_REQUEST_MS = 1200;
   const BAD_FPS = 45;
-  const ROOT_FLAG = "auditorBeta14";
+  const ROOT_FLAG = "auditorBeta15";
   const OFFLINE_DB = "santa-luzia-motion-local-first-v1";
   if (document.documentElement.dataset[ROOT_FLAG] === VERSION) return;
   document.documentElement.dataset[ROOT_FLAG] = VERSION;
@@ -211,7 +211,7 @@
   }, { passive: true });
 
   function hasVisualIcon(element) {
-    return Boolean(element?.querySelector?.("svg,[data-prayer-person-icon],.sl-r10-profile-icon,.sl-r6-clock,.sl-r8-native-clock,.sl-r13-native-clock,.sl-profile-door-icon"));
+    return Boolean(element?.querySelector?.("svg,[data-prayer-person-icon],.sl-r10-profile-icon,.sl-r6-clock,.sl-r8-native-clock,.sl-r13-native-clock"));
   }
 
   function auditIcons() {
