@@ -88,6 +88,12 @@ if (fs.existsSync(manifestPath)) {
       'android:exported="true"\n            android:resizeableActivity="true"\n            android:windowSoftInputMode="adjustResize">',
     )
   }
+  if (!manifest.includes('android:authorities="${applicationId}.fileprovider"')) {
+    manifest = manifest.replace(
+      "</application>",
+      '        <provider\n            android:name="androidx.core.content.FileProvider"\n            android:authorities="${applicationId}.fileprovider"\n            android:exported="false"\n            android:grantUriPermissions="true">\n            <meta-data\n                android:name="android.support.FILE_PROVIDER_PATHS"\n                android:resource="@xml/diagnostic_file_paths" />\n        </provider>\n    </application>',
+    )
+  }
   if (!manifest.includes('android:name=".CaminhoDaLuzActivity"')) {
     manifest = manifest.replace(
       "</application>",
@@ -103,4 +109,4 @@ if (fs.existsSync(manifestPath)) {
   fs.writeFileSync(manifestPath, manifest)
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, Liturgia anual, Joias da Luz e Whatajong original adaptado local.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, relatório nativo, Liturgia anual, Joias da Luz e Whatajong original adaptado local.`)
