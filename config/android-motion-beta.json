@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20013,
-  "versionName": "2.0.0-beta.13",
+  "versionCode": 20014,
+  "versionName": "2.0.0-beta.14",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -28,5 +28,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 13: consolida a auditoria histórica da linha Android Motion sobre a Beta 12, preservando offline local-first, SQLite/WAL/integridade, Auditor Santa Luzia, perfis horizontais, ícones, pódio e administração. Corrige a animação de porta para acontecer no evento real: pessoa entrando após login aceito e pessoa saindo ao tocar em Sair. Sem shell offline, sem server.url, sem mudanças no Windows e sem alterar o Android oficial 1.0.6/code18."
+  "notes": "Beta 14: corrige os problemas observados em vídeo na Beta 13. Cena de entrada/saída com personagem e porta no tema Santa Luzia; perfis em faixa horizontal estilo Status com busca e modal fechável; Auditor Santa Luzia online/offline com exportação nativa; rolagem vertical livre até o rodapé; ícones restaurados na Home e Perfil; administração de dados movida ao menu do moderador e conectada ao endpoint de produção. Android oficial 1.0.6/code18 e Windows preservados."
 }
