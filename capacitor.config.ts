@@ -2,15 +2,20 @@
 
 import type { CapacitorConfig } from "@capacitor/cli"
 
+const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.9").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-if (valorServidor) {
+// A partir da Motion Beta 9, o WebView Beta SEMPRE nasce do android-web empacotado
+// no APK. O Railway não é mais origem da interface; ele é acessado somente pela
+// ponte nativa SyncHttp para sincronizar dados. O app oficial mantém a configuração
+// anterior e não é alterado por este canal Beta.
+if (!motionBeta && valorServidor) {
   const url = new URL(valorServidor)
   if (url.protocol !== "https:") throw new Error("CAPACITOR_SERVER_URL deve usar HTTPS.")
   servidor = {
     url: url.origin,
-    errorPath: "offline.html",
     cleartext: false,
     androidScheme: "https",
     allowNavigation: [url.hostname],
@@ -19,13 +24,15 @@ if (valorServidor) {
 
 const config: CapacitorConfig = {
   appId: "br.com.comunidadesantaluzia.app",
-  appName: "Santa Luzia",
+  appName: motionBeta ? "Santa Luzia Motion Beta" : "Santa Luzia",
   webDir: "android-web",
   backgroundColor: "#fffaf0",
   loggingBehavior: "none",
   zoomEnabled: false,
   android: {
-    appendUserAgent: " SantaLuziaAndroid",
+    appendUserAgent: motionBeta
+      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaLocalFirst/1`
+      : " SantaLuziaAndroid",
     backgroundColor: "#fffaf0",
     allowMixedContent: false,
     captureInput: false,

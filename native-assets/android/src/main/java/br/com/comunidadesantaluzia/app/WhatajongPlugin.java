@@ -28,11 +28,21 @@ public class WhatajongPlugin extends Plugin {
             call.resolve(resposta);
             return;
         }
-        resposta.put("cancelled", false);
-        resposta.put("score", Math.max(0, data.getIntExtra("score", 0)));
-        resposta.put("completedRound", Math.max(0, data.getIntExtra("completedRound", 0)));
+        int score = Math.max(0, data.getIntExtra("score", 0));
+        int completedRound = Math.max(0, data.getIntExtra("completedRound", 0));
         String dificuldade = data.getStringExtra("difficulty");
-        resposta.put("difficulty", dificuldade == null ? "facil" : dificuldade);
+        String difficulty = dificuldade == null ? "facil" : dificuldade;
+
+        resposta.put("cancelled", false);
+        resposta.put("score", score);
+        resposta.put("completedRound", completedRound);
+        resposta.put("difficulty", difficulty);
+
+        // Compatibilidade com o shell local da Beta 9: a fila genérica usa
+        // level/mode para os dois jogos. A ponte SyncHttp reconverte estes
+        // aliases para completedRound/difficulty antes de chegar ao servidor.
+        resposta.put("level", Math.max(1, completedRound));
+        resposta.put("mode", difficulty);
         call.resolve(resposta);
     }
 }

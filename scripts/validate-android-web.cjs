@@ -2,46 +2,75 @@ const fs = require("node:fs")
 const path = require("node:path")
 const vm = require("node:vm")
 
-const raiz = path.resolve(__dirname, "..")
-const caminhos = {
-  offline: path.join(raiz, "android-web", "offline.html"),
-  bridge: path.join(raiz, "android-web", "offline-bridge.html"),
-  missao: path.join(raiz, "android-web", "caminho-da-luz", "index.html"),
+const root = path.resolve(__dirname, "..")
+const files = {
+  index: path.join(root, "android-web", "index.html"),
+  app: path.join(root, "android-web", "app.js"),
+  quiz: path.join(root, "android-web", "quiz-local.js"),
+  css: path.join(root, "android-web", "app.css"),
+  mission: path.join(root, "android-web", "caminho-da-luz", "index.html"),
 }
 
-for (const arquivo of Object.values(caminhos)) {
-  if (!fs.existsSync(arquivo)) throw new Error(`Arquivo Android ausente: ${path.relative(raiz, arquivo)}`)
-  const html = fs.readFileSync(arquivo, "utf8")
-  if (!/<!doctype html>/i.test(html)) throw new Error(`HTML inválido: ${path.relative(raiz, arquivo)}`)
-
-  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
-  scripts.forEach((match, indice) => {
-    const codigo = match[1].trim()
-    if (!codigo) return
-    new vm.Script(codigo, { filename: `${path.relative(raiz, arquivo)}#script-${indice + 1}` })
-  })
+for (const [name, file] of Object.entries(files)) {
+  if (!fs.existsSync(file)) throw new Error(`Arquivo Android local ausente (${name}): ${path.relative(root, file)}`)
 }
 
-const offline = fs.readFileSync(caminhos.offline, "utf8")
-const marcadores = [
-  ["OfflineStore", "armazenamento nativo local"],
-  ["quiz-liturgia", "fila do Quiz da Liturgia"],
-  ["function perfis()", "perfis/equipe sincronizados"],
-  ["function renderBiblioteca", "Biblioteca local"],
-  ['bottomTabs=[["inicio"', "navegação local com Início"],
-  ['window.addEventListener("online"', "retorno automático ao servidor"],
+const index = fs.readFileSync(files.index, "utf8")
+if (!/<!doctype html>/i.test(index)) throw new Error("android-web/index.html inválido.")
+for (const marker of ["app.css", "app.js", "quiz-local.js", "Abrindo o aplicativo local"]) {
+  if (!index.includes(marker)) throw new Error(`Shell local sem marcador obrigatório: ${marker}`)
+}
+
+for (const [label, file] of [["app.js", files.app], ["quiz-local.js", files.quiz]]) {
+  const code = fs.readFileSync(file, "utf8")
+  new vm.Script(code, { filename: path.relative(root, file) })
+  if (/raw\.githubusercontent\.com|api\.github\.com\/repos/.test(code)) {
+    throw new Error(`${label} não pode baixar código de execução do GitHub.`)
+  }
+}
+
+const app = fs.readFileSync(files.app, "utf8")
+const appMarkers = [
+  'const VERSION = "2.0.0-beta.9"',
+  'plugin("OfflineStore")',
+  'plugin("SyncHttp")',
+  "queueLoad",
+  "queueSave",
+  "flushQueue",
+  "syncNow",
+  "loadLocalLiturgia",
+  "/offline/liturgia-completa/",
+  "renderEscala",
+  "renderFormacao",
+  "renderJornada",
+  "renderLiturgia",
+  "renderAtrasos",
+  "renderManageScale",
+  "renderManageFormation",
+  "renderPresencas",
+  "presenceAction",
+  "reportDelay",
+  "openGame",
 ]
-
-for (const [marcador, recurso] of marcadores) {
-  if (!offline.includes(marcador)) throw new Error(`Núcleo offline sem recurso obrigatório (${recurso}): ${marcador}`)
+for (const marker of appMarkers) if (!app.includes(marker)) throw new Error(`Aplicativo local sem recurso obrigatório: ${marker}`)
+if (/location\.href\s*=\s*["']https?:|window\.location\.assign\(\s*["']https?:/.test(app)) {
+  throw new Error("Aplicativo local não pode redirecionar a interface para uma origem web remota.")
 }
 
-// A Missão do Altar é um pacote local independente. A validação correta é confirmar
-// que o HTML do jogo continua fisicamente dentro de android-web; ele não precisa ser
-// acoplado por uma frase ou link específico da antiga tela de contingência.
-const missao = fs.readFileSync(caminhos.missao, "utf8")
-if (!missao.includes("<script") || missao.length < 1000) {
-  throw new Error("Pacote local da Missão do Altar parece incompleto.")
+const quiz = fs.readFileSync(files.quiz, "utf8")
+for (const marker of ["local:quizzes", "local:quiz-liturgia", "/api/quizzes/liturgia/offline", "saveQueue"]) {
+  if (!quiz.includes(marker)) throw new Error(`Quiz local sem recurso obrigatório: ${marker}`)
 }
 
-console.log("Núcleo Android offline validado: HTML/JavaScript válidos, navegação local, dados essenciais e jogo local presentes.")
+const css = fs.readFileSync(files.css, "utf8")
+for (const marker of ["@keyframes trophy", "@keyframes float3d", ".podium", ".bottom", ".nav-modal"]) {
+  if (!css.includes(marker)) throw new Error(`CSS local sem recurso obrigatório: ${marker}`)
+}
+
+if (fs.existsSync(path.join(root, "android-web", "offline.html"))) throw new Error("Beta 9 não pode manter uma segunda interface offline.html.")
+if (fs.existsSync(path.join(root, "android-web", "offline-bridge.html"))) throw new Error("Beta 9 não pode depender do bridge HTML legado.")
+
+const mission = fs.readFileSync(files.mission, "utf8")
+if (!mission.includes("<script") || mission.length < 1000) throw new Error("Pacote local da Missão do Altar parece incompleto.")
+
+console.log("Android local-first validado: shell, navegação, SQLite/SyncHttp, fila, presença, Atrasos, Liturgia, Ranking, quizzes, animações e jogo local presentes.")
