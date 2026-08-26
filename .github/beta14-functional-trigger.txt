@@ -1,4 +1,4 @@
 Santa Luzia Motion Beta 14 functional build
 source: work/android-motion-beta14-functional-fixes
-head: 2c53de33da07aa7de62565c49da19569b639d0f5
-retry: icon audit ordering fixed
+head: b7da64f4d7a04f11f1867d238d48ad89124ea7f0
+retry: validator updated for beta14 architecture
