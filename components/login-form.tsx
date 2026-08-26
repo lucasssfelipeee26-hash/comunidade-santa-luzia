@@ -7,14 +7,23 @@ import { AlertCircle, Eye, EyeOff, Loader2, LockKeyhole, UserRound, BookOpenText
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ProfileDoorIcon } from "@/components/profile-door-icon"
 import { useStore } from "@/lib/store"
 import { emitAppFeedback } from "@/lib/sound-preferences"
+
+function doorTransitionDelay() {
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 120
+  } catch {}
+  return 1550
+}
 
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useStore()
   const [loading, setLoading] = useState(false)
+  const [entering, setEntering] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarSenha, setMostrarSenha] = useState(false)
 
@@ -38,10 +47,17 @@ export function LoginForm() {
         setErro(res.erro ?? "Não foi possível entrar.")
         return
       }
+
       emitAppFeedback("success")
       navigator.serviceWorker?.controller?.postMessage({ tipo: "AQUECER_CACHE_PRIVADO" })
       window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync"))
       window.setTimeout(() => window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync")), 900)
+
+      // A transição acontece somente depois de a autenticação ter sido aceita:
+      // o personagem entra pela porta e, ao terminar, o painel é aberto.
+      setEntering(true)
+      await new Promise<void>((resolve) => window.setTimeout(resolve, doorTransitionDelay()))
+
       const solicitado = searchParams.get("destino")
       const destinoSeguro = solicitado && solicitado.startsWith("/") && !solicitado.startsWith("//") ? solicitado : null
       router.replace(destinoSeguro ?? res.destino ?? "/area-restrita")
@@ -49,13 +65,14 @@ export function LoginForm() {
     } catch {
       emitAppFeedback("error")
       setErro("Não foi possível conectar ao servidor. Verifique a conexão do aplicativo e tente novamente.")
+      setEntering(false)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-5" data-login-door-transition="true">
       <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-3 text-sm text-muted-foreground">
         Entre com seu <strong className="text-foreground">nome de usuário ou e-mail</strong>. A senha diferencia letras maiúsculas e minúsculas.
       </div>
@@ -115,8 +132,14 @@ export function LoginForm() {
         </div>
       )}
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? <><Loader2 className="size-4 animate-spin" />Entrando…</> : "Entrar"}
+      <Button type="submit" className="w-full" disabled={loading || entering} aria-busy={loading || entering}>
+        {entering ? (
+          <><ProfileDoorIcon className="size-5" animated loop={false} direction="enter" /><span>Entrando…</span></>
+        ) : loading ? (
+          <><Loader2 className="size-4 animate-spin" />Entrando…</>
+        ) : (
+          <><ProfileDoorIcon className="size-5" animated={false} loop={false} direction="enter" /><span>Entrar</span></>
+        )}
       </Button>
 
       <div className="relative py-1">
