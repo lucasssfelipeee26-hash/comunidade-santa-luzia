@@ -22,9 +22,8 @@ function requireAll(relative, markers, label) {
 function assertOrder(text, markers, label) {
   let previous = -1
   for (const marker of markers) {
-    const current = text.indexOf(marker)
-    if (current < 0) throw new Error(`${label}: marcador ausente: ${marker}`)
-    if (current <= previous) throw new Error(`${label}: ordem inválida em ${marker}`)
+    const current = text.indexOf(marker, previous + 1)
+    if (current < 0) throw new Error(`${label}: marcador ausente após a etapa anterior: ${marker}`)
     previous = current
   }
 }
@@ -60,11 +59,17 @@ const login = requireAll("components/login-form.tsx", [
   "ProfileDoorIcon",
   "data-login-door-transition=\"true\"",
   "setEntering(true)",
-  "doorTransitionDelay()",
+  "await new Promise<void>((resolve) => window.setTimeout(resolve, doorTransitionDelay()))",
   "loop={false}",
   "direction=\"enter\"",
 ], "Entrada pela porta")
-assertOrder(login, ["const res = await login", "setEntering(true)", "doorTransitionDelay()", "router.replace"], "Entrada deve ocorrer após autenticação e antes da navegação")
+assertOrder(login, [
+  "const res = await login(usuario, senha)",
+  "setEntering(true)",
+  "await new Promise<void>((resolve) => window.setTimeout(resolve, doorTransitionDelay()))",
+  "const solicitado = searchParams.get(\"destino\")",
+  "router.replace(destinoSeguro",
+], "Entrada deve ocorrer após autenticação e antes da navegação")
 
 const header = requireAll("components/area-header.tsx", [
   "setLeaving(true)",
@@ -72,9 +77,14 @@ const header = requireAll("components/area-header.tsx", [
   "disabled={leaving}",
   "loop={!leaving}",
   "direction=\"exit\"",
-  "doorTransitionDelay()",
+  "await new Promise<void>((resolve) => window.setTimeout(resolve, doorTransitionDelay()))",
 ], "Saída pela porta")
-assertOrder(header, ["setLeaving(true)", "doorTransitionDelay()", "router.replace"], "Saída deve animar antes de voltar ao login")
+assertOrder(header, [
+  "setLeaving(true)",
+  "const logoutRequest = fetch",
+  "await new Promise<void>((resolve) => window.setTimeout(resolve, doorTransitionDelay()))",
+  "router.replace(\"/area-restrita/login\")",
+], "Saída deve animar antes de voltar ao login")
 
 const moderator = requireAll("components/moderador-dashboard.tsx", [
   "AdministracaoModerador",
