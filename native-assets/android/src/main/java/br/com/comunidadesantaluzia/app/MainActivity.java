@@ -1,6 +1,7 @@
 package br.com.comunidadesantaluzia.app;
 
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -47,6 +48,12 @@ public class MainActivity extends BridgeActivity {
 
         // A Motion Beta carrega a interface React empacotada no APK. A rede é
         // usada somente para autenticação e sincronização quando disponível.
-        webView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
+        // A Beta 14 deixa o WebView controlar a rolagem vertical sem uma camada
+        // JavaScript reposicionando a tela e mantém a barra visível durante uso.
+        webView.setOverScrollMode(WebView.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        webView.setVerticalScrollBarEnabled(true);
+        webView.setHorizontalScrollBarEnabled(false);
+        webView.setScrollbarFadingEnabled(false);
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
     }
 }
