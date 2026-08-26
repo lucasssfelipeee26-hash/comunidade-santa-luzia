@@ -2,11 +2,19 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { NotificationCenter } from "@/components/notification-center"
 import { ProfileDoorIcon } from "@/components/profile-door-icon"
 import { site } from "@/lib/site"
+
+function doorTransitionDelay() {
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 120
+  } catch {}
+  return 1550
+}
 
 export function AreaHeader({
   titulo,
@@ -24,14 +32,21 @@ export function AreaHeader({
   menu?: React.ReactNode
 }) {
   const router = useRouter()
+  const [leaving, setLeaving] = useState(false)
 
   async function handleLogout() {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
-    } finally {
-      router.replace("/area-restrita/login")
-      router.refresh()
-    }
+    if (leaving) return
+    setLeaving(true)
+
+    const logoutRequest = fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined)
+    await new Promise<void>((resolve) => window.setTimeout(resolve, doorTransitionDelay()))
+    await Promise.race([
+      logoutRequest,
+      new Promise<void>((resolve) => window.setTimeout(resolve, 1200)),
+    ])
+
+    router.replace("/area-restrita/login")
+    router.refresh()
   }
 
   return (
@@ -62,13 +77,16 @@ export function AreaHeader({
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-white text-primary shadow-sm transition active:scale-95 sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-sm sm:font-medium"
-            aria-label="Sair da Área Restrita"
+            disabled={leaving}
+            aria-busy={leaving}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-white text-primary shadow-sm transition active:scale-95 disabled:cursor-wait disabled:opacity-90 sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3 sm:text-sm sm:font-medium"
+            aria-label={leaving ? "Saindo da Área Restrita" : "Sair da Área Restrita"}
             title="Sair"
             data-sl-nav-motion="logout-door"
+            data-logout-door-transition={leaving ? "running" : "idle"}
           >
-            <ProfileDoorIcon className="size-[19px]" animated loop direction="exit" />
-            <span className="hidden sm:inline">Sair</span>
+            <ProfileDoorIcon className="size-[19px]" animated loop={!leaving} direction="exit" />
+            <span className="hidden sm:inline">{leaving ? "Saindo…" : "Sair"}</span>
           </button>
         </div>
       </div>
