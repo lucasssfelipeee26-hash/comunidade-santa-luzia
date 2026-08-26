@@ -1,4 +1,5 @@
 Santa Luzia Motion Beta 15
 source: work/android-motion-beta14-functional-fixes
-head: 31eb281890380f89420b9f0673505992ee73c421
+head: 39dd5dd8c65ca26f212bfa7496ae1bc31b45c4fe
 requirements: no character/door animation; status-style profiles; corrected navigation; searchable scale history; working auditor/admin
+retry: conventional profile icon restored
