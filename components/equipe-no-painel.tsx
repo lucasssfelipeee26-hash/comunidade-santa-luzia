@@ -114,9 +114,9 @@ export function EquipeNoPainel() {
           </div>
           <p className="mt-0.5 text-[9px] leading-3.5 text-muted-foreground">Arraste para o lado como nos Status ou pesquise pelo nome.</p>
         </div>
-        <div className="relative w-[118px] shrink-0 sm:w-52">
+        <div className="relative w-[132px] shrink-0 sm:w-52">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar" className="h-8 rounded-xl bg-white pl-8 pr-2 text-[10px]" />
+          <Input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar perfil por nome" aria-label="Buscar perfil por nome" className="h-8 rounded-xl bg-white pl-8 pr-2 text-[10px]" />
         </div>
       </div>
 
@@ -131,21 +131,15 @@ export function EquipeNoPainel() {
       ) : (
         <div className="relative mt-3">
           <button type="button" onClick={() => moverFaixa(-1)} aria-label="Ver perfis anteriores" className="absolute -left-1 top-5 z-10 hidden size-7 items-center justify-center rounded-full border bg-white/95 text-primary shadow sm:flex"><ChevronLeft className="size-4" /></button>
-          <div
-            ref={railRef}
-            className="-mx-1 flex min-w-0 snap-x snap-mandatory gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-1 pb-2 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            data-no-pull-refresh
-            data-team-profile-status-rail="true"
-            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
-          >
+          <div ref={railRef} className="-mx-1 flex min-w-0 snap-x snap-mandatory gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-1 pb-2 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-no-pull-refresh data-team-profile-status-rail="true" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}>
             {filtrados.map((perfil) => {
               const destaque = destaqueDoRecado(perfil.bio)
               return (
                 <button key={perfil.id} type="button" onClick={() => setSelecionado(perfil)} className="group w-[76px] shrink-0 snap-start text-center active:scale-[.96] sm:w-[84px]" aria-label={`Abrir perfil de ${perfil.nome}`}>
                   <div className="relative mx-auto w-fit rounded-full bg-[linear-gradient(145deg,#7b1326,#d4af37,#f1d577)] p-[2px] shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md">
                     <div className="rounded-full bg-white p-[2px]">
-                      <Avatar className="size-[58px] border border-white sm:size-16">
-                        <AvatarImage src={perfil.foto || undefined} className="object-cover object-center" />
+                      <Avatar className="size-[58px] aspect-square border border-white sm:size-16">
+                        <AvatarImage src={perfil.foto || undefined} className="h-full w-full object-cover object-center" />
                         <AvatarFallback className="bg-primary/10 text-[11px] font-bold text-primary">{iniciais(perfil.nome)}</AvatarFallback>
                       </Avatar>
                     </div>
@@ -171,9 +165,11 @@ export function EquipeNoPainel() {
 
             <div className="p-4 sm:p-6">
               <div className="flex min-w-0 flex-col items-center text-center">
-                <div className="relative rounded-full bg-[linear-gradient(145deg,#7b1326,#d4af37,#f1d577)] p-[3px] shadow-lg">
-                  <div className="rounded-full bg-white p-[3px]"><Avatar className="size-24 border border-white sm:size-28"><AvatarImage src={selecionado.foto || undefined} className="object-cover object-center" /><AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">{iniciais(selecionado.nome)}</AvatarFallback></Avatar></div>
-                  {destaqueDoRecado(selecionado.bio) && <span className="absolute -right-2 -top-1 flex min-h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-white px-2 text-sm font-black text-primary shadow-lg">{destaqueDoRecado(selecionado.bio)}</span>}
+                <div className="relative w-[132px] overflow-hidden rounded-[24px] border-[3px] border-[#d4af37] bg-[#f4eee4] p-1 shadow-lg sm:w-[150px]" data-profile-photo-frame="preserve-ratio">
+                  <div className="aspect-[4/5] w-full overflow-hidden rounded-[19px] bg-[#efe6da]">
+                    {selecionado.foto ? <img src={selecionado.foto} alt={`Foto de ${selecionado.nome}`} className="h-full w-full object-contain object-center" data-profile-photo-full="true" /> : <div className="flex h-full w-full items-center justify-center bg-primary/10 font-serif text-3xl font-bold text-primary">{iniciais(selecionado.nome)}</div>}
+                  </div>
+                  {destaqueDoRecado(selecionado.bio) && <span className="absolute -right-1 -top-1 flex min-h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-white px-2 text-sm font-black text-primary shadow-lg">{destaqueDoRecado(selecionado.bio)}</span>}
                 </div>
                 <h2 className="mt-3 max-w-full break-words font-serif text-2xl font-semibold text-primary sm:text-3xl">{selecionado.nome}</h2>
                 <p className="mt-1 max-w-full break-words text-sm font-semibold text-foreground">{selecionado.funcao} · desde {dataBonita(selecionado.desde)}</p>
