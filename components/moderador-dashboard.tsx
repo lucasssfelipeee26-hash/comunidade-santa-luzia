@@ -5,7 +5,6 @@ import { ShieldCheck, ChevronRight, UserCheck, UserX, Clock, ClipboardCheck } fr
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProfileSettings } from "@/components/profile-settings"
 import { ModeratorPromotionPanel } from "@/components/moderator-promotion-panel"
-import { AdministracaoModerador } from "@/components/administracao-moderador"
 import { EquipeNoPainel } from "@/components/equipe-no-painel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -87,7 +86,6 @@ export function ModeradorDashboard() {
           </details>
         )}
 
-        <AdministracaoModerador />
         <EquipeNoPainel />
       </main>
     </div>
