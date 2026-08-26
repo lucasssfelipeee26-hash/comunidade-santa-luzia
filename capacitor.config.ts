@@ -3,11 +3,11 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.12").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.13").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
-// O Android oficial mantém seu comportamento atual. A Motion Beta 12 preserva
+// O Android oficial mantém seu comportamento atual. A Motion Beta preserva
 // a arquitetura local/offline aprovada: a interface React nasce dentro do APK
 // e não usa server.url. O Railway participa somente da autenticação e do sync.
 if (!motionBeta && valorServidor) {
