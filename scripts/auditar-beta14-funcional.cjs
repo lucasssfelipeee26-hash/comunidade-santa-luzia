@@ -38,8 +38,9 @@ all("components/area-header.tsx", ["DoorTransitionScene", "direction=\"exit\"", 
 
 all("components/equipe-no-painel.tsx", [
   "data-team-profile-status-rail", "overflow-x-auto", "snap-x", "touch-pan-x", "placeholder=\"Buscar perfil por nome\"",
-  "data-profile-viewer-banner", "data-profile-close", "Ranking", "Pontos", "Aproveitamento", "santa-luzia:perfis-publicos:v1",
-], "Perfis estilo Status")
+  "data-profile-viewer-banner", "data-profile-close", "data-profile-photo-frame=\"preserve-ratio\"", "data-profile-photo-full=\"true\"", "object-contain object-center",
+  "Classificação", "Pontos", "Aproveitamento", "santa-luzia:perfis-publicos:v1",
+], "Perfis estilo Status e foto proporcional")
 
 all("components/diagnostico-santa-luzia.tsx", [
   "data-auditor-santa-luzia=\"beta14\"", "Executar auditoria agora", "Gerar relatório técnico", "Compartilhar relatório",
@@ -79,4 +80,4 @@ all("lib/data-protection.ts", ["MAX_BACKUPS = 8", "atomicWrite", "fs.fsyncSync",
 all("android-web/motion/android-local-first-beta8.js", ["queueEligible", "optimisticMutation", "replayQueue", "/api/escalas", "/api/formacoes", "/api/perfil"], "Fila offline")
 all("android-web/motion/android-domain-bridge-beta10.js", ["reportar_atraso", "minha-presenca", "caminho-da-luz", "whatajong"], "Domínio offline")
 
-console.log("Beta 14 aprovada na auditoria de completude: cena da porta, perfis estilo Status, Auditor online/offline com relatório nativo, rolagem, ícones, administração, banco e offline local-first presentes; Android oficial 1.0.6/code18 preservado.")
+console.log("Beta 14 aprovada na auditoria de completude: cena da porta, perfis estilo Status com foto proporcional, Auditor online/offline com relatório nativo, rolagem, ícones, administração, banco e offline local-first presentes; Android oficial 1.0.6/code18 preservado.")
