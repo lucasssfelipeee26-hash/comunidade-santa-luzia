@@ -17,6 +17,7 @@ import {
   Menu,
   Palette,
   Sparkles,
+  UsersRound,
   X,
 } from "lucide-react"
 import { PrayerPersonIcon } from "@/components/prayer-person-icon"
@@ -63,6 +64,7 @@ function MenuArea({ itens, rotulo }: { itens: ItemMenu[]; rotulo: string }) {
 export function ModeradorMenu() {
   const itens: ItemMenu[] = [
     { href: "/area-restrita/moderador", label: "Painel do Moderador", curto: "Painel", icon: <LayoutDashboard className="size-5" />, motion: "panel" },
+    { href: "/area-restrita/perfis", label: "Perfis da equipe", curto: "Perfis", icon: <UsersRound className="size-5" /> },
     { href: "/area-restrita/atrasos", label: "Central de Atrasos", curto: "Atrasos", icon: <Clock3 className="size-5" />, motion: "clock" },
     { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" />, motion: "quiz" },
     { href: "/area-restrita/moderador/escala", label: "Gerenciar Escalas", curto: "Escalas", icon: <CalendarCheck2 className="size-5" />, motion: "scale" },
@@ -81,6 +83,7 @@ export function ModeradorMenu() {
 export function MembroMenu() {
   const itens: ItemMenu[] = [
     { href: "/area-restrita/membro", label: "Meu Perfil", curto: "Meu perfil", icon: <PrayerPersonIcon className="size-5" /> },
+    { href: "/area-restrita/perfis", label: "Perfis da equipe", curto: "Perfis", icon: <UsersRound className="size-5" /> },
     { href: "/area-restrita/atrasos", label: "Central de Atrasos", curto: "Atrasos", icon: <Clock3 className="size-5" />, motion: "clock" },
     { href: "/area-restrita/ranking", label: "Jornada Litúrgica", curto: "Jornada", icon: <Sparkles className="size-5" />, motion: "quiz" },
     { href: "/escala", label: "Escala do Dia", curto: "Escala", icon: <CalendarDays className="size-5" />, motion: "scale" },
