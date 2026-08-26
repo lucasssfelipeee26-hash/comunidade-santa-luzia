@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { BookOpenText, CalendarDays, Library, LogIn, UserPlus } from "lucide-react"
+import { BookOpenText, CalendarDays, Library, LogIn, ScrollText } from "lucide-react"
 import { SiteHeader } from "@/components/site-header"
 import { Hero } from "@/components/hero"
 import { DeferredLiturgia } from "@/components/home-deferred"
@@ -11,7 +11,7 @@ const atalhos = [
     icon: BookOpenText,
     motion: "book",
     title: "Centro Litúrgico",
-    text: "Liturgia diária, Liturgia das Horas, Rosário, guia da Missa e calendário.",
+    text: "Liturgia das Horas, Rosário, guia da Missa e calendário litúrgico.",
     href: "/liturgia",
     cta: "Abrir centro",
   },
@@ -32,19 +32,18 @@ const atalhos = [
     cta: "Abrir biblioteca",
   },
   {
-    icon: UserPlus,
-    motion: "person",
-    title: "Quero participar",
-    text: "Acólitos e coroinhas podem solicitar cadastro para a área restrita.",
-    href: "/area-restrita/cadastro",
-    cta: "Solicitar acesso",
+    icon: ScrollText,
+    motion: "book",
+    title: "Liturgia Diária",
+    text: "Consulte as leituras e o Evangelho do dia diretamente no aplicativo.",
+    href: "/visitante#liturgia",
+    cta: "Ler liturgia",
   },
 ]
 
 export default async function VisitantePage() {
   const sessao = await lerSessao()
   const autenticado = Boolean(sessao)
-  const atalhosVisiveis = autenticado ? atalhos.filter((item) => item.href !== "/area-restrita/cadastro") : atalhos
 
   return (
     <div className="public-home min-h-screen bg-[#fffaf0]">
@@ -52,10 +51,8 @@ export default async function VisitantePage() {
         .sl-home-shortcut-icon svg{transform-box:fill-box;transform-origin:center;will-change:transform}
         .sl-home-shortcut-icon[data-motion="book"] svg,.sl-home-shortcut-icon[data-motion="library"] svg{animation:slHomeBook 5s ease-in-out infinite}
         .sl-home-shortcut-icon[data-motion="calendar"] svg{animation:slHomeCalendar 5.2s ease-in-out .35s infinite}
-        .sl-home-shortcut-icon[data-motion="person"] svg{animation:slHomePerson 5s ease-in-out .7s infinite}
         @keyframes slHomeBook{0%,75%,100%{transform:perspective(90px) rotateY(0)}82%{transform:perspective(90px) rotateY(-18deg)}90%{transform:perspective(90px) rotateY(9deg)}}
         @keyframes slHomeCalendar{0%,76%,100%{transform:none}83%{transform:translateY(-2px) rotateX(16deg)}91%{transform:translateY(1px)}}
-        @keyframes slHomePerson{0%,76%,100%{transform:none}83%{transform:translateY(-2px) scale(1.06)}91%{transform:translateY(1px) scale(.98)}}
         @media(prefers-reduced-motion:reduce){.sl-home-shortcut-icon svg{animation:none!important}}
       `}</style>
       <SiteHeader />
@@ -63,7 +60,7 @@ export default async function VisitantePage() {
         {!autenticado && (
           <div className="border-b border-[#d4af37]/45 bg-[#fff7e5] px-3 py-1.5 text-center text-[10px] font-semibold text-[#6d4d0f] sm:px-4 sm:py-2.5 sm:text-xs">
             <span className="mr-1">Modo visitante</span>
-            <span className="hidden text-[#756b5f] sm:inline">· Centro Litúrgico, Escala do Dia e Biblioteca</span>
+            <span className="hidden text-[#756b5f] sm:inline">· Centro Litúrgico, Escala do Dia, Biblioteca e Liturgia Diária</span>
             <Link href="/area-restrita/login" className="ml-2 inline-flex items-center gap-1 font-bold text-[#7b1326] hover:underline">
               <LogIn className="size-3 sm:size-3.5" /> Entrar
             </Link>
@@ -72,9 +69,9 @@ export default async function VisitantePage() {
 
         <Hero />
 
-        <section className="relative z-10 bg-[#fffaf0] py-4 sm:py-8">
-          <div className={`mx-auto grid max-w-7xl grid-cols-2 gap-2 px-2.5 sm:gap-4 sm:px-4 lg:px-6 ${atalhosVisiveis.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-            {atalhosVisiveis.map(({ icon: Icon, ...item }) => (
+        <section className="relative z-10 bg-[#fffaf0] py-4 sm:py-8" data-home-public-shortcuts="4">
+          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-2 px-2.5 sm:gap-4 sm:px-4 lg:grid-cols-4 lg:px-6">
+            {atalhos.map(({ icon: Icon, ...item }) => (
               <Link
                 prefetch={false}
                 key={item.title}
