@@ -1,22 +1,85 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.16";
-  const FLAG = "santaLuziaAuditorBeta16Patched";
+  const VERSION = "2.0.0-beta.18";
+  const FLAG = "santaLuziaAuditorBeta18Patched";
+  const STORAGE_KEY = "santa-luzia:auditor:v1";
+  const CLEAN_VERSION_KEY = "santa-luzia:auditor:last-clean-version";
+
+  function eventSignature(event) {
+    const type = String(event?.type || "unknown");
+    const route = String(event?.route || "");
+    if (type === "javascript-error") return `${type}|${event?.message || ""}|${event?.file || ""}|${event?.line || ""}`;
+    if (type === "unhandled-rejection") return `${type}|${event?.name || ""}|${event?.message || ""}`;
+    if (type === "fetch" || type === "fetch-error") return `${type}|${event?.method || "GET"}|${event?.path || ""}|${event?.status || 0}|${route}`;
+    if (type === "fps-sample") return `${type}|${route}|${Number(event?.fps || 0) < 45 ? "low" : "ok"}`;
+    if (type === "scroll-jump" || type === "missing-icons" || type === "icon-audit") return `${type}|${route}`;
+    if (type === "local-db-health") return `${type}|${event?.ok === false ? "bad" : "ok"}`;
+    if (type === "route-transition") return `${type}|${event?.pathname || route}`;
+    return `${type}|${event?.level || "info"}|${route}`;
+  }
+
+  function isExpectedNoise(event) {
+    if (!event) return true;
+    const type = String(event.type || "");
+    const path = String(event.path || "");
+    const route = String(event.route || "");
+    const status = Number(event.status || 0);
+
+    if ((type === "auditor-ready" || type === "scroll-stability") && event.version && event.version !== VERSION) return true;
+    if (type === "fetch" && status === 401 && (route === "/" || route.startsWith("/area-restrita/login"))) return true;
+    if (type === "fetch" && status === 404 && path === "/api/configuracao/diagnostico") return true;
+    return false;
+  }
 
   function compactEvents(events) {
     const list = Array.isArray(events) ? events : [];
-    const out = [];
-    let lastDb = null;
-    let lastIconOk = null;
-    for (const event of list) {
-      if (event?.type === "local-db-health" && event?.level === "info") { lastDb = event; continue; }
-      if (event?.type === "icon-audit" && event?.level === "info") { lastIconOk = event; continue; }
-      out.push(event);
+    const bySignature = new Map();
+    for (const raw of list) {
+      if (isExpectedNoise(raw)) continue;
+      const event = { ...raw };
+      const signature = eventSignature(event);
+      const current = bySignature.get(signature);
+      if (!current) {
+        bySignature.set(signature, {
+          ...event,
+          occurrences: Number(event.occurrences || 1),
+          firstAt: Number(event.firstAt || event.at || Date.now()),
+          lastAt: Number(event.lastAt || event.at || Date.now()),
+          signature,
+        });
+        continue;
+      }
+      current.occurrences = Number(current.occurrences || 1) + Number(event.occurrences || 1);
+      current.firstAt = Math.min(Number(current.firstAt || current.at || Date.now()), Number(event.firstAt || event.at || Date.now()));
+      current.lastAt = Math.max(Number(current.lastAt || current.at || 0), Number(event.lastAt || event.at || 0));
+      current.at = current.lastAt;
+      for (const [key, value] of Object.entries(event)) if (value !== undefined) current[key] = value;
+      current.signature = signature;
     }
-    if (lastDb) out.push(lastDb);
-    if (lastIconOk) out.push(lastIconOk);
-    return out.slice(-700);
+    return [...bySignature.values()]
+      .sort((a, b) => Number(a.lastAt || a.at || 0) - Number(b.lastAt || b.at || 0))
+      .slice(-260);
+  }
+
+  function persistCompacted(events) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: VERSION, updatedAt: Date.now(), events })); } catch {}
+  }
+
+  function uniqueSummary(events, original, deepResult) {
+    return {
+      ...original,
+      errors: events.filter((event) => event?.level === "error").length,
+      warnings: events.filter((event) => event?.level === "warning").length,
+      slowRequests: events.filter((event) => event?.type === "fetch" && event?.slow).length,
+      lowFpsSamples: events.filter((event) => event?.type === "fps-sample" && Number(event?.fps || 60) < 45).length,
+      scrollJumps: events.filter((event) => event?.type === "scroll-jump").length,
+      missingIconAudits: events.filter((event) => event?.type === "missing-icons").length,
+      deepFindings: Number(deepResult?.summary?.findings || 0),
+      deepErrors: Number(deepResult?.summary?.errors || 0),
+      deepWarnings: Number(deepResult?.summary?.warnings || 0),
+      countingMode: "unique-signatures",
+    };
   }
 
   function reportName() {
@@ -47,32 +110,38 @@
     if (core[FLAG]) return;
     core[FLAG] = true;
 
+    try {
+      if (localStorage.getItem(CLEAN_VERSION_KEY) !== VERSION) {
+        core.clear();
+        localStorage.setItem(CLEAN_VERSION_KEY, VERSION);
+        localStorage.removeItem("santa-luzia:deep-audit:last:v1");
+      }
+    } catch {}
+
     const originalSnapshot = core.snapshot.bind(core);
-    core.snapshot = async function beta16Snapshot() {
+    core.snapshot = async function beta18Snapshot() {
       const report = await originalSnapshot();
       const deepResult = deep.getLast?.() || null;
       const events = compactEvents(report.events);
-      const summary = {
-        ...report.summary,
-        errors: events.filter((event) => event?.level === "error").length,
-        warnings: events.filter((event) => event?.level === "warning").length,
-        deepFindings: Number(deepResult?.summary?.findings || 0),
-        deepErrors: Number(deepResult?.summary?.errors || 0),
-        deepWarnings: Number(deepResult?.summary?.warnings || 0),
-      };
+      persistCompacted(events);
+      const summary = uniqueSummary(events, report.summary || {}, deepResult);
       return {
         ...report,
-        schema: "santa-luzia-diagnostico-v3",
+        schema: "santa-luzia-diagnostico-v4",
         app: { ...(report.app || {}), version: VERSION },
         summary,
         events,
         deepAudit: deepResult,
         glitchTip: deep.getGlitchTipStatus?.() || null,
+        counting: {
+          mode: "unique-signatures",
+          note: "Repetições do mesmo defeito incrementam occurrences e não aumentam o total de erros/alertas.",
+        },
         privacy: "Relatório técnico sem cookies, senhas, tokens, corpos de requisição ou conteúdo pessoal deliberadamente coletado. Deep Scan usa somente geometria, seletores técnicos e estado de componentes.",
       };
     };
 
-    core.exportReport = async function beta16ExportReport() {
+    core.exportReport = async function beta18ExportReport() {
       try { await deep.run({ sendRemote: true }); } catch {}
       const report = await core.snapshot();
       const fileName = reportName();
@@ -83,13 +152,13 @@
         saved = await native.saveReport({ fileName, content });
         saved = { ...saved, method: "android-native" };
       } else saved = await browserDownload(fileName, content);
-      core.add?.("report-exported", "info", { events: report.events.length, fileName, method: saved.method, beta16: true, deepFindings: report.summary.deepFindings });
+      core.add?.("report-exported", "info", { events: report.events.length, fileName, method: saved.method, beta18: true, uniqueErrors: report.summary.errors });
       return { ...report, export: saved };
     };
 
     core.version = VERSION;
-    core.add?.("auditor-beta16-patch-ready", "info", { version: VERSION, deepScan: true, glitchTipBridge: true });
-    window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta16-patch-ready" } }));
+    core.add?.("auditor-beta18-patch-ready", "info", { version: VERSION, deepScan: true, uniqueCounting: true });
+    window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta18-patch-ready" } }));
   }
 
   patch();
