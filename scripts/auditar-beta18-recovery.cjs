@@ -25,7 +25,24 @@ if (beta.versionName !== "2.0.0-beta.18" || beta.versionCode !== 20018) throw ne
 if (beta.applicationId !== "br.com.comunidadesantaluzia.motionbeta") throw new Error("Pacote Beta alterado")
 if (stable.versionName !== "1.0.6" || stable.versionCode !== 18) throw new Error(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}`)
 
-requireAll("components/mobile-bottom-nav.tsx", [
+// IMAGENS EXPLICATIVAS — HOME limpa e quatro acessos públicos.
+requireAll("components/hero.tsx", [
+  'data-hero-clean-image="true"',
+  'className="object-contain object-center"',
+  "Servir a Deus",
+], "Imagem explicativa: banner principal limpo")
+forbid("components/hero.tsx", ["Liturgia diária", "Liturgia Diária", "Escala do dia", "Escala do Dia", "href=\"/escala\"", "href=\"/liturgia\""], "Imagem explicativa: atalhos não podem ficar sobre o banner")
+requireAll("app/visitante/page.tsx", [
+  'data-home-public-shortcuts="4"',
+  'title: "Centro Litúrgico"',
+  'title: "Escala do Dia"',
+  'title: "Biblioteca"',
+  'title: "Liturgia Diária"',
+  "<Hero />",
+], "Imagem explicativa: quatro cards públicos")
+
+// IMAGENS EXPLICATIVAS — barra inferior deve existir online/offline e usar animação ORIGINAL contínua.
+const bottom = requireAll("components/mobile-bottom-nav.tsx", [
   'label: "Início", icon: Home, motion: "panel"',
   'label: "Escala", icon: CalendarDays, motion: "scale"',
   'label: "Formação", icon: GraduationCap, motion: "formation"',
@@ -33,29 +50,114 @@ requireAll("components/mobile-bottom-nav.tsx", [
   'className="mobile-app-bottom-nav',
   'data-bottom-nav-network-stable="true"',
   'data-sl-nav-motion={"motion" in item ? item.motion : undefined}',
-], "Barra inferior original")
-forbid("components/mobile-bottom-nav.tsx", ["function animarIcone", "svg.animate(frames", 'motion: "home"'], "Animação substituta")
+  '[data-sl-nav-motion="panel"] svg{animation:slR11Panel 2.2s ease-in-out infinite}',
+  '[data-sl-nav-motion="scale"] svg{animation:slR10ScaleMotion 2.1s ease-in-out infinite}',
+  '[data-sl-nav-motion="liturgy"] svg,[data-sl-nav-motion="formation"] svg{animation:slR11Page 2.5s ease-in-out infinite}',
+  '[data-sl-nav-motion="library"] svg{animation:slR11Library 2.3s ease-in-out infinite}',
+  '[data-sl-nav-motion="quiz"] svg{animation:slR11Quiz 2s ease-in-out infinite}',
+  "@keyframes slR11Panel",
+  "@keyframes slR10ScaleMotion",
+  "@keyframes slR11Page",
+  "@keyframes slR11Library",
+  "@keyframes slR11Quiz",
+], "Imagem explicativa: barra inferior e animações originais")
+if (/me === undefined\s*&&\s*sessaoOffline === undefined\)\s*return null/.test(bottom)) throw new Error("Barra inferior: não pode desaparecer enquanto resolve a sessão online/offline")
+forbid("components/mobile-bottom-nav.tsx", ["function animarIcone", "svg.animate(frames", 'motion: "home"', "UserRound"], "Imagem explicativa: não substituir animação original nem Início por Perfil")
 
+// IMAGENS EXPLICATIVAS — menu hamburger sem atalhos duplicados marcados com X.
+requireAll("components/site-header.tsx", [
+  'data-main-profile-access="hamburger"',
+  'aria-label="Abrir meu perfil"',
+], "Imagem explicativa: hamburger principal como acesso ao perfil logado")
+requireAll("components/area-menu.tsx", [
+  "/area-restrita/moderador/administracao",
+  "Administração de dados",
+  "Database",
+  "/area-restrita/perfis",
+], "Imagem explicativa: ferramentas no menu")
+forbid("components/area-menu.tsx", [
+  'curto: "Painel"',
+  'curto: "Escala pública"',
+  '{ href: "/liturgia"',
+  '{ href: "/biblioteca"',
+  '{ href: "/escala", label: "Escala do Dia"',
+  '{ href: "/formacao", label: "Formação"',
+], "Imagem explicativa: atalhos repetidos não podem voltar ao hamburger")
+
+// IMAGENS EXPLICATIVAS — painel não pode recuperar cards já removidos.
 requireAll("components/moderador-dashboard.tsx", [
   "<ProfileSettings />", "<ModeratorPromotionPanel />", "<EquipeNoPainel />", '>Atrasos<', '>Presenças<', "Cadastros aguardando aprovação",
 ], "Painel atual do moderador")
-forbid("components/moderador-dashboard.tsx", ["AdministracaoModerador", "Meu relatório", "Meu Relatório", "door-transition"], "Itens removidos do painel")
-requireAll("components/area-menu.tsx", ["/area-restrita/moderador/administracao", "Database"], "Administração no menu")
+forbid("components/moderador-dashboard.tsx", ["AdministracaoModerador", "Administração de dados", "Meu relatório", "Meu Relatório", "door-transition"], "Imagem explicativa: itens removidos do painel")
 
-requireAll("components/equipe-no-painel.tsx", ["createPortal", "data-profile-viewer-banner", "data-profile-close", "data-profile-scroll", 'data-profile-photo-frame="preserve-ratio"'], "Perfis")
-requireAll("android-local/shims/next-navigation.ts", ["slRouteTransition", "santa-luzia:route-settled", "resetScroll"], "Transições")
+// VÍDEO DE PERFIS — faixa estilo Status, busca, modal completo, X e proporção correta.
+requireAll("components/equipe-no-painel.tsx", [
+  "createPortal",
+  "document.body",
+  'data-team-profile-status-rail="true"',
+  'placeholder="Buscar perfil por nome"',
+  'data-profile-viewer-overlay="true"',
+  'data-profile-viewer-banner="true"',
+  'data-profile-close="true"',
+  'data-profile-scroll="true"',
+  'data-profile-photo-frame="preserve-ratio"',
+  'data-profile-photo-full="true"',
+  "object-contain object-center",
+  "Classificação",
+  "Aproveitamento",
+], "Vídeo de perfis")
 
+// IMAGENS EXPLICATIVAS — Escalas recentes em destaque e histórico pesquisável, sem lista infinita.
+requireAll("components/escala-publica.tsx", [
+  'data-escala-history-enabled="true"',
+  'data-escala-history-search="date-liturgical-season"',
+  'data-escala-history-filters="true"',
+  'data-escala-filter-date="true"',
+  'data-escala-filter-season="true"',
+  "historicoCompleto.slice(0, 6)",
+  "Próxima escala",
+  'data-escala-recente={destaque ? "true" : undefined}',
+  "tempo_liturgico",
+  "Todos os tempos litúrgicos",
+], "Imagem explicativa: histórico de Escalas")
+
+// IMAGENS EXPLICATIVAS — saída convencional com confirmação, sem bonequinho/porta.
+requireAll("components/area-header.tsx", [
+  "LogOut",
+  'data-standard-logout="true"',
+  'data-logout-confirmation="true"',
+  "Deseja sair?",
+  ">Não<",
+  "Sim, sair",
+], "Imagem explicativa: saída")
+
+// DIAGNÓSTICO — só resumo e ações na UI; detalhes técnicos ficam no arquivo.
+requireAll("components/diagnostico-santa-luzia.tsx", [
+  'data-auditor-santa-luzia="beta18"',
+  "Beta 18 · Auditor + Deep Scan",
+  "contagem por defeitos únicos",
+  "Executar auditoria",
+  "Gerar relatório",
+  "Compartilhar",
+  "Limpar histórico",
+  "deleteLastReport",
+], "Tela Diagnóstico")
+forbid("components/diagnostico-santa-luzia.tsx", ["Eventos recentes", "Versão monitorada", "Dados locais", "Banco SQLite", "Tela atual"], "Diagnóstico simplificado")
+
+// Transições e offline-first.
+requireAll("android-local/shims/next-navigation.ts", ["slRouteTransition", "santa-luzia:route-settled", "resetScroll", "requestAnimationFrame"], "Transições")
 requireAll("scripts/build-android-local.cjs", ["windows-beta-runtime.js", "windows-beta7-polish.js", "windows-motion-fixes.css", "android-auditor-beta12.js"], "Runtime visual empacotado")
 requireAll("scripts/patch-windows-polish-android-beta18.cjs", ["restoreAndroidBottomNav", "updateBottomNav", "não vou alterar a camada visual às cegas"], "Patch cirúrgico do runtime")
 forbid("scripts/build-android-local.cjs", ["sanitize-android-beta17"], "Sanitização regressiva")
 
+// Auditor e fila: corrigir erros reais sem apagar a interface.
 requireAll("lib/local-first-queue.ts", ["type NativeStoreHandle", "return { store: module.OfflineStore }", "handle.store.loadQueue()", "handle.store.saveQueue"], "Fila nativa")
 requireAll("android-web/motion/android-auditor-patch-beta16.js", ["2.0.0-beta.18", "unique-signatures", "occurrences", "santa-luzia-diagnostico-v4", "CLEAN_VERSION_KEY"], "Auditor")
-requireAll("components/diagnostico-santa-luzia.tsx", ["data-auditor-santa-luzia=\"beta18\"", "Beta 18 · Auditor + Deep Scan", "contagem por defeitos únicos", "deleteLastReport"], "Tela Diagnóstico")
 requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/DiagnosticReportPlugin.java", ["deleteLastReport", "FALHA_REMOVER_RELATORIO"], "Relatório nativo")
 
-for (const rel of ["components/mobile-bottom-nav.tsx", "components/moderador-dashboard.tsx", "components/area-header.tsx", "components/login-form.tsx"]) {
-  forbid(rel, ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene"], "Animação de bonequinho/porta cancelada")
+// Decisão final do usuário: animação de personagem/porta cancelada em qualquer tela.
+for (const rel of ["components/mobile-bottom-nav.tsx", "components/moderador-dashboard.tsx", "components/membro-dashboard.tsx", "components/area-header.tsx", "components/login-form.tsx", "components/site-header.tsx"]) {
+  forbid(rel, ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene", "sl-door-person", "slSceneEnter", "slSceneExit"], "Animação de bonequinho/porta cancelada")
 }
 
-console.log("Beta 18 aprovada na fonte: base Beta 16 preservada, painel atual intacto, barra inferior restaurada, animações originais ligadas ao runtime, Auditor e fila corrigidos sem regressão visual.")
+console.log("Beta 18 aprovada nas exigências visuais e funcionais: todas as correções das imagens explicativas e do vídeo de perfis são obrigatórias, além de Auditor/fila sem regressão da interface.")
