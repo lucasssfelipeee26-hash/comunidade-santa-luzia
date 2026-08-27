@@ -39,7 +39,32 @@ requireAll("app/visitante/page.tsx", [
   'title: "Biblioteca"',
   'title: "Liturgia Diária"',
   "<Hero />",
-], "Imagem explicativa: quatro cards públicos")
+], "Imagem explicativa: quatro cards públicos web")
+
+// A Home Android não pode ser uma cópia antiga separada da Home aprovada.
+const androidHome = requireAll("android-local/entry.tsx", [
+  'data-android-public-home="approved-v18"',
+  'data-home-public-shortcuts="4"',
+  'title: "Centro Litúrgico"',
+  'title: "Escala do Dia"',
+  'title: "Biblioteca"',
+  'title: "Liturgia Diária"',
+  'href: "/liturgia"',
+  'href: "/escala"',
+  'href: "/biblioteca"',
+  'href: "/visitante#liturgia"',
+  "BookOpenText",
+  "CalendarDays",
+  "Library",
+  "ScrollText",
+  "data-original-home-icon",
+  "slHomeBook",
+  "slHomeCalendar",
+  "lg:grid-cols-4",
+  "<Hero />",
+], "Imagem explicativa: Home local Android igual à aprovada")
+const localTitles = [...androidHome.matchAll(/title:\s*"([^"]+)"/g)].map((m) => m[1]).filter((v) => ["Centro Litúrgico", "Escala do Dia", "Biblioteca", "Liturgia Diária"].includes(v))
+if (new Set(localTitles).size !== 4) throw new Error(`Home local Android deve conter exatamente os 4 atalhos públicos aprovados; encontrados ${new Set(localTitles).size}.`)
 
 // IMAGENS EXPLICATIVAS — barra inferior deve existir online/offline e usar animação ORIGINAL contínua.
 const bottom = requireAll("components/mobile-bottom-nav.tsx", [
@@ -63,6 +88,7 @@ const bottom = requireAll("components/mobile-bottom-nav.tsx", [
 ], "Imagem explicativa: barra inferior e animações originais")
 if (/me === undefined\s*&&\s*sessaoOffline === undefined\)\s*return null/.test(bottom)) throw new Error("Barra inferior: não pode desaparecer enquanto resolve a sessão online/offline")
 forbid("components/mobile-bottom-nav.tsx", ["function animarIcone", "svg.animate(frames", 'motion: "home"', "UserRound"], "Imagem explicativa: não substituir animação original nem Início por Perfil")
+requireAll("android-local/entry.tsx", ["<MobileBottomNav />"], "Android local: barra inferior precisa estar montada fora das rotas")
 
 // IMAGENS EXPLICATIVAS — menu hamburger sem atalhos duplicados marcados com X.
 requireAll("components/site-header.tsx", [
@@ -156,8 +182,8 @@ requireAll("android-web/motion/android-auditor-patch-beta16.js", ["2.0.0-beta.18
 requireAll("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/DiagnosticReportPlugin.java", ["deleteLastReport", "FALHA_REMOVER_RELATORIO"], "Relatório nativo")
 
 // Decisão final do usuário: animação de personagem/porta cancelada em qualquer tela.
-for (const rel of ["components/mobile-bottom-nav.tsx", "components/moderador-dashboard.tsx", "components/membro-dashboard.tsx", "components/area-header.tsx", "components/login-form.tsx", "components/site-header.tsx"]) {
+for (const rel of ["android-local/entry.tsx", "components/mobile-bottom-nav.tsx", "components/moderador-dashboard.tsx", "components/membro-dashboard.tsx", "components/area-header.tsx", "components/login-form.tsx", "components/site-header.tsx"]) {
   forbid(rel, ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene", "sl-door-person", "slSceneEnter", "slSceneExit"], "Animação de bonequinho/porta cancelada")
 }
 
-console.log("Beta 18 aprovada nas exigências visuais e funcionais: todas as correções das imagens explicativas e do vídeo de perfis são obrigatórias, além de Auditor/fila sem regressão da interface.")
+console.log("Beta 18 aprovada nas exigências visuais e funcionais: Home web/Android unificada com 4 cards, todas as correções das imagens explicativas e do vídeo de perfis obrigatórias, além de Auditor/fila sem regressão da interface.")
