@@ -26,23 +26,15 @@
     const route = String(event.route || "");
     const status = Number(event.status || 0);
 
-    // Eventos gravados por versões anteriores não pertencem ao diagnóstico atual.
     if ((type === "auditor-ready" || type === "scroll-stability") && event.version && event.version !== VERSION) return true;
-
-    // Antes de existir sessão, endpoints privados podem responder 401. Isso é fluxo
-    // normal de autenticação e não deve virar "erro do aplicativo".
     if (type === "fetch" && status === 401 && (route === "/" || route.startsWith("/area-restrita/login"))) return true;
-
-    // A ponte GlitchTip é opcional. Servidor ainda sem DSN/rota não é falha do APK.
     if (type === "fetch" && status === 404 && path === "/api/configuracao/diagnostico") return true;
-
     return false;
   }
 
   function compactEvents(events) {
     const list = Array.isArray(events) ? events : [];
     const bySignature = new Map();
-
     for (const raw of list) {
       if (isExpectedNoise(raw)) continue;
       const event = { ...raw };
@@ -62,29 +54,23 @@
       current.firstAt = Math.min(Number(current.firstAt || current.at || Date.now()), Number(event.firstAt || event.at || Date.now()));
       current.lastAt = Math.max(Number(current.lastAt || current.at || 0), Number(event.lastAt || event.at || 0));
       current.at = current.lastAt;
-      // Mantemos os dados mais recentes, mas não criamos um novo erro.
       for (const [key, value] of Object.entries(event)) if (value !== undefined) current[key] = value;
       current.signature = signature;
     }
-
     return [...bySignature.values()]
       .sort((a, b) => Number(a.lastAt || a.at || 0) - Number(b.lastAt || b.at || 0))
       .slice(-260);
   }
 
   function persistCompacted(events) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: VERSION, updatedAt: Date.now(), events }));
-    } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: VERSION, updatedAt: Date.now(), events })); } catch {}
   }
 
   function uniqueSummary(events, original, deepResult) {
-    const errors = events.filter((event) => event?.level === "error").length;
-    const warnings = events.filter((event) => event?.level === "warning").length;
     return {
       ...original,
-      errors,
-      warnings,
+      errors: events.filter((event) => event?.level === "error").length,
+      warnings: events.filter((event) => event?.level === "warning").length,
       slowRequests: events.filter((event) => event?.type === "fetch" && event?.slow).length,
       lowFpsSamples: events.filter((event) => event?.type === "fps-sample" && Number(event?.fps || 60) < 45).length,
       scrollJumps: events.filter((event) => event?.type === "scroll-jump").length,
@@ -124,13 +110,24 @@
     if (core[FLAG]) return;
     core[FLAG] = true;
 
-    // O primeiro carregamento da Beta 17 descarta automaticamente o histórico da
-    // Beta 16. Atualizar a tela depois disso NÃO limpa nem incrementa artificialmente.
+    const originalClear = core.clear.bind(core);
+    core.clear = function beta17Clear() {
+      originalClear();
+      try { localStorage.removeItem("santa-luzia:deep-audit:last:v1"); } catch {}
+      const native = window.Capacitor?.Plugins?.DiagnosticReport;
+      try {
+        const deletion = native?.deleteLastReport?.();
+        if (deletion?.catch) deletion.catch(() => undefined);
+      } catch {}
+      window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "clear-beta17" } }));
+    };
+
+    // Na primeira abertura da Beta 17, o histórico inflado da Beta 16 é descartado.
+    // Depois disso, recarregar a página não aumenta o total do mesmo defeito.
     try {
       if (localStorage.getItem(CLEAN_VERSION_KEY) !== VERSION) {
         core.clear();
         localStorage.setItem(CLEAN_VERSION_KEY, VERSION);
-        localStorage.removeItem("santa-luzia:deep-audit:last:v1");
       }
     } catch {}
 
@@ -173,7 +170,7 @@
     };
 
     core.version = VERSION;
-    core.add?.("auditor-beta17-patch-ready", "info", { version: VERSION, deepScan: true, uniqueCounting: true });
+    core.add?.("auditor-beta17-patch-ready", "info", { version: VERSION, deepScan: true, uniqueCounting: true, clearRemovesReport: true });
     window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta17-patch-ready" } }));
   }
 
