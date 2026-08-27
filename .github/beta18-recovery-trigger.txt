@@ -1,5 +1,5 @@
 Santa Luzia Motion Beta 18 Recovery — checklist integral
 source: work/android-motion-beta18-recovery
 requirements: home limpa + 4 cards; hamburger sem duplicações; administração no menu; barra online/offline; animações originais contínuas; perfis Status com busca/modal/X; escalas por data/tempo litúrgico; logout Sim/Não; diagnóstico simplificado; sem bonequinho/porta
-source-head: 06dd587de0e815d5b70bc761b3b43e8234062940
-validator: bundle minificado validado por atributos/conteúdo, sem depender de aspas JSX
+source-head: 29588e2566398795b9ecf94ad4902599f9e14370
+validator: Home web e Home local Android devem conter exatamente os 4 atalhos aprovados e a mesma estrutura visual
