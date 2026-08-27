@@ -8,6 +8,7 @@ import { lerSessao } from "@/lib/auth"
 
 const atalhos = [
   {
+    id: "centro-liturgico",
     icon: BookOpenText,
     motion: "book",
     title: "Centro Litúrgico",
@@ -16,6 +17,7 @@ const atalhos = [
     cta: "Abrir centro",
   },
   {
+    id: "escala-dia",
     icon: CalendarDays,
     motion: "calendar",
     title: "Escala do Dia",
@@ -24,6 +26,7 @@ const atalhos = [
     cta: "Ver escala",
   },
   {
+    id: "biblioteca",
     icon: Library,
     motion: "library",
     title: "Biblioteca",
@@ -32,6 +35,7 @@ const atalhos = [
     cta: "Abrir biblioteca",
   },
   {
+    id: "liturgia-diaria",
     icon: ScrollText,
     motion: "book",
     title: "Liturgia Diária",
@@ -74,8 +78,9 @@ export default async function VisitantePage() {
             {atalhos.map(({ icon: Icon, ...item }) => (
               <Link
                 prefetch={false}
-                key={item.title}
+                key={item.id}
                 href={item.href}
+                data-home-shortcut-id={item.id}
                 className="group min-w-0 rounded-xl border border-[#d9cfb9] bg-[#fffdf7] p-3 shadow-[0_4px_14px_rgba(72,55,21,.06)] transition active:scale-[.985] sm:rounded-2xl sm:p-5"
               >
                 <span className="sl-home-shortcut-icon mb-2 flex size-9 items-center justify-center rounded-full border border-[#d4af37] bg-[#5b071b] text-[#f2cf62] shadow-sm sm:mb-4 sm:size-11" data-motion={item.motion} data-original-home-icon="true">
