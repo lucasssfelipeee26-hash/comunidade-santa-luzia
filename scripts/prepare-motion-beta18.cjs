@@ -9,6 +9,7 @@ function fail(message) { console.error(`[motion-beta18] ${message}`); process.ex
 function read(file) { if (!fs.existsSync(file)) fail(`Arquivo ausente: ${path.relative(root, file)}`); return fs.readFileSync(file, "utf8") }
 function write(file, content) { fs.writeFileSync(file, content) }
 function requireAll(file, markers, label) { const text = read(file); for (const marker of markers) if (!text.includes(marker)) fail(`${label}: marcador ausente: ${marker}`); return text }
+function forbid(file, markers, label) { const text = read(file); for (const marker of markers) if (text.includes(marker)) fail(`${label}: conteúdo proibido: ${marker}`) }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
 if (config.versionName !== "2.0.0-beta.18" || config.versionCode !== 20018) fail(`Beta 18/code20018 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
@@ -45,7 +46,40 @@ write(strings, stringsText)
 const assets = path.join(root, "android", "app", "src", "main", "assets", "public")
 const localApp = path.join(assets, "local-app.js")
 if (!fs.existsSync(localApp) || fs.statSync(localApp).size < 250000) fail("Bundle React local ausente ou incompleto.")
-requireAll(localApp, ["data-auditor-santa-luzia", "data-deep-auditor-ui", "android-deep-auditor-beta16.js", "data-profile-viewer-banner", "data-profile-scroll", "data-bottom-nav-network-stable", "mobile-app-bottom-nav"], "Bundle React Beta 18")
+requireAll(localApp, [
+  "data-auditor-santa-luzia",
+  "data-deep-auditor-ui",
+  "android-deep-auditor-beta16.js",
+  "data-profile-viewer-banner",
+  "data-profile-close",
+  "data-profile-scroll",
+  "data-team-profile-status-rail",
+  "Buscar perfil por nome",
+  "data-bottom-nav-network-stable",
+  "mobile-app-bottom-nav",
+  'data-home-public-shortcuts="4"',
+  "Centro Litúrgico",
+  "Escala do Dia",
+  "Biblioteca",
+  "Liturgia Diária",
+  'data-hero-clean-image="true"',
+  'data-main-profile-access="hamburger"',
+  "Administração de dados",
+  'data-escala-history-search="date-liturgical-season"',
+  'data-escala-filter-date="true"',
+  'data-escala-filter-season="true"',
+  "Próxima escala",
+  'data-standard-logout="true"',
+  'data-logout-confirmation="true"',
+  "Deseja sair?",
+  "Sim, sair",
+  "slR11Panel",
+  "slR10ScaleMotion",
+  "slR11Page",
+  "slR11Library",
+  "slR11Quiz",
+], "Bundle React Beta 18 — exigências das imagens/vídeo")
+forbid(localApp, ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene", "Eventos recentes", "Versão monitorada", "Dados locais", "Banco SQLite", "Tela atual"], "Bundle React Beta 18")
 
 const runtime = path.join(assets, "motion", "windows-beta-runtime.js")
 const polish = path.join(assets, "motion", "windows-beta7-polish.js")
@@ -56,7 +90,7 @@ if (/\bupdateBottomNav\s*\(/.test(read(polish))) fail("Polish ainda contém upda
 const deep = path.join(assets, "motion", "android-deep-auditor-beta16.js")
 const patch = path.join(assets, "motion", "android-auditor-patch-beta16.js")
 requireAll(deep, ["SantaLuziaDeepAudit", "sendGlitchTip", "profile-dialog-collapsed", "application/x-sentry-envelope"], "Deep Scan empacotado")
-requireAll(patch, ["2.0.0-beta.18", "santa-luzia-diagnostico-v4", "unique-signatures", "occurrences"], "Auditor Beta 18")
+requireAll(patch, ["2.0.0-beta.18", "santa-luzia-diagnostico-v4", "unique-signatures", "occurrences", "CLEAN_VERSION_KEY"], "Auditor Beta 18")
 
 const capConfigFile = path.join(root, "android", "app", "src", "main", "assets", "capacitor.config.json")
 const capConfig = read(capConfigFile)
@@ -76,4 +110,4 @@ if (!new RegExp(`versionCode\\s+${config.versionCode}`).test(gradleFinal)) fail(
 if (!gradleFinal.includes(`versionName "${config.versionName}"`)) fail("versionName Beta 18 não aplicado.")
 if (!gradleFinal.includes("signingConfig signingConfigs.motionBeta")) fail("Assinatura Beta não aplicada.")
 
-console.log(`[motion-beta18] ${config.versionName}/code${config.versionCode}: interface Beta 16 preservada, barra e animações originais validadas, Auditor e fila corrigidos; estável 1.0.6/code18 preservado.`)
+console.log(`[motion-beta18] ${config.versionName}/code${config.versionCode}: exigências das imagens/vídeo, barra e animações originais, Perfis, Escalas, logout, Auditor, fila e offline validados no pacote; estável 1.0.6/code18 preservado.`)
