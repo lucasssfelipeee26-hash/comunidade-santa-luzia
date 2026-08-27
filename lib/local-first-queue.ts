@@ -25,6 +25,13 @@ type LegacyFormation = {
   payload?: Record<string, unknown> & { clientRequestId?: string }
 }
 
+type NativeStoreHandle = {
+  store: {
+    saveQueue(options: { queue: string }): Promise<{ ok: boolean; savedAt?: number }>
+    loadQueue(): Promise<{ queue: string }>
+  }
+}
+
 function parseArray<T>(value: string | null): T[] {
   if (!value) return []
   try {
@@ -61,15 +68,15 @@ function legacyItems(): LocalFirstQueueItem[] {
   return [...delays, ...formations]
 }
 
-async function nativeStore() {
+async function nativeStore(): Promise<NativeStoreHandle | null> {
   if (typeof window === "undefined") return null
   try {
-    const [{ Capacitor }, { OfflineStore }] = await Promise.all([
+    const [{ Capacitor }, module] = await Promise.all([
       import("@capacitor/core"),
       import("@/lib/native-offline-store"),
     ])
     if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("OfflineStore")) return null
-    return OfflineStore
+    return { store: module.OfflineStore }
   } catch {
     return null
   }
@@ -80,10 +87,10 @@ export async function filaNativaDisponivel() {
 }
 
 export async function lerFilaDuravel(): Promise<LocalFirstQueueItem[]> {
-  const store = await nativeStore()
-  if (!store) return []
+  const handle = await nativeStore()
+  if (!handle) return []
   try {
-    const result = await store.loadQueue()
+    const result = await handle.store.loadQueue()
     return parseArray<LocalFirstQueueItem>(result.queue)
       .filter((item) => item?.id && item?.tipo && item?.payload)
   } catch {
@@ -93,8 +100,8 @@ export async function lerFilaDuravel(): Promise<LocalFirstQueueItem[]> {
 
 export async function mesclarNaFilaDuravel(items: LocalFirstQueueItem[]) {
   if (!items.length) return false
-  const store = await nativeStore()
-  if (!store) return false
+  const handle = await nativeStore()
+  if (!handle) return false
   try {
     const current = await lerFilaDuravel()
     const byId = new Map<string, LocalFirstQueueItem>()
@@ -110,7 +117,7 @@ export async function mesclarNaFilaDuravel(items: LocalFirstQueueItem[]) {
         ownerId: item.ownerId || existing?.ownerId,
       })
     }
-    await store.saveQueue({ queue: JSON.stringify([...byId.values()]) })
+    await handle.store.saveQueue({ queue: JSON.stringify([...byId.values()]) })
     return true
   } catch {
     return false
