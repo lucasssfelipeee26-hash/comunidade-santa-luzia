@@ -38,6 +38,10 @@ function deepAuditor(): DeepApi | null {
   if (typeof window === "undefined") return null
   return (window as unknown as { SantaLuziaDeepAudit?: DeepApi }).SantaLuziaDeepAudit ?? null
 }
+function diagnosticNative() {
+  if (typeof window === "undefined") return null
+  return (window as unknown as { Capacitor?: { Plugins?: { DiagnosticReport?: { deleteLastReport?: () => Promise<unknown> } } } }).Capacitor?.Plugins?.DiagnosticReport ?? null
+}
 function ensureScript(src: string, marker: string, onload?: () => void) {
   if (document.querySelector(`script[data-${marker}]`)) return
   const script = document.createElement("script")
@@ -75,10 +79,6 @@ export function DiagnosticoSantaLuzia() {
   useEffect(() => {
     ensureScript("/motion/android-deep-auditor-beta16.js", "santa-luzia-deep-audit", () => setDeepPronto(Boolean(deepAuditor())))
     ensureScript("/motion/android-auditor-patch-beta16.js", "santa-luzia-auditor-patch")
-
-    // Não reagimos a cada evento técnico com outro snapshot: snapshot consulta
-    // SQLite e o próprio SQLite gera evento. Isso causava uma cascata de milhares
-    // de registros local-db-health no relatório da Beta 15.
     let tentativas = 0
     const boot = window.setInterval(() => {
       tentativas += 1
@@ -155,14 +155,16 @@ export function DiagnosticoSantaLuzia() {
     } finally { setCompartilhando(false) }
   }
 
-  function limpar() {
+  async function limpar() {
     const api = auditor()
-    if (!api || !window.confirm("Limpar o histórico técnico salvo neste aparelho?")) return
+    if (!api || !window.confirm("Limpar o histórico técnico e remover o último arquivo de relatório gerado neste aparelho?")) return
+    try { await diagnosticNative()?.deleteLastReport?.() } catch {}
     api.clear()
+    try { localStorage.removeItem("santa-luzia:deep-audit:last:v1") } catch {}
     setSnapshot(null)
     setDeep(null)
     setUltimoArquivo(null)
-    setMensagem("Histórico técnico limpo.")
+    setMensagem("Histórico técnico e último relatório removidos.")
   }
 
   const rede = snapshot?.network?.native?.connected ?? snapshot?.network?.physical !== "offline"
@@ -172,13 +174,13 @@ export function DiagnosticoSantaLuzia() {
   const glitchTipConfigured = Boolean(deep?.glitchTip?.configured)
 
   return (
-    <section data-auditor-santa-luzia="beta16" data-deep-auditor-ui="true">
+    <section data-auditor-santa-luzia="beta18" data-deep-auditor-ui="true">
       <div className="rounded-3xl border border-primary/15 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 16 · Auditor + Deep Scan</p>
+            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 18 · Auditor + Deep Scan</p>
             <h2 className="mt-1 flex items-center gap-2 font-serif text-2xl font-semibold text-primary"><Wrench className="size-5" /> Auditor Santa Luzia</h2>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Auditoria online/offline com varredura detalhada de ícones, elementos cortados, modais, imagens, overflow, navegação e interface. O relatório técnico concentra os detalhes para correção.</p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Auditoria online/offline com contagem por defeitos únicos e varredura detalhada de ícones, elementos cortados, modais, imagens, overflow, navegação e interface.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Status ok={rede} icon={rede ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />} label={rede ? "Rede disponível" : "Modo offline"} />
@@ -203,7 +205,7 @@ export function DiagnosticoSantaLuzia() {
           <Button type="button" onClick={() => void executarAuditoria()} disabled={executando || !auditorPronto} className="gap-2"><RefreshCw className={`size-4 ${executando ? "animate-spin" : ""}`} />{executando ? "Auditando…" : "Executar auditoria"}</Button>
           <Button type="button" variant="outline" onClick={() => void exportar()} disabled={exportando || !auditorPronto} className="gap-2"><Download className="size-4" />{exportando ? "Gerando…" : "Gerar relatório"}</Button>
           {ultimoArquivo && <Button type="button" variant="outline" onClick={() => void compartilhar()} disabled={compartilhando} className="gap-2"><Send className="size-4" />{compartilhando ? "Abrindo…" : "Compartilhar"}</Button>}
-          <Button type="button" variant="outline" onClick={limpar} disabled={!auditorPronto} className="gap-2 text-destructive"><Trash2 className="size-4" />Limpar histórico</Button>
+          <Button type="button" variant="outline" onClick={() => void limpar()} disabled={!auditorPronto} className="gap-2 text-destructive"><Trash2 className="size-4" />Limpar histórico</Button>
         </div>
         {mensagem && <p role="status" className="mt-3 rounded-xl border bg-white px-3 py-2 text-xs leading-5 text-muted-foreground">{mensagem}</p>}
       </div>
