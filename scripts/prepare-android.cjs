@@ -88,12 +88,25 @@ if (fs.existsSync(manifestPath)) {
       'android:exported="true"\n            android:resizeableActivity="true"\n            android:windowSoftInputMode="adjustResize">',
     )
   }
-  if (!manifest.includes('android:authorities="${applicationId}.fileprovider"')) {
-    manifest = manifest.replace(
-      "</application>",
-      '        <provider\n            android:name="androidx.core.content.FileProvider"\n            android:authorities="${applicationId}.fileprovider"\n            android:exported="false"\n            android:grantUriPermissions="true">\n            <meta-data\n                android:name="android.support.FILE_PROVIDER_PATHS"\n                android:resource="@xml/diagnostic_file_paths" />\n        </provider>\n    </application>',
-    )
+
+  // O Auditor usa uma autoridade exclusiva para não conflitar com outros
+  // FileProviders adicionados por plugins do Capacitor. A presença do XML é o
+  // critério real; não pulamos esta configuração só porque outro provider existe.
+  if (!manifest.includes('@xml/diagnostic_file_paths')) {
+    const diagnosticProvider = `        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="\${applicationId}.diagnosticprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/diagnostic_file_paths" />
+        </provider>
+`;
+    if (!manifest.includes("</application>")) throw new Error("AndroidManifest sem fechamento de application.")
+    manifest = manifest.replace("</application>", `${diagnosticProvider}    </application>`)
   }
+
   if (!manifest.includes('android:name=".CaminhoDaLuzActivity"')) {
     manifest = manifest.replace(
       "</application>",
@@ -107,6 +120,11 @@ if (fs.existsSync(manifestPath)) {
     )
   }
   fs.writeFileSync(manifestPath, manifest)
+
+  const finalManifest = fs.readFileSync(manifestPath, "utf8")
+  for (const marker of ["androidx.core.content.FileProvider", '${applicationId}.diagnosticprovider', "@xml/diagnostic_file_paths"]) {
+    if (!finalManifest.includes(marker)) throw new Error(`Manifesto do Auditor incompleto: ${marker}`)
+  }
 }
 
 console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, relatório nativo, Liturgia anual, Joias da Luz e Whatajong original adaptado local.`)
