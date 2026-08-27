@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20015,
-  "versionName": "2.0.0-beta.15",
+  "versionCode": 20016,
+  "versionName": "2.0.0-beta.16",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -13,12 +13,7 @@
       "behavior": { "path": "electron/behavior-fixes.js", "blobSha": "d0ebd01768803565e5bb5d0e5f569b09a9b80c1f" },
       "polish": { "path": "electron/beta7-polish.js", "blobSha": "592c0eb0911caf2b28b9b3787a53ddad39aa51a8" },
       "motionCss": { "path": "electron/motion-fixes.css", "blobSha": "6f943f71f3a41591c875c4b06da6ef84260b971a" },
-      "runtime": {
-        "path": "runtime/windows-beta-runtime.js",
-        "blobSha": "e8c8e5d1c2fc6bc9ed8e59c444158bca55faccfb",
-        "size": 54911,
-        "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
-      }
+      "runtime": { "path": "runtime/windows-beta-runtime.js", "blobSha": "e8c8e5d1c2fc6bc9ed8e59c444158bca55faccfb", "size": 54911, "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637" }
     }
   },
   "windowsMotion": {
@@ -28,5 +23,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 15: remove integralmente a animação cancelada de personagem/porta e restaura ícones convencionais. Corrige barra inferior com Início estável online/offline, simplifica o menu móvel público e usa as três barras como acesso ao perfil já logado. Limpa o banner principal, mantém quatro atalhos públicos, transforma Perfis da equipe em faixa horizontal estilo Status com busca e modal fechável, organiza histórico de Escalas com pesquisa por data e tempo litúrgico, mantém Administração de dados no menu do moderador, saída com confirmação Sim/Não, Auditor Santa Luzia online/offline com relatório nativo, rolagem, SQLite/WAL/integridade e local-first. Android oficial 1.0.6/code18 e Windows preservados."
+  "notes": "Beta 16: integra Santa Luzia Deep Scan ao Auditor e ponte compatível com GlitchTip, mantendo varredura local offline. Simplifica a tela do Diagnóstico removendo eventos recentes e cartões técnicos visíveis ao usuário. Corrige cascata de snapshots/SQLite do relatório, modal de Perfis via portal sem corte, animação explícita do ícone Início, estabilização de transições e mantém as correções da Beta 15. Android oficial 1.0.6/code18 e Windows preservados."
 }
