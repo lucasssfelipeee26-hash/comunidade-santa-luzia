@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20016,
-  "versionName": "2.0.0-beta.16",
+  "versionCode": 20018,
+  "versionName": "2.0.0-beta.18",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -23,5 +23,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 16: integra Santa Luzia Deep Scan ao Auditor e ponte compatível com GlitchTip, mantendo varredura local offline. Simplifica a tela do Diagnóstico removendo eventos recentes e cartões técnicos visíveis ao usuário. Corrige cascata de snapshots/SQLite do relatório, modal de Perfis via portal sem corte, animação explícita do ícone Início, estabilização de transições e mantém as correções da Beta 15. Android oficial 1.0.6/code18 e Windows preservados."
+  "notes": "Beta 18 Recovery: reconstruída sobre a Beta 16 correta, descartando a regressão visual da Beta 17. Preserva a barra inferior, os itens atuais do painel e as animações contínuas originais dos ícones via runtime visual histórico; corrige somente a chamada inválida updateBottomNav na camada polish, o proxy OfflineStore.then e a contagem inflada do Auditor por assinaturas únicas. Perfis, Deep Scan, transições e interface offline da Beta 16 permanecem. Android oficial 1.0.6/code18 e Windows preservados."
 }
