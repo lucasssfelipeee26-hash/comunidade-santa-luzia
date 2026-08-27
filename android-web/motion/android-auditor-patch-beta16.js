@@ -29,6 +29,11 @@
     if ((type === "auditor-ready" || type === "scroll-stability") && event.version && event.version !== VERSION) return true;
     if (type === "fetch" && status === 401 && (route === "/" || route.startsWith("/area-restrita/login"))) return true;
     if (type === "fetch" && status === 404 && path === "/api/configuracao/diagnostico") return true;
+
+    // Constância de Luz foi desenhada para cair no estado local quando o backend
+    // ainda não oferece a rota. O próprio módulo mantém os dias/pontos pendentes e
+    // tenta sincronizar depois; um 404 desse endpoint não é falha da interface.
+    if (type === "fetch" && status === 404 && path === "/api/constancia-luz") return true;
     return false;
   }
 
@@ -122,8 +127,6 @@
       window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "clear-beta17" } }));
     };
 
-    // Na primeira abertura da Beta 17, o histórico inflado da Beta 16 é descartado.
-    // Depois disso, recarregar a página não aumenta o total do mesmo defeito.
     try {
       if (localStorage.getItem(CLEAN_VERSION_KEY) !== VERSION) {
         core.clear();
