@@ -9,7 +9,7 @@ type SnapshotDiagnostico = {
   network: { physical: string; native?: { connected?: boolean; connectionType?: string } }
   database?: { ok?: boolean }
   queue?: { pending?: number; blocked?: number }
-  summary: { errors: number; warnings: number; slowRequests: number; lowFpsSamples: number; scrollJumps: number; missingIconAudits: number; blockedMutations?: number; deepFindings?: number; deepErrors?: number; deepWarnings?: number }
+  summary: { errors: number; warnings: number; slowRequests: number; lowFpsSamples: number; scrollJumps: number; missingIconAudits: number; blockedMutations?: number; deepFindings?: number; deepErrors?: number; deepWarnings?: number; countingMode?: string }
   events: EventoDiagnostico[]
   export?: { ok?: boolean; fileName?: string; location?: string; uri?: string; method?: string }
 }
@@ -75,10 +75,6 @@ export function DiagnosticoSantaLuzia() {
   useEffect(() => {
     ensureScript("/motion/android-deep-auditor-beta16.js", "santa-luzia-deep-audit", () => setDeepPronto(Boolean(deepAuditor())))
     ensureScript("/motion/android-auditor-patch-beta16.js", "santa-luzia-auditor-patch")
-
-    // Não reagimos a cada evento técnico com outro snapshot: snapshot consulta
-    // SQLite e o próprio SQLite gera evento. Isso causava uma cascata de milhares
-    // de registros local-db-health no relatório da Beta 15.
     let tentativas = 0
     const boot = window.setInterval(() => {
       tentativas += 1
@@ -157,12 +153,12 @@ export function DiagnosticoSantaLuzia() {
 
   function limpar() {
     const api = auditor()
-    if (!api || !window.confirm("Limpar o histórico técnico salvo neste aparelho?")) return
+    if (!api || !window.confirm("Limpar o histórico técnico e remover o último arquivo de relatório gerado?")) return
     api.clear()
     setSnapshot(null)
     setDeep(null)
     setUltimoArquivo(null)
-    setMensagem("Histórico técnico limpo.")
+    setMensagem("Histórico e último relatório removidos.")
   }
 
   const rede = snapshot?.network?.native?.connected ?? snapshot?.network?.physical !== "offline"
@@ -172,13 +168,13 @@ export function DiagnosticoSantaLuzia() {
   const glitchTipConfigured = Boolean(deep?.glitchTip?.configured)
 
   return (
-    <section data-auditor-santa-luzia="beta16" data-deep-auditor-ui="true">
+    <section data-auditor-santa-luzia="beta17" data-deep-auditor-ui="true">
       <div className="rounded-3xl border border-primary/15 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 16 · Auditor + Deep Scan</p>
+            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 17 · Auditor + Deep Scan</p>
             <h2 className="mt-1 flex items-center gap-2 font-serif text-2xl font-semibold text-primary"><Wrench className="size-5" /> Auditor Santa Luzia</h2>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Auditoria online/offline com varredura detalhada de ícones, elementos cortados, modais, imagens, overflow, navegação e interface. O relatório técnico concentra os detalhes para correção.</p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Auditoria online/offline com contagem por defeitos únicos. Repetições do mesmo problema ficam registradas no relatório sem aumentar artificialmente o total.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Status ok={rede} icon={rede ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />} label={rede ? "Rede disponível" : "Modo offline"} />
