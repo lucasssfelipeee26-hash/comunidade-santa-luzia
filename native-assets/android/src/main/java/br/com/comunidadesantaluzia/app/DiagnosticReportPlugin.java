@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 public class DiagnosticReportPlugin extends Plugin {
     private static final int MAX_REPORT_BYTES = 8 * 1024 * 1024;
     private static final String MIME_JSON = "application/json";
+    private static final String PROVIDER_SUFFIX = ".diagnosticprovider";
     private volatile Uri ultimoRelatorioUri;
     private volatile String ultimoRelatorioNome;
 
@@ -89,7 +90,7 @@ public class DiagnosticReportPlugin extends Plugin {
                     out.flush();
                     out.getFD().sync();
                 }
-                uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+                uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + PROVIDER_SUFFIX, file);
                 location = file.getAbsolutePath();
             }
 
