@@ -109,6 +109,32 @@ public class DiagnosticReportPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void deleteLastReport(PluginCall call) {
+        Uri uri = ultimoRelatorioUri;
+        try {
+            boolean removed = false;
+            if (uri != null) {
+                if ("content".equalsIgnoreCase(uri.getScheme())) {
+                    removed = getContext().getContentResolver().delete(uri, null, null) > 0;
+                } else if ("file".equalsIgnoreCase(uri.getScheme())) {
+                    File file = new File(uri.getPath());
+                    removed = !file.exists() || file.delete();
+                }
+            }
+            ultimoRelatorioUri = null;
+            ultimoRelatorioNome = null;
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            result.put("removed", removed);
+            call.resolve(result);
+        } catch (Exception error) {
+            ultimoRelatorioUri = null;
+            ultimoRelatorioNome = null;
+            call.reject("Não foi possível remover o último relatório técnico.", "FALHA_REMOVER_RELATORIO", error);
+        }
+    }
+
+    @PluginMethod
     public void shareLastReport(PluginCall call) {
         Uri uri = ultimoRelatorioUri;
         if (uri == null) {
