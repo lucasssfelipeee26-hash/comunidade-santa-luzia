@@ -9,7 +9,7 @@ type SnapshotDiagnostico = {
   network: { physical: string; native?: { connected?: boolean; connectionType?: string } }
   database?: { ok?: boolean }
   queue?: { pending?: number; blocked?: number }
-  summary: { errors: number; warnings: number; slowRequests: number; lowFpsSamples: number; scrollJumps: number; missingIconAudits: number; blockedMutations?: number }
+  summary: { errors: number; warnings: number; slowRequests: number; lowFpsSamples: number; scrollJumps: number; missingIconAudits: number; blockedMutations?: number; deepFindings?: number; deepErrors?: number; deepWarnings?: number }
   events: EventoDiagnostico[]
   export?: { ok?: boolean; fileName?: string; location?: string; uri?: string; method?: string }
 }
@@ -38,6 +38,15 @@ function deepAuditor(): DeepApi | null {
   if (typeof window === "undefined") return null
   return (window as unknown as { SantaLuziaDeepAudit?: DeepApi }).SantaLuziaDeepAudit ?? null
 }
+function ensureScript(src: string, marker: string, onload?: () => void) {
+  if (document.querySelector(`script[data-${marker}]`)) return
+  const script = document.createElement("script")
+  script.src = src
+  script.defer = true
+  script.setAttribute(`data-${marker}`, "true")
+  if (onload) script.onload = onload
+  document.head.appendChild(script)
+}
 
 export function DiagnosticoSantaLuzia() {
   const [snapshot, setSnapshot] = useState<SnapshotDiagnostico | null>(null)
@@ -64,14 +73,8 @@ export function DiagnosticoSantaLuzia() {
   }, [])
 
   useEffect(() => {
-    if (!deepAuditor() && !document.querySelector('script[data-santa-luzia-deep-audit]')) {
-      const script = document.createElement("script")
-      script.src = "/motion/android-deep-auditor-beta16.js"
-      script.defer = true
-      script.dataset.santaLuziaDeepAudit = "true"
-      script.onload = () => { setDeepPronto(Boolean(deepAuditor())) }
-      document.head.appendChild(script)
-    }
+    ensureScript("/motion/android-deep-auditor-beta16.js", "santa-luzia-deep-audit", () => setDeepPronto(Boolean(deepAuditor())))
+    ensureScript("/motion/android-auditor-patch-beta16.js", "santa-luzia-auditor-patch")
 
     // Não reagimos a cada evento técnico com outro snapshot: snapshot consulta
     // SQLite e o próprio SQLite gera evento. Isso causava uma cascata de milhares
@@ -165,7 +168,7 @@ export function DiagnosticoSantaLuzia() {
   const rede = snapshot?.network?.native?.connected ?? snapshot?.network?.physical !== "offline"
   const bancoOk = snapshot?.database?.ok !== false
   const filaPendente = Number(snapshot?.queue?.pending || 0)
-  const deepFindings = deep?.summary.findings ?? 0
+  const deepFindings = deep?.summary.findings ?? snapshot?.summary.deepFindings ?? 0
   const glitchTipConfigured = Boolean(deep?.glitchTip?.configured)
 
   return (
@@ -180,7 +183,7 @@ export function DiagnosticoSantaLuzia() {
           <div className="flex flex-wrap gap-1.5">
             <Status ok={rede} icon={rede ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />} label={rede ? "Rede disponível" : "Modo offline"} />
             <Status ok={auditorPronto} icon={<ShieldCheck className="size-3.5" />} label={auditorPronto ? "Auditor ativo" : "Auditor indisponível"} />
-            <Status ok={deepPronto} icon={<ScanSearch className="size-3.5" />} label={deepPronto ? `Deep Scan ativo${glitchTipConfigured ? " + GlitchTip" : ""}` : "Deep Scan carregando"} />
+            <Status ok={deepPronto} icon={<ScanSearch className="size-3.5" />} label={deepPronto ? `Deep Scan ativo${glitchTipConfigured ? " + GlitchTip" : " · GlitchTip preparado"}` : "Deep Scan carregando"} />
           </div>
         </div>
 
