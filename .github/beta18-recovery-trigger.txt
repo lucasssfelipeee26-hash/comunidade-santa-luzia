@@ -1,4 +1,4 @@
-Santa Luzia Motion Beta 18 Recovery
+Santa Luzia Motion Beta 18 Recovery — checklist integral
 source: work/android-motion-beta18-recovery
-base: Beta 16 preservada
-fixes: barra e animações originais restauradas, runtime visual preservado, apenas updateBottomNav corrigido, Auditor único e OfflineStore.then corrigidos
+requirements: home limpa + 4 cards; hamburger sem duplicações; administração no menu; barra online/offline; animações originais contínuas; perfis Status com busca/modal/X; escalas por data/tempo litúrgico; logout Sim/Não; diagnóstico simplificado; sem bonequinho/porta
+source-head: 29435b2e0ea5fd2b12c5c6b7eb509c776c9a0484
