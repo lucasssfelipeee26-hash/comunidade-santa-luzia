@@ -69,19 +69,25 @@ export function DiagnosticoSantaLuzia() {
       script.src = "/motion/android-deep-auditor-beta16.js"
       script.defer = true
       script.dataset.santaLuziaDeepAudit = "true"
-      script.onload = () => { setDeepPronto(Boolean(deepAuditor())); void atualizar() }
+      script.onload = () => { setDeepPronto(Boolean(deepAuditor())) }
       document.head.appendChild(script)
     }
-    void atualizar()
-    const handler = () => void atualizar()
-    window.addEventListener("santa-luzia:diagnostico-updated", handler)
-    window.addEventListener("santa-luzia:deep-audit-updated", handler)
-    const timer = window.setInterval(handler, 5000)
-    return () => {
-      window.removeEventListener("santa-luzia:diagnostico-updated", handler)
-      window.removeEventListener("santa-luzia:deep-audit-updated", handler)
-      window.clearInterval(timer)
-    }
+
+    // Não reagimos a cada evento técnico com outro snapshot: snapshot consulta
+    // SQLite e o próprio SQLite gera evento. Isso causava uma cascata de milhares
+    // de registros local-db-health no relatório da Beta 15.
+    let tentativas = 0
+    const boot = window.setInterval(() => {
+      tentativas += 1
+      if (auditor()) {
+        window.clearInterval(boot)
+        void atualizar()
+      } else if (tentativas > 30) {
+        window.clearInterval(boot)
+        setAuditorPronto(false)
+      }
+    }, 250)
+    return () => window.clearInterval(boot)
   }, [atualizar])
 
   async function rodarDeepScan(sendRemote = true) {
@@ -114,9 +120,7 @@ export function DiagnosticoSantaLuzia() {
     } catch (error) {
       setMensagem(error instanceof Error ? `A auditoria registrou uma falha: ${error.message}` : "A auditoria registrou uma falha interna.")
       await atualizar()
-    } finally {
-      setExecutando(false)
-    }
+    } finally { setExecutando(false) }
   }
 
   async function exportar() {
@@ -133,9 +137,7 @@ export function DiagnosticoSantaLuzia() {
       setMensagem(`Relatório gerado com sucesso: ${exp?.location || exp?.fileName || "Downloads"}.`)
     } catch (error) {
       setMensagem(error instanceof Error ? `Não foi possível gerar o relatório: ${error.message}` : "Não foi possível gerar o relatório técnico.")
-    } finally {
-      setExportando(false)
-    }
+    } finally { setExportando(false) }
   }
 
   async function compartilhar() {
@@ -158,7 +160,6 @@ export function DiagnosticoSantaLuzia() {
     setDeep(null)
     setUltimoArquivo(null)
     setMensagem("Histórico técnico limpo.")
-    void atualizar()
   }
 
   const rede = snapshot?.network?.native?.connected ?? snapshot?.network?.physical !== "offline"
@@ -187,7 +188,7 @@ export function DiagnosticoSantaLuzia() {
           <Indicador label="Erros" value={snapshot?.summary.errors ?? 0} danger={(snapshot?.summary.errors ?? 0) > 0} />
           <Indicador label="Alertas" value={snapshot?.summary.warnings ?? 0} warning={(snapshot?.summary.warnings ?? 0) > 0} />
           <Indicador label="Req. lentas" value={snapshot?.summary.slowRequests ?? 0} warning={(snapshot?.summary.slowRequests ?? 0) > 0} />
-          <Indicador label="Quedas FPS" value={snapshot?.summary.lowFpsSamples ?? 0} warning={(snapshot?.summary.lowFpsSamples ?? 0} />
+          <Indicador label="Quedas FPS" value={snapshot?.summary.lowFpsSamples ?? 0} warning={(snapshot?.summary.lowFpsSamples ?? 0) > 0} />
           <Indicador label="Saltos" value={snapshot?.summary.scrollJumps ?? 0} warning={(snapshot?.summary.scrollJumps ?? 0) > 0} />
           <Indicador label="Ícones" value={snapshot?.summary.missingIconAudits ?? 0} warning={(snapshot?.summary.missingIconAudits ?? 0) > 0} />
           <Indicador label="Interface" value={deepFindings} warning={deepFindings > 0} />
