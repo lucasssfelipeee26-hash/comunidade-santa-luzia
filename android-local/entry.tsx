@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react"
 import { createRoot } from "react-dom/client"
-import { KeyRound, Loader2, UserPlus } from "lucide-react"
+import { BookOpenText, CalendarDays, KeyRound, Library, Loader2, ScrollText, UserPlus } from "lucide-react"
 import { AppRuntime } from "@/components/app-runtime"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { NavigationProgress } from "@/components/navigation-progress"
@@ -43,9 +43,38 @@ import { site } from "@/lib/site"
 import { usePathname, useRouter } from "next/navigation"
 
 const atalhos = [
-  ["Centro Litúrgico", "Liturgia diária, Liturgia das Horas, Rosário, guia da Missa e calendário.", "/liturgia", "Abrir centro"],
-  ["Escala do Dia", "Veja as escalas publicadas e as funções de cada celebração.", "/escala", "Ver escala"],
-  ["Biblioteca", "Acesse o catálogo católico disponibilizado para consulta.", "/biblioteca", "Abrir biblioteca"],
+  {
+    icon: BookOpenText,
+    motion: "book",
+    title: "Centro Litúrgico",
+    text: "Liturgia das Horas, Rosário, guia da Missa e calendário litúrgico.",
+    href: "/liturgia",
+    cta: "Abrir centro",
+  },
+  {
+    icon: CalendarDays,
+    motion: "calendar",
+    title: "Escala do Dia",
+    text: "Veja as escalas publicadas e as funções de cada celebração.",
+    href: "/escala",
+    cta: "Ver escala",
+  },
+  {
+    icon: Library,
+    motion: "library",
+    title: "Biblioteca",
+    text: "Acesse o catálogo católico disponibilizado para consulta.",
+    href: "/biblioteca",
+    cta: "Abrir biblioteca",
+  },
+  {
+    icon: ScrollText,
+    motion: "book",
+    title: "Liturgia Diária",
+    text: "Consulte as leituras e o Evangelho do dia diretamente no aplicativo.",
+    href: "/visitante#liturgia",
+    cta: "Ler liturgia",
+  },
 ] as const
 
 function Loading({ texto = "Carregando…" }: { texto?: string }) {
@@ -53,23 +82,32 @@ function Loading({ texto = "Carregando…" }: { texto?: string }) {
 }
 
 function PublicHome() {
-  return <div className="public-home min-h-screen bg-[#fffaf0]">
+  return <div className="public-home min-h-screen bg-[#fffaf0]" data-android-public-home="approved-v18">
+    <style>{`
+      .sl-home-shortcut-icon svg{transform-box:fill-box;transform-origin:center;will-change:transform}
+      .sl-home-shortcut-icon[data-motion="book"] svg,.sl-home-shortcut-icon[data-motion="library"] svg{animation:slHomeBook 5s ease-in-out infinite}
+      .sl-home-shortcut-icon[data-motion="calendar"] svg{animation:slHomeCalendar 5.2s ease-in-out .35s infinite}
+      @keyframes slHomeBook{0%,75%,100%{transform:perspective(90px) rotateY(0)}82%{transform:perspective(90px) rotateY(-18deg)}90%{transform:perspective(90px) rotateY(9deg)}}
+      @keyframes slHomeCalendar{0%,76%,100%{transform:none}83%{transform:translateY(-2px) rotateX(16deg)}91%{transform:translateY(1px)}}
+      @media(prefers-reduced-motion:reduce){.sl-home-shortcut-icon svg{animation:none!important}}
+    `}</style>
     <SiteHeader />
     <main>
       <Hero />
-      <section className="relative z-10 bg-[#fffaf0] py-8 sm:py-10">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 px-3 sm:gap-4 sm:px-4 lg:grid-cols-3 lg:px-6">
-          {atalhos.map(([title, text, href, cta]) => <a key={href} href={href} className="group min-w-0 rounded-2xl border border-[#d9cfb9] bg-[#fffdf7] p-4 shadow-[0_6px_20px_rgba(72,55,21,.07)] transition active:scale-[.985] sm:p-6">
-            <h2 className="font-serif text-lg font-semibold leading-tight text-[#173d2d] sm:text-2xl">{title}</h2>
-            <p className="mt-2 text-xs leading-5 text-[#5f5a4e] sm:text-sm sm:leading-relaxed">{text}</p>
-            <span className="mt-3 inline-block text-[10px] font-bold uppercase tracking-wide text-[#9a731d] sm:text-xs">{cta} →</span>
+      <section className="relative z-10 bg-[#fffaf0] py-4 sm:py-8" data-home-public-shortcuts="4">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-2 px-2.5 sm:gap-4 sm:px-4 lg:grid-cols-4 lg:px-6">
+          {atalhos.map(({ icon: Icon, ...item }) => <a key={item.title} href={item.href} className="group min-w-0 rounded-xl border border-[#d9cfb9] bg-[#fffdf7] p-3 shadow-[0_4px_14px_rgba(72,55,21,.06)] transition active:scale-[.985] sm:rounded-2xl sm:p-5">
+            <span className="sl-home-shortcut-icon mb-2 flex size-9 items-center justify-center rounded-full border border-[#d4af37] bg-[#5b071b] text-[#f2cf62] shadow-sm sm:mb-4 sm:size-11" data-motion={item.motion} data-original-home-icon="true"><Icon className="size-[18px] sm:size-5" /></span>
+            <h2 className="font-serif text-[15px] font-semibold leading-tight text-[#5b071b] sm:text-xl">{item.title}</h2>
+            <p className="mt-1.5 line-clamp-3 text-[10px] leading-4 text-[#5f5a4e] sm:mt-2 sm:text-sm sm:leading-relaxed">{item.text}</p>
+            <span className="mt-2 inline-block text-[8px] font-bold uppercase tracking-wide text-[#9a731d] group-hover:underline sm:mt-3 sm:text-[11px]">{item.cta} →</span>
           </a>)}
         </div>
       </section>
-      <section id="liturgia" className="mx-auto max-w-7xl scroll-mt-24 px-3 py-10 sm:px-4 sm:py-14 lg:px-6">
-        <p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#9a731d]">Palavra de Deus</p>
-        <h1 className="font-serif text-3xl font-semibold text-[#0b4b35] sm:text-5xl">Liturgia Diária</h1>
-        <p className="mb-6 mt-3 max-w-2xl text-sm leading-6 text-[#665f50] sm:text-base">Conteúdo atualizado para preparar o coração e o serviço em cada celebração.</p>
+      <section id="liturgia" className="mx-auto max-w-7xl scroll-mt-20 px-3 py-6 sm:px-4 sm:py-10 lg:px-6">
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[.18em] text-[#9a731d] sm:text-xs">Palavra de Deus</p>
+        <h1 className="font-serif text-2xl font-semibold text-[#5b071b] sm:text-4xl">Liturgia Diária</h1>
+        <p className="mb-4 mt-2 max-w-2xl text-xs leading-5 text-[#665f50] sm:mb-6 sm:mt-3 sm:text-base sm:leading-6">Conteúdo atualizado para preparar o coração e o serviço em cada celebração.</p>
         <DeferredLiturgia />
       </section>
     </main>
