@@ -1,0 +1,3 @@
+Santa Luzia Motion Beta 17
+source: work/android-motion-beta17-auditor-count-fix
+fixes: unique error counting, clear report file, OfflineStore.then, Windows runtime disabled, original Home animation restored
