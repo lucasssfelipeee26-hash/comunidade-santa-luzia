@@ -132,4 +132,29 @@ public class DiagnosticReportPlugin extends Plugin {
             call.reject("Não foi possível abrir o compartilhamento do relatório.", "FALHA_COMPARTILHAR", error);
         }
     }
+
+    @PluginMethod
+    public void deleteLastReport(PluginCall call) {
+        Uri uri = ultimoRelatorioUri;
+        boolean deleted = false;
+        try {
+            if (uri != null) {
+                String scheme = uri.getScheme();
+                if ("content".equalsIgnoreCase(scheme)) {
+                    deleted = getContext().getContentResolver().delete(uri, null, null) > 0;
+                } else if ("file".equalsIgnoreCase(scheme)) {
+                    File file = new File(uri.getPath() == null ? "" : uri.getPath());
+                    deleted = file.exists() && file.delete();
+                }
+            }
+            ultimoRelatorioUri = null;
+            ultimoRelatorioNome = null;
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            result.put("deleted", deleted);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Não foi possível remover o último relatório.", "FALHA_REMOVER_RELATORIO", error);
+        }
+    }
 }
