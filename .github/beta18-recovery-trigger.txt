@@ -1,0 +1,4 @@
+Santa Luzia Motion Beta 18 Recovery
+source: work/android-motion-beta18-recovery
+base: Beta 16 preservada
+fixes: barra e animações originais restauradas, runtime visual preservado, apenas updateBottomNav corrigido, Auditor único e OfflineStore.then corrigidos
