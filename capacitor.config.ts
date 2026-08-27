@@ -3,7 +3,7 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const motionBeta = process.env.SANTA_LUZIA_MOTION_BETA === "1"
-const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.16").trim()
+const motionVersion = String(process.env.SANTA_LUZIA_MOTION_VERSION || "2.0.0-beta.17").trim()
 const valorServidor = String(process.env.CAPACITOR_SERVER_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim()
 let servidor: CapacitorConfig["server"] | undefined
 
@@ -22,7 +22,7 @@ const config: CapacitorConfig = {
   zoomEnabled: false,
   android: {
     appendUserAgent: motionBeta
-      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaOriginalUIOffline/2 SantaLuziaWindowsBeta/0.1.0-beta.19`
+      ? ` SantaLuziaAndroid SantaLuziaMotionBeta/${motionVersion} SantaLuziaOriginalUIOffline/2`
       : " SantaLuziaAndroid",
     backgroundColor: "#fffaf0",
     allowMixedContent: false,
