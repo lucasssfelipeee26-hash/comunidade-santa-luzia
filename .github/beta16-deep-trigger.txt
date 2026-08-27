@@ -1,0 +1,3 @@
+Santa Luzia Motion Beta 16 Deep Auditor
+source: work/android-motion-beta16-deep-auditor
+features: Deep Scan + GlitchTip bridge + profile portal + home icon animation + transition stabilization
