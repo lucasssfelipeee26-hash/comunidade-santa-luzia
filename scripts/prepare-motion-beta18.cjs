@@ -46,6 +46,10 @@ write(strings, stringsText)
 const assets = path.join(root, "android", "app", "src", "main", "assets", "public")
 const localApp = path.join(assets, "local-app.js")
 if (!fs.existsSync(localApp) || fs.statSync(localApp).size < 250000) fail("Bundle React local ausente ou incompleto.")
+
+// O bundle React é minificado pelo esbuild. Por isso a inspeção do APK exige
+// nomes dos data-attributes e conteúdos funcionais, sem depender de uma forma
+// textual específica como data-x=\"true\" que pode ser reescrita pelo minificador.
 requireAll(localApp, [
   "data-auditor-santa-luzia",
   "data-deep-auditor-ui",
@@ -57,20 +61,20 @@ requireAll(localApp, [
   "Buscar perfil por nome",
   "data-bottom-nav-network-stable",
   "mobile-app-bottom-nav",
-  'data-home-public-shortcuts="4"',
+  "data-home-public-shortcuts",
   "Centro Litúrgico",
   "Escala do Dia",
   "Biblioteca",
   "Liturgia Diária",
-  'data-hero-clean-image="true"',
-  'data-main-profile-access="hamburger"',
+  "data-hero-clean-image",
+  "data-main-profile-access",
   "Administração de dados",
-  'data-escala-history-search="date-liturgical-season"',
-  'data-escala-filter-date="true"',
-  'data-escala-filter-season="true"',
+  "data-escala-history-search",
+  "data-escala-filter-date",
+  "data-escala-filter-season",
   "Próxima escala",
-  'data-standard-logout="true"',
-  'data-logout-confirmation="true"',
+  "data-standard-logout",
+  "data-logout-confirmation",
   "Deseja sair?",
   "Sim, sair",
   "slR11Panel",
