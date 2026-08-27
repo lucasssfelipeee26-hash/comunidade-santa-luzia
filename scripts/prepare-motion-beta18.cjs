@@ -10,6 +10,14 @@ function read(file) { if (!fs.existsSync(file)) fail(`Arquivo ausente: ${path.re
 function write(file, content) { fs.writeFileSync(file, content) }
 function requireAll(file, markers, label) { const text = read(file); for (const marker of markers) if (!text.includes(marker)) fail(`${label}: marcador ausente: ${marker}`); return text }
 function forbid(file, markers, label) { const text = read(file); for (const marker of markers) if (text.includes(marker)) fail(`${label}: conteúdo proibido: ${marker}`) }
+function normalizeMinifiedJs(text) {
+  return String(text)
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\u\{([0-9a-fA-F]{1,6})\}/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+}
+function requireAllText(text, markers, label) { for (const marker of markers) if (!text.includes(marker)) fail(`${label}: marcador ausente: ${marker}`); return text }
+function forbidText(text, markers, label) { for (const marker of markers) if (text.includes(marker)) fail(`${label}: conteúdo proibido: ${marker}`) }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
 if (config.versionName !== "2.0.0-beta.18" || config.versionCode !== 20018) fail(`Beta 18/code20018 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
@@ -47,10 +55,10 @@ const assets = path.join(root, "android", "app", "src", "main", "assets", "publi
 const localApp = path.join(assets, "local-app.js")
 if (!fs.existsSync(localApp) || fs.statSync(localApp).size < 250000) fail("Bundle React local ausente ou incompleto.")
 
-// O bundle React é minificado pelo esbuild. Por isso a inspeção do APK exige
-// nomes dos data-attributes e conteúdos funcionais, sem depender de uma forma
-// textual específica como data-x=\"true\" que pode ser reescrita pelo minificador.
-requireAll(localApp, [
+// O esbuild usa charset ASCII e pode serializar acentos como \xNN/\uNNNN.
+// Normalizamos apenas para auditoria textual; o arquivo real do APK não é alterado.
+const localAppText = normalizeMinifiedJs(read(localApp))
+requireAllText(localAppText, [
   "data-auditor-santa-luzia",
   "data-deep-auditor-ui",
   "android-deep-auditor-beta16.js",
@@ -83,7 +91,7 @@ requireAll(localApp, [
   "slR11Library",
   "slR11Quiz",
 ], "Bundle React Beta 18 — exigências das imagens/vídeo")
-forbid(localApp, ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene", "Eventos recentes", "Versão monitorada", "Dados locais", "Banco SQLite", "Tela atual"], "Bundle React Beta 18")
+forbidText(localAppText, ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene", "Eventos recentes", "Versão monitorada", "Dados locais", "Banco SQLite", "Tela atual"], "Bundle React Beta 18")
 
 const runtime = path.join(assets, "motion", "windows-beta-runtime.js")
 const polish = path.join(assets, "motion", "windows-beta7-polish.js")
