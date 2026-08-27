@@ -27,7 +27,7 @@ if (beta.applicationId !== "br.com.comunidadesantaluzia.motionbeta") throw new E
 if (stable.versionName !== "1.0.6" || stable.versionCode !== 18) throw new Error(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}`)
 
 requireAll("components/mobile-bottom-nav.tsx", [
-  'data-motion="home"', "sl-nav-item[data-active=\"true\"]", "@keyframes slNavHome", "translateY(3px) scale(.88)", "label: \"Início\"", "data-bottom-nav-network-stable",
+  'motion: "home"', 'data-motion={item.motion}', "sl-nav-item[data-active=\"true\"]", "@keyframes slNavHome", "translateY(3px) scale(.88)", "label: \"Início\"", "data-bottom-nav-network-stable",
 ], "Animação original do Início")
 forbid("components/mobile-bottom-nav.tsx", ["function animarIcone", "svg.animate(frames"], "Animação substituta")
 
