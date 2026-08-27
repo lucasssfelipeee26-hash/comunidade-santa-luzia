@@ -1,0 +1,237 @@
+name: Android — Santa Luzia Motion Beta 16 — Deep Auditor
+
+on:
+  push:
+    branches:
+      - work/android-motion-beta11-video-audit
+    paths:
+      - .github/beta16-deep-trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-motion-beta16-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beta16:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
+      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta.keystore
+      MOTION_BETA_STORE_PASSWORD: android
+      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta
+      MOTION_BETA_KEY_PASSWORD: android
+
+    steps:
+      - name: Checkout Beta 16
+        uses: actions/checkout@v4
+        with:
+          ref: work/android-motion-beta16-deep-auditor
+          fetch-depth: 0
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-motion-beta16-gradle-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-motion-beta15-gradle-
+            ${{ runner.os }}-motion-beta14-gradle-
+            ${{ runner.os }}-gradle-
+
+      - name: Restaurar assinatura persistente
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.android/santa-luzia-motion-beta.keystore
+          key: santa-luzia-motion-beta-keystore-v2
+
+      - name: Validar certificado Beta
+        run: |
+          set -euo pipefail
+          test -s "$MOTION_BETA_KEYSTORE"
+          keytool -list -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" >/dev/null
+          EXPECTED="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test "$EXPECTED" = "0cf42dad25bd2673c81c6e47b87b77d5581c3de5cf23552e23088bdc447a4a21"
+          echo "MOTION_EXPECTED_CERT=$EXPECTED" >> "$GITHUB_ENV"
+
+      - name: Carregar configuração Beta 16
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const c = require('./config/android-motion-beta.json')
+          const stable = require('./config/android-build.json')
+          if (c.versionName !== '2.0.0-beta.16' || c.versionCode !== 20016) throw new Error(`Esperada Beta 16, encontrado ${c.versionName}/code${c.versionCode}`)
+          if (c.applicationId !== 'br.com.comunidadesantaluzia.motionbeta') throw new Error('Pacote Beta incorreto')
+          if (stable.versionName !== '1.0.6' || stable.versionCode !== 18) throw new Error(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}`)
+          const vars = { APP_VERSION_CODE:c.versionCode, APP_VERSION_NAME:c.versionName, SANTA_LUZIA_MOTION_VERSION:c.versionName, MOTION_APP_ID:c.applicationId }
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(vars).map(([k,v]) => `${k}=${v}\n`).join(''))
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validar fonte Beta 16
+        run: |
+          set -euo pipefail
+          node --check scripts/auditar-beta16-deep.cjs
+          node --check scripts/prepare-motion-beta16.cjs
+          node --check android-web/motion/android-deep-auditor-beta16.js
+          node --check android-web/motion/android-auditor-patch-beta16.js
+          node scripts/auditar-beta16-deep.cjs
+          test ! -e components/door-transition-scene.tsx
+          test ! -e components/profile-door-icon.tsx
+
+      - name: Fixar referência visual histórica
+        run: node scripts/fetch-windows-beta-stack.cjs
+
+      - name: Auditar TypeScript
+        run: npx tsc --noEmit
+
+      - name: Auditar robustez e offline
+        run: |
+          set -euo pipefail
+          node scripts/auditar-robustez.cjs
+          npm run audit:offline
+          node scripts/auditar-offline-beta12.cjs
+          node scripts/auditar-beta16-deep.cjs
+
+      - name: Compilar Next
+        run: node scripts/build-next.cjs
+
+      - name: Empacotar interface React local
+        run: npm run build:android-local
+
+      - name: Auditar pacote web produzido
+        run: |
+          set -euo pipefail
+          node scripts/auditar-beta16-deep.cjs
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          test -s android-web/motion/android-deep-auditor-beta16.js
+          test -s android-web/motion/android-auditor-patch-beta16.js
+          grep -Fq 'android-deep-auditor-beta16.js' android-web/local-app.js
+          grep -Fq 'android-auditor-patch-beta16.js' android-web/local-app.js
+          grep -Fq 'createPortal' android-web/local-app.js || true
+          grep -Fq 'data-profile-viewer-banner' android-web/local-app.js
+          grep -Fq 'data-profile-scroll' android-web/local-app.js
+          grep -Fq 'data-deep-auditor-ui' android-web/local-app.js
+          grep -Fq 'animarIcone' android-web/local-app.js || grep -Fq 'data-sl-nav-motion' android-web/local-app.js
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Criar e sincronizar Capacitor Android
+        run: |
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta16.cjs
+
+      - name: Auditar projeto Android gerado
+        run: |
+          set -euo pipefail
+          grep -Eq "applicationId[[:space:]]+\"${MOTION_APP_ID//./\\.}\"" android/app/build.gradle
+          grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
+          grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
+          grep -Fq 'signingConfig signingConfigs.motionBeta' android/app/build.gradle
+          CONFIG=android/app/src/main/assets/capacitor.config.json
+          if grep -Fq '"server"' "$CONFIG"; then echo 'ERRO: Motion Beta contém server.url' >&2; exit 1; fi
+          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$CONFIG"
+          test -s android/app/src/main/assets/public/motion/android-deep-auditor-beta16.js
+          test -s android/app/src/main/assets/public/motion/android-auditor-patch-beta16.js
+          grep -Fq 'DiagnosticReportPlugin.class' android/app/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java
+          grep -Fq 'PRAGMA integrity_check' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+
+      - name: Compilar APK Beta 16
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Inspecionar APK final
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/signature.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/signature.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$MOTION_EXPECTED_CERT"
+
+          unzip -l "$APK" > "$RUNNER_TEMP/files.txt"
+          grep -Fq 'assets/public/motion/android-deep-auditor-beta16.js' "$RUNNER_TEMP/files.txt"
+          grep -Fq 'assets/public/motion/android-auditor-patch-beta16.js' "$RUNNER_TEMP/files.txt"
+          unzip -p "$APK" assets/public/motion/android-deep-auditor-beta16.js > "$RUNNER_TEMP/deep.js"
+          grep -Fq 'profile-dialog-collapsed' "$RUNNER_TEMP/deep.js"
+          grep -Fq 'sendGlitchTip' "$RUNNER_TEMP/deep.js"
+          grep -Fq 'application/x-sentry-envelope' "$RUNNER_TEMP/deep.js"
+          unzip -p "$APK" assets/public/motion/android-auditor-patch-beta16.js > "$RUNNER_TEMP/patch.js"
+          grep -Fq 'santa-luzia-diagnostico-v3' "$RUNNER_TEMP/patch.js"
+          grep -Fq 'compactEvents' "$RUNNER_TEMP/patch.js"
+          unzip -p "$APK" assets/public/local-app.js > "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'data-profile-viewer-banner' "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'data-profile-scroll' "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'data-deep-auditor-ui' "$RUNNER_TEMP/local-app.js"
+          if grep -Fq 'Eventos recentes' "$RUNNER_TEMP/local-app.js"; then echo 'ERRO: eventos recentes continuam visíveis' >&2; exit 1; fi
+
+          mkdir -p dist
+          cp "$APK" 'dist/Santa-Luzia-Motion-2.0-beta16.apk'
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta16.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta16.apk)"
+          cat > dist/RELATORIO-MOTION-BETA16.txt <<EOF
+          Santa Luzia Motion Beta Android
+          Versão: $APP_VERSION_NAME
+          VersionCode: $APP_VERSION_CODE
+          ApplicationId: $MOTION_APP_ID
+          Tamanho: $SIZE bytes
+          SHA-256: $SHA
+          Certificado Beta SHA-256: $CERT
+          Auditor: tela simplificada; sem eventos recentes, versão monitorada, dados locais, SQLite e tela atual expostos ao usuário.
+          Deep Scan: varredura local/offline de ícones, alvos interativos, imagens, clipping, overflow, modais, barra inferior e transições.
+          GlitchTip: ponte compatível com Sentry Envelope integrada; usa configuração do servidor quando DSN estiver disponível.
+          Relatório: schema v3, Deep Scan incluído e eventos repetitivos de saúde SQLite compactados.
+          Perfis: modal renderizado em Portal no body, X, rolagem interna e foto proporcional.
+          Navegação: animação explícita do ícone Início e transições locais com scroll reset estabilizado.
+          Primeiro relatório Beta 15 analisado: SQLite íntegro, fila vazia e alerta de /api/ranking lento (~1,61 s).
+          Android oficial preservado: 1.0.6 / code18.
+          Windows não alterado.
+          EOF
+          echo "APK_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+
+      - name: Guardar APK Beta 16
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-2.0-beta16
+          path: |
+            dist/Santa-Luzia-Motion-2.0-beta16.apk
+            dist/RELATORIO-MOTION-BETA16.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Resumo
+        run: |
+          echo "### Santa Luzia Motion Beta 16" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Deep Scan + ponte GlitchTip: incluídos" >> "$GITHUB_STEP_SUMMARY"
+          echo "- APK: $APK_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA-256: $APK_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Android oficial 1.0.6/code18 preservado" >> "$GITHUB_STEP_SUMMARY"
