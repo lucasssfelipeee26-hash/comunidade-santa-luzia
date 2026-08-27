@@ -1,0 +1,247 @@
+name: Android — Santa Luzia Motion Beta 18 — Recovery
+
+on:
+  push:
+    branches:
+      - work/android-motion-beta11-video-audit
+    paths:
+      - .github/beta18-recovery-trigger.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-motion-beta18-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beta18:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
+      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta.keystore
+      MOTION_BETA_STORE_PASSWORD: android
+      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta
+      MOTION_BETA_KEY_PASSWORD: android
+
+    steps:
+      - name: Checkout Beta 18 Recovery
+        uses: actions/checkout@v4
+        with:
+          ref: work/android-motion-beta18-recovery
+          fetch-depth: 0
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-motion-beta18-gradle-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-motion-beta17-gradle-
+            ${{ runner.os }}-motion-beta16-gradle-
+            ${{ runner.os }}-gradle-
+
+      - name: Restaurar assinatura persistente
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.android/santa-luzia-motion-beta.keystore
+          key: santa-luzia-motion-beta-keystore-v2
+
+      - name: Validar certificado Beta
+        run: |
+          set -euo pipefail
+          test -s "$MOTION_BETA_KEYSTORE"
+          EXPECTED="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test "$EXPECTED" = "0cf42dad25bd2673c81c6e47b87b77d5581c3de5cf23552e23088bdc447a4a21"
+          echo "MOTION_EXPECTED_CERT=$EXPECTED" >> "$GITHUB_ENV"
+
+      - name: Carregar configuração Beta 18
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const c = require('./config/android-motion-beta.json')
+          const stable = require('./config/android-build.json')
+          if (c.versionName !== '2.0.0-beta.18' || c.versionCode !== 20018) throw new Error(`Esperada Beta 18, encontrado ${c.versionName}/code${c.versionCode}`)
+          if (c.applicationId !== 'br.com.comunidadesantaluzia.motionbeta') throw new Error('Pacote Beta incorreto')
+          if (stable.versionName !== '1.0.6' || stable.versionCode !== 18) throw new Error(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}`)
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_VERSION_CODE=${c.versionCode}\nAPP_VERSION_NAME=${c.versionName}\nSANTA_LUZIA_MOTION_VERSION=${c.versionName}\nMOTION_APP_ID=${c.applicationId}\n`)
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Auditar fonte Recovery
+        run: |
+          set -euo pipefail
+          node --check scripts/auditar-beta18-recovery.cjs
+          node --check scripts/prepare-motion-beta18.cjs
+          node --check scripts/patch-windows-polish-android-beta18.cjs
+          node --check android-web/motion/android-auditor-patch-beta16.js
+          node scripts/auditar-beta18-recovery.cjs
+          test ! -e components/door-transition-scene.tsx
+          test ! -e components/profile-door-icon.tsx
+
+      - name: Fixar referência visual histórica
+        run: node scripts/fetch-windows-beta-stack.cjs
+
+      - name: Corrigir apenas erro do polish Android
+        run: |
+          node scripts/patch-windows-polish-android-beta18.cjs
+          grep -Fq 'window.addEventListener("resize", () => restoreAndroidBottomNav());' android-web/motion/windows-beta7-polish.js
+          if grep -Eq '\bupdateBottomNav\s*\(' android-web/motion/windows-beta7-polish.js; then echo 'ERRO: updateBottomNav ainda executável' >&2; exit 1; fi
+          grep -Fq '[data-sl-nav-motion="panel"] svg' android-web/motion/windows-beta-runtime.js
+          grep -Fq 'slR11Panel' android-web/motion/windows-beta-runtime.js
+          grep -Fq 'slR11Quiz' android-web/motion/windows-beta-runtime.js
+
+      - name: Auditar TypeScript
+        run: npx tsc --noEmit
+
+      - name: Auditar robustez e offline
+        run: |
+          set -euo pipefail
+          node scripts/auditar-robustez.cjs
+          npm run audit:offline
+          node scripts/auditar-offline-beta12.cjs
+          node scripts/auditar-beta18-recovery.cjs
+
+      - name: Compilar Next
+        run: node scripts/build-next.cjs
+
+      - name: Empacotar interface local
+        run: npm run build:android-local
+
+      - name: Verificar interface empacotada
+        run: |
+          set -euo pipefail
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          grep -Fq 'mobile-app-bottom-nav' android-web/local-app.js
+          grep -Fq 'data-bottom-nav-network-stable' android-web/local-app.js
+          grep -Fq 'data-profile-viewer-banner' android-web/local-app.js
+          grep -Fq 'data-profile-scroll' android-web/local-app.js
+          grep -Fq 'data-auditor-santa-luzia' android-web/local-app.js
+          grep -Fq 'windows-beta-runtime.js' android-web/index.html
+          grep -Fq 'windows-beta7-polish.js' android-web/index.html
+          grep -Fq 'windows-motion-fixes.css' android-web/index.html
+          grep -Fq 'slR11Panel' android-web/motion/windows-beta-runtime.js
+          grep -Fq 'restoreAndroidBottomNav' android-web/motion/windows-beta7-polish.js
+          if grep -Eq '\bupdateBottomNav\s*\(' android-web/motion/windows-beta7-polish.js; then exit 1; fi
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Criar e sincronizar Capacitor Android
+        run: |
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta18.cjs
+
+      - name: Auditar projeto Android
+        run: |
+          set -euo pipefail
+          grep -Eq "applicationId[[:space:]]+\"${MOTION_APP_ID//./\\.}\"" android/app/build.gradle
+          grep -Eq "versionCode[[:space:]]+${APP_VERSION_CODE}" android/app/build.gradle
+          grep -Fq "versionName \"${APP_VERSION_NAME}\"" android/app/build.gradle
+          grep -Fq 'signingConfig signingConfigs.motionBeta' android/app/build.gradle
+          CONFIG=android/app/src/main/assets/capacitor.config.json
+          if grep -Fq '"server"' "$CONFIG"; then echo 'ERRO: Motion Beta contém server.url' >&2; exit 1; fi
+          grep -Fq "SantaLuziaMotionBeta/$APP_VERSION_NAME" "$CONFIG"
+          grep -Fq 'deleteLastReport' android/app/src/main/java/br/com/comunidadesantaluzia/app/DiagnosticReportPlugin.java
+          grep -Fq 'PRAGMA integrity_check' android/app/src/main/java/br/com/comunidadesantaluzia/app/OfflineStorePlugin.java
+
+      - name: Compilar APK Beta 18
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Inspecionar APK final
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/signature.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/signature.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$MOTION_EXPECTED_CERT"
+
+          unzip -p "$APK" assets/public/index.html > "$RUNNER_TEMP/index.html"
+          grep -Fq 'windows-beta-runtime.js' "$RUNNER_TEMP/index.html"
+          grep -Fq 'windows-beta7-polish.js' "$RUNNER_TEMP/index.html"
+          unzip -p "$APK" assets/public/motion/windows-beta-runtime.js > "$RUNNER_TEMP/runtime.js"
+          grep -Fq '[data-sl-nav-motion="panel"] svg' "$RUNNER_TEMP/runtime.js"
+          grep -Fq 'slR11Panel' "$RUNNER_TEMP/runtime.js"
+          grep -Fq 'slR11Quiz' "$RUNNER_TEMP/runtime.js"
+          grep -Fq 'slR10ScaleMotion' "$RUNNER_TEMP/runtime.js"
+          unzip -p "$APK" assets/public/motion/windows-beta7-polish.js > "$RUNNER_TEMP/polish.js"
+          grep -Fq 'restoreAndroidBottomNav' "$RUNNER_TEMP/polish.js"
+          if grep -Eq '\bupdateBottomNav\s*\(' "$RUNNER_TEMP/polish.js"; then echo 'ERRO: APK contém updateBottomNav inválido' >&2; exit 1; fi
+          unzip -p "$APK" assets/public/local-app.js > "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'mobile-app-bottom-nav' "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'data-bottom-nav-network-stable' "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'data-profile-viewer-banner' "$RUNNER_TEMP/local-app.js"
+          grep -Fq 'data-auditor-santa-luzia' "$RUNNER_TEMP/local-app.js"
+          unzip -p "$APK" assets/public/motion/android-auditor-patch-beta16.js > "$RUNNER_TEMP/auditor-patch.js"
+          grep -Fq '2.0.0-beta.18' "$RUNNER_TEMP/auditor-patch.js"
+          grep -Fq 'unique-signatures' "$RUNNER_TEMP/auditor-patch.js"
+
+          mkdir -p dist
+          cp "$APK" 'dist/Santa-Luzia-Motion-2.0-beta18.apk'
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta18.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta18.apk)"
+          cat > dist/RELATORIO-MOTION-BETA18.txt <<EOF
+          Santa Luzia Motion Beta Android — Recovery
+          Versão: $APP_VERSION_NAME
+          VersionCode: $APP_VERSION_CODE
+          ApplicationId: $MOTION_APP_ID
+          Tamanho: $SIZE bytes
+          SHA-256: $SHA
+          Certificado Beta SHA-256: $CERT
+          Base visual/funcional: Beta 16 preservada.
+          Barra inferior: presente e auditada; Início, Escala, Formação e Quiz em sessão autenticada.
+          Animações: runtime original preservado; Início usa data-sl-nav-motion=panel/slR11Panel; Escala, Formação e Quiz mantêm animações originais.
+          Runtime histórico: preservado no Android; somente chamada resize updateBottomNav inexistente foi corrigida para restoreAndroidBottomNav.
+          Painel: fonte atual da Beta 16 preservada; Administração continua no menu, não no dashboard; Meu relatório não foi reintroduzido.
+          Auditor: contagem por assinaturas únicas; repetição aumenta occurrences, não o número de defeitos.
+          Fila nativa: proxy OfflineStore protegido contra assimilação thenable.
+          Perfis/Deep Scan/transições/offline: preservados da Beta 16.
+          Android oficial: 1.0.6/code18 preservado.
+          EOF
+          echo "APK_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$SIZE" >> "$GITHUB_ENV"
+
+      - name: Guardar APK Beta 18
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-2.0-beta18
+          path: |
+            dist/Santa-Luzia-Motion-2.0-beta18.apk
+            dist/RELATORIO-MOTION-BETA18.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Resumo
+        run: |
+          echo "### Santa Luzia Motion Beta 18 Recovery" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Base Beta 16 preservada" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Barra e animações originais validadas dentro do APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA-256: $APK_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Android oficial 1.0.6/code18 preservado" >> "$GITHUB_STEP_SUMMARY"
