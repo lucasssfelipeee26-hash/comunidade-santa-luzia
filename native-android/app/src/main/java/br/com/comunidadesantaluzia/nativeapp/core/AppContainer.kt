@@ -9,7 +9,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.network.NativeHttpClient
 import br.com.comunidadesantaluzia.nativeapp.core.session.SessionStore
 
 internal class AppContainer(context: Context) {
-    private val appContext = context.applicationContext
+    val appContext: Context = context.applicationContext
 
     val database = NativeDatabase(appContext)
     val sessionStore = SessionStore(appContext)
