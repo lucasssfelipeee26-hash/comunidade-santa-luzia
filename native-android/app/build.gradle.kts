@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "br.com.comunidadesantaluzia.nativeapp"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "br.com.comunidadesantaluzia.nativebeta"
@@ -57,7 +57,8 @@ composeCompiler {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
+    // BOM de junho/2026 mantém a linha estável Compose 1.11.x e compila com API 36.
+    val composeBom = platform("androidx.compose:compose-bom:2026.06.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
