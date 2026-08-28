@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { lerSessao } from "@/lib/auth"
 import { montarMembro, type UsuarioRow, type RegistroRow } from "@/lib/membros"
+import { isOfflineRichClient } from "@/lib/client-capabilities"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -15,8 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!usuario) return NextResponse.json({ erro: "Perfil não encontrado." }, { status: 404 })
 
   if (sessao.tipo === "membro") {
-    const windowsBeta = /SantaLuziaWindowsBeta\//.test(req.headers.get("user-agent") || "") || req.headers.get("x-santa-luzia-windows-beta") === "1"
-    const registrosProprios = windowsBeta
+    const registrosProprios = isOfflineRichClient(req)
       ? db.prepare("SELECT * FROM registros WHERE usuario_id = ?").all(id) as RegistroRow[]
       : []
     return NextResponse.json({ membro: montarMembro(usuario, registrosProprios) }, { headers: { "Cache-Control": "no-store" } })
