@@ -48,10 +48,16 @@ jobs:
         with:
           gradle-version: "9.5.0"
 
+      - name: Auditoria Python de paridade Beta 18
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_parity.py
+
       - name: Auditoria de arquitetura nativa
         run: |
           set -euo pipefail
           test -f native-android/MIGRATION-CONTRACT.md
+          test -f native-android/PARITY-MATRIX.json
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/MainActivity.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/data/NativeDatabase.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/audit/SantaLuziaAuditor.kt
