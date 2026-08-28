@@ -30,21 +30,18 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.HowToReg
 import androidx.compose.material.icons.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.Login
-import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Quiz
+import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.School
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,9 +54,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,7 +69,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -88,12 +82,22 @@ import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyDay
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyReading
 import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.core.sync.SyncScheduler
+import br.com.comunidadesantaluzia.nativeapp.features.admin.AdminDataScreen
+import br.com.comunidadesantaluzia.nativeapp.features.delays.DelaysScreen
+import br.com.comunidadesantaluzia.nativeapp.features.formation.FormationScreen
+import br.com.comunidadesantaluzia.nativeapp.features.journey.JourneyScreen
+import br.com.comunidadesantaluzia.nativeapp.features.library.LibraryScreen
+import br.com.comunidadesantaluzia.nativeapp.features.notifications.NotificationsScreen
+import br.com.comunidadesantaluzia.nativeapp.features.profile.PrivateProfileScreen
+import br.com.comunidadesantaluzia.nativeapp.features.profiles.ProfilesScreen
+import br.com.comunidadesantaluzia.nativeapp.features.ranking.RankingScreen
+import br.com.comunidadesantaluzia.nativeapp.features.records.RecordsScreen
+import br.com.comunidadesantaluzia.nativeapp.features.scale.ScaleScreen
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaCream
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
 import kotlinx.coroutines.launch
-import org.json.JSONArray
 import org.json.JSONObject
 
 enum class Route(val value: String) {
@@ -105,8 +109,13 @@ enum class Route(val value: String) {
     Login("login"),
     Area("area"),
     Formation("formacao"),
+    Journey("jornada"),
     Ranking("ranking"),
     Profiles("perfis"),
+    Profile("perfil"),
+    Delays("atrasos"),
+    Records("registros"),
+    Notifications("notificacoes"),
     Diagnostics("diagnostico"),
     Administration("administracao"),
 }
@@ -132,7 +141,7 @@ private val authenticatedNavigation = listOf(
     NavItem(Route.Home, "Início", Icons.Rounded.Home, NavMotion.Home),
     NavItem(Route.Scale, "Escala", Icons.Rounded.CalendarMonth, NavMotion.Scale),
     NavItem(Route.Formation, "Formação", Icons.Rounded.School, NavMotion.Formation),
-    NavItem(Route.Ranking, "Quiz", Icons.Rounded.Quiz, NavMotion.Quiz),
+    NavItem(Route.Journey, "Quiz", Icons.Rounded.Quiz, NavMotion.Quiz),
 )
 
 @Composable
@@ -166,42 +175,11 @@ internal fun SantaLuziaApp(container: AppContainer) {
             startDestination = Route.Home.value,
             modifier = Modifier.padding(padding),
         ) {
-            composable(Route.Home.value) {
-                HomeScreen(onNavigate = { navController.navigate(it.value) })
-            }
-            composable(Route.Liturgy.value) {
-                LiturgyScreen(container = container)
-            }
-            composable(Route.LiturgyCenter.value) {
-                DataEndpointScreen(
-                    title = "Centro Litúrgico",
-                    subtitle = "Acervo e conteúdo litúrgico",
-                    cacheKey = "biblioteca",
-                    path = "/api/biblioteca",
-                    authenticated = false,
-                    container = container,
-                )
-            }
-            composable(Route.Scale.value) {
-                DataEndpointScreen(
-                    title = "Escalas",
-                    subtitle = "Próximas escalas e histórico local",
-                    cacheKey = "escalas",
-                    path = "/api/escalas",
-                    authenticated = false,
-                    container = container,
-                )
-            }
-            composable(Route.Library.value) {
-                DataEndpointScreen(
-                    title = "Biblioteca",
-                    subtitle = "Conteúdo salvo e sincronizado",
-                    cacheKey = "biblioteca",
-                    path = "/api/biblioteca",
-                    authenticated = false,
-                    container = container,
-                )
-            }
+            composable(Route.Home.value) { HomeScreen(onNavigate = { navController.navigate(it.value) }) }
+            composable(Route.Liturgy.value) { LiturgyScreen(container) }
+            composable(Route.LiturgyCenter.value) { LibraryScreen(container) }
+            composable(Route.Scale.value) { ScaleScreen(container) }
+            composable(Route.Library.value) { LibraryScreen(container) }
             composable(Route.Login.value) {
                 LoginScreen(
                     container = container,
@@ -225,59 +203,25 @@ internal fun SantaLuziaApp(container: AppContainer) {
                     container = container,
                 )
             }
-            composable(Route.Formation.value) {
-                DataEndpointScreen(
-                    title = "Formação",
-                    subtitle = "Materiais e presenças continuam local-first",
-                    cacheKey = "formacoes",
-                    path = "/api/formacoes",
-                    authenticated = true,
-                    container = container,
-                )
-            }
-            composable(Route.Ranking.value) {
-                DataEndpointScreen(
-                    title = "Quiz e Ranking",
-                    subtitle = "Pontuação e progresso salvos no aparelho",
-                    cacheKey = "ranking",
-                    path = "/api/ranking",
-                    authenticated = true,
-                    container = container,
-                )
-            }
-            composable(Route.Profiles.value) {
-                DataEndpointScreen(
-                    title = "Perfis da equipe",
-                    subtitle = "Faixa de perfis será reconstruída em Compose com o modelo aprovado",
-                    cacheKey = "perfis",
-                    path = "/api/perfis",
-                    authenticated = true,
-                    container = container,
-                )
-            }
-            composable(Route.Diagnostics.value) {
-                DiagnosticsScreen(container)
-            }
+            composable(Route.Formation.value) { FormationScreen(container) }
+            composable(Route.Journey.value) { JourneyScreen(container) }
+            composable(Route.Ranking.value) { RankingScreen(container) }
+            composable(Route.Profiles.value) { ProfilesScreen(container) }
+            composable(Route.Profile.value) { PrivateProfileScreen(container) }
+            composable(Route.Delays.value) { DelaysScreen(container) }
+            composable(Route.Records.value) { RecordsScreen(container, session) }
+            composable(Route.Notifications.value) { NotificationsScreen(container) }
+            composable(Route.Diagnostics.value) { DiagnosticsScreen(container) }
             composable(Route.Administration.value) {
-                DataEndpointScreen(
-                    title = "Administração de dados",
-                    subtitle = "Área exclusiva do moderador",
-                    cacheKey = "admin-dados",
-                    path = "/api/app/admin-dados",
-                    authenticated = true,
-                    container = container,
-                )
+                if (session.userType == "moderador") AdminDataScreen(container)
+                else AccessDeniedScreen()
             }
         }
     }
 }
 
 @Composable
-private fun SantaBottomBar(
-    items: List<NavItem>,
-    currentRoute: String?,
-    onNavigate: (NavItem) -> Unit,
-) {
+private fun SantaBottomBar(items: List<NavItem>, currentRoute: String?, onNavigate: (NavItem) -> Unit) {
     NavigationBar(
         modifier = Modifier.navigationBarsPadding(),
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
@@ -307,10 +251,7 @@ private fun AnimatedNavIcon(icon: ImageVector, motion: NavMotion, selected: Bool
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (selected) 1200 else 1800),
-            repeatMode = RepeatMode.Reverse,
-        ),
+        animationSpec = infiniteRepeatable(animation = tween(if (selected) 1200 else 1800), repeatMode = RepeatMode.Reverse),
         label = "phase",
     )
     val modifier = when (motion) {
@@ -345,11 +286,7 @@ private fun HomeScreen(onNavigate: (Route) -> Unit) {
                     .fillMaxWidth()
                     .height(210.dp)
                     .clip(RoundedCornerShape(30.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(SantaWine, SantaWine.copy(alpha = 0.88f), SantaGold.copy(alpha = 0.75f)),
-                        ),
-                    )
+                    .background(Brush.linearGradient(colors = listOf(SantaWine, SantaWine.copy(alpha = 0.88f), SantaGold.copy(alpha = 0.75f))))
                     .padding(22.dp),
                 contentAlignment = Alignment.BottomStart,
             ) {
@@ -359,42 +296,16 @@ private fun HomeScreen(onNavigate: (Route) -> Unit) {
                 }
             }
         }
-        item {
-            Text("Acessos rápidos", style = MaterialTheme.typography.titleLarge, color = SantaWine, fontWeight = FontWeight.Bold)
-        }
+        item { Text("Acessos rápidos", style = MaterialTheme.typography.titleLarge, color = SantaWine, fontWeight = FontWeight.Bold) }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HomeCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Centro Litúrgico",
-                        subtitle = "Acervo e formação",
-                        icon = Icons.AutoMirrored.Rounded.MenuBook,
-                        onClick = { onNavigate(Route.LiturgyCenter) },
-                    )
-                    HomeCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Escala do Dia",
-                        subtitle = "Equipe e funções",
-                        icon = Icons.Rounded.CalendarMonth,
-                        onClick = { onNavigate(Route.Scale) },
-                    )
+                    HomeCard(Modifier.weight(1f), "Centro Litúrgico", "Acervo e formação", Icons.AutoMirrored.Rounded.MenuBook) { onNavigate(Route.LiturgyCenter) }
+                    HomeCard(Modifier.weight(1f), "Escala do Dia", "Equipe e funções", Icons.Rounded.CalendarMonth) { onNavigate(Route.Scale) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HomeCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Biblioteca",
-                        subtitle = "Conteúdo da comunidade",
-                        icon = Icons.Rounded.LibraryBooks,
-                        onClick = { onNavigate(Route.Library) },
-                    )
-                    HomeCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Liturgia Diária",
-                        subtitle = "Leituras 100% offline",
-                        icon = Icons.Rounded.AutoStories,
-                        onClick = { onNavigate(Route.Liturgy) },
-                    )
+                    HomeCard(Modifier.weight(1f), "Biblioteca", "Conteúdo da comunidade", Icons.Rounded.LibraryBooks) { onNavigate(Route.Library) }
+                    HomeCard(Modifier.weight(1f), "Liturgia Diária", "Leituras 100% offline", Icons.Rounded.AutoStories) { onNavigate(Route.Liturgy) }
                 }
             }
         }
@@ -402,13 +313,7 @@ private fun HomeScreen(onNavigate: (Route) -> Unit) {
 }
 
 @Composable
-private fun HomeCard(
-    modifier: Modifier,
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-) {
+private fun HomeCard(modifier: Modifier, title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
     Card(
         modifier = modifier,
         onClick = onClick,
@@ -417,11 +322,7 @@ private fun HomeCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Exatamente UM ícone por card. O ícone legado duplicado não existe na base Compose.
-            Box(
-                modifier = Modifier.size(46.dp).clip(CircleShape).background(SantaWine.copy(alpha = 0.09f)),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.size(46.dp).clip(CircleShape).background(SantaWine.copy(alpha = 0.09f)), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, tint = SantaWine, modifier = Modifier.size(26.dp))
             }
             Text(title, fontWeight = FontWeight.Bold, color = SantaWine)
@@ -446,9 +347,8 @@ private fun LiturgyScreen(container: AppContainer) {
                 OutlinedButton(onClick = { selectedDate = selectedDate.plusDays(1) }, enabled = selectedDate < LocalDate.of(2026, 12, 31)) { Text("Próxima") }
             }
         }
-        if (day == null) {
-            item { Text("Liturgia não encontrada no acervo local.") }
-        } else {
+        if (day == null) item { Text("Liturgia não encontrada no acervo local.") }
+        else {
             item { LiturgyHeader(day) }
             item { PrayerCard("Oração da Coleta", day.collect) }
             readingItems("Primeira Leitura", day.firstReading)
@@ -489,55 +389,7 @@ private fun ReadingCard(reading: LiturgyReading) {
     Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) { Text(reading.title, fontWeight = FontWeight.SemiBold); Text(reading.reference, color = SantaWine, fontWeight = FontWeight.Bold); Text(reading.text) } }
 }
 
-@Composable
-private fun DataEndpointScreen(
-    title: String,
-    subtitle: String,
-    cacheKey: String,
-    path: String,
-    authenticated: Boolean,
-    container: AppContainer,
-) {
-    var state by remember { mutableStateOf<RepositoryResult<String>?>(null) }
-    LaunchedEffect(cacheKey, path) {
-        state = container.repository.readLocalFirst(cacheKey, path, authenticated)
-    }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text(title, style = MaterialTheme.typography.headlineMedium, color = SantaWine, fontWeight = FontWeight.Bold) }
-        item { Text(subtitle, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f)) }
-        when (val current = state) {
-            null -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            is RepositoryResult.Failure -> item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) { Text(current.message, Modifier.padding(16.dp)) } }
-            is RepositoryResult.Queued -> item { Text("Alteração salva na fila local: ${current.mutationId}") }
-            is RepositoryResult.Success -> {
-                item {
-                    Text(if (current.fromCache) "Dados locais · modo offline disponível" else "Dados sincronizados", color = if (current.fromCache) SantaGold else SantaWine, fontWeight = FontWeight.Bold)
-                }
-                item { JsonSummary(current.value) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun JsonSummary(raw: String) {
-    val summary = remember(raw) {
-        runCatching {
-            val root = JSONObject(raw)
-            val keys = root.keys().asSequence().toList()
-            val counts = keys.mapNotNull { key ->
-                when (val value = root.opt(key)) {
-                    is JSONArray -> "$key: ${value.length()} item(ns)"
-                    else -> null
-                }
-            }
-            if (counts.isNotEmpty()) counts.joinToString("\n") else "Dados locais disponíveis."
-        }.getOrElse { "Dados locais disponíveis." }
-    }
-    Card { Text(summary, Modifier.fillMaxWidth().padding(16.dp)) }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun LoginScreen(container: AppContainer, onSuccess: () -> Unit, onBack: () -> Unit) {
     var login by remember { mutableStateOf("") }
@@ -561,7 +413,10 @@ private fun LoginScreen(container: AppContainer, onSuccess: () -> Unit, onBack: 
                         busy = true
                         message = null
                         when (val result = container.repository.login(login, password)) {
-                            is RepositoryResult.Success -> { SyncScheduler.syncNow((container.javaClass.getDeclaredField("appContext").apply { isAccessible = true }.get(container) as android.content.Context)); onSuccess() }
+                            is RepositoryResult.Success -> {
+                                SyncScheduler.syncNow((container.javaClass.getDeclaredField("appContext").apply { isAccessible = true }.get(container) as android.content.Context))
+                                onSuccess()
+                            }
                             is RepositoryResult.Failure -> message = result.message
                             is RepositoryResult.Queued -> message = "Login não pode ser colocado em fila. Conecte-se à internet."
                         }
@@ -588,17 +443,23 @@ private fun AreaScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Column { Text("Área Restrita", style = MaterialTheme.typography.headlineMedium, color = SantaWine, fontWeight = FontWeight.Bold); Text(session.userName ?: "Usuário") }
+                Column {
+                    Text("Área Restrita", style = MaterialTheme.typography.headlineMedium, color = SantaWine, fontWeight = FontWeight.Bold)
+                    Text(session.userName ?: "Usuário")
+                }
                 IconButton(onClick = { confirmLogout = true }) { Icon(Icons.Rounded.Login, contentDescription = "Sair", tint = SantaWine) }
             }
         }
+        item { AreaAction("Meu perfil", Icons.Rounded.AccountCircle) { onNavigate(Route.Profile) } }
         item { AreaAction("Perfis da equipe", Icons.Rounded.Groups) { onNavigate(Route.Profiles) } }
         item { AreaAction("Formação", Icons.Rounded.School) { onNavigate(Route.Formation) } }
-        item { AreaAction("Quiz e Ranking", Icons.Rounded.WorkspacePremium) { onNavigate(Route.Ranking) } }
+        item { AreaAction("Jornada Litúrgica", Icons.Rounded.Quiz) { onNavigate(Route.Journey) } }
+        item { AreaAction("Ranking", Icons.Rounded.WorkspacePremium) { onNavigate(Route.Ranking) } }
+        item { AreaAction("Atrasos", Icons.Rounded.Schedule) { onNavigate(Route.Delays) } }
+        item { AreaAction("Registros", Icons.Rounded.ReceiptLong) { onNavigate(Route.Records) } }
+        item { AreaAction("Notificações", Icons.Rounded.Notifications) { onNavigate(Route.Notifications) } }
         item { AreaAction("Auditor Santa Luzia", Icons.Rounded.BugReport) { onNavigate(Route.Diagnostics) } }
-        if (session.userType == "moderador") {
-            item { AreaAction("Administração de dados", Icons.Rounded.AdminPanelSettings) { onNavigate(Route.Administration) } }
-        }
+        if (session.userType == "moderador") item { AreaAction("Administração de dados", Icons.Rounded.AdminPanelSettings) { onNavigate(Route.Administration) } }
     }
     if (confirmLogout) {
         AlertDialog(
@@ -618,6 +479,13 @@ private fun AreaAction(title: String, icon: ImageVector, onClick: () -> Unit) {
             Icon(icon, contentDescription = null, tint = SantaWine)
             Text(title, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+@Composable
+private fun AccessDeniedScreen() {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Card { Text("Esta área é exclusiva para moderadores.", Modifier.padding(20.dp), color = SantaWine, fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -644,12 +512,16 @@ private fun DiagnosticsScreen(container: AppContainer) {
         }
         item { OutlinedButton(onClick = { container.auditor.clearHistory(); report = container.auditor.runSelfAudit(); message = "Histórico técnico limpo." }) { Text("Limpar histórico") } }
         message?.let { item { Text(it, color = SantaWine) } }
-        item { HorizontalDivider() }
         item { Text("Banco: ${report.optJSONObject("database")?.optString("integrity") ?: "?"}") }
     }
 }
 
 @Composable
 private fun Metric(label: String, value: Int, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) { Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(value.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SantaWine); Text(label, style = MaterialTheme.typography.labelSmall) } }
+    Card(modifier = modifier) {
+        Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SantaWine)
+            Text(label, style = MaterialTheme.typography.labelSmall)
+        }
+    }
 }
