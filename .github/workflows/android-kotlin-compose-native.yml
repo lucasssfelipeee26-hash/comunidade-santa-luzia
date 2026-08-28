@@ -32,15 +32,21 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Configurar Android SDK atual
+        uses: android-actions/setup-android@v3
+
+      - name: Atualizar SDK e instalar API 37
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --update >/dev/null
+          sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-37/android.jar"
+
       - name: Gradle 9.5
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.5.0"
-
-      - name: Instalar Android API 37
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;36.0.0"
 
       - name: Auditoria de arquitetura nativa
         run: |
@@ -61,11 +67,13 @@ jobs:
             echo 'ERRO: interface web encontrada dentro do aplicativo nativo.' >&2
             exit 1
           fi
-          grep -Fq 'HomeCard(' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
-          grep -Fq 'Centro Litúrgico' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
-          grep -Fq 'Escala do Dia' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
-          grep -Fq 'Biblioteca' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
-          grep -Fq 'Liturgia Diária' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          HOME_FILE=native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          grep -Fq 'Centro Litúrgico' "$HOME_FILE"
+          grep -Fq 'Escala do Dia' "$HOME_FILE"
+          grep -Fq 'Biblioteca' "$HOME_FILE"
+          grep -Fq 'Liturgia Diária' "$HOME_FILE"
+          CARD_COUNT="$(grep -c '^                    HomeCard(' "$HOME_FILE")"
+          test "$CARD_COUNT" -eq 4
           test "$(find public/offline/liturgia-completa -maxdepth 1 -name '2026-*.json' | wc -l)" -eq 12
 
       - name: Compilar e testar Kotlin
