@@ -94,6 +94,20 @@ internal class SantaLuziaRepository(
         }
     }
 
+    suspend fun mutate(
+        method: String,
+        path: String,
+        payload: String?,
+        optimisticCacheKey: String? = null,
+        optimisticPayload: String? = null,
+    ): RepositoryResult<String> = mutateLocalFirst(
+        method = method,
+        path = path,
+        payload = payload,
+        optimisticCacheKey = optimisticCacheKey,
+        optimisticPayload = optimisticPayload,
+    )
+
     suspend fun mutateLocalFirst(
         method: String,
         path: String,
