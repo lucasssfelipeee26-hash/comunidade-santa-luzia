@@ -17,7 +17,7 @@ import java.util.concurrent.Executors
 import org.json.JSONArray
 import org.json.JSONObject
 
-class SantaLuziaAuditor(
+internal class SantaLuziaAuditor(
     private val context: Context,
     private val database: NativeDatabase,
 ) {
@@ -78,9 +78,7 @@ class SantaLuziaAuditor(
                 put("integrity", integrity)
                 put("ok", integrity.equals("ok", ignoreCase = true))
             })
-            put("queue", JSONObject().apply {
-                put("pending", queueSize)
-            })
+            put("queue", JSONObject().apply { put("pending", queueSize) })
             put("network", network)
             put("performance", JSONObject().apply {
                 put("nativeHeapBytes", Debug.getNativeHeapAllocatedSize())
@@ -125,9 +123,8 @@ class SantaLuziaAuditor(
         val manager = context.getSystemService(ConnectivityManager::class.java)
         val network = manager.activeNetwork
         val capabilities = network?.let(manager::getNetworkCapabilities)
-        val connected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         return JSONObject().apply {
-            put("connected", connected)
+            put("connected", capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
             put("validated", capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true)
             put("wifi", capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true)
             put("cellular", capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true)
@@ -152,19 +149,18 @@ class SantaLuziaAuditor(
 
     private fun installStrictModeCapture() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
-        val listener = StrictMode.OnThreadViolationListener { violation ->
-            recordAsync(
-                "warning",
-                "strict-mode-thread",
-                violation.javaClass.simpleName,
-                JSONObject().put("message", violation.message.orEmpty().take(1000)).toString(),
-            )
-        }
         StrictMode.setThreadPolicy(
             StrictMode.ThreadPolicy.Builder()
                 .detectNetwork()
                 .detectDiskWrites()
-                .penaltyListener(executor, listener)
+                .penaltyListener(executor) { violation ->
+                    recordAsync(
+                        "warning",
+                        "strict-mode-thread",
+                        violation.javaClass.simpleName,
+                        JSONObject().put("message", violation.message.orEmpty().take(1000)).toString(),
+                    )
+                }
                 .build(),
         )
         StrictMode.setVmPolicy(
@@ -190,9 +186,7 @@ class SantaLuziaAuditor(
             .take(24)
     }
 
-    private class FrameMonitor(
-        private val onSlowFrame: (Long) -> Unit,
-    ) : Choreographer.FrameCallback {
+    private class FrameMonitor(private val onSlowFrame: (Long) -> Unit) : Choreographer.FrameCallback {
         private var running = false
         private var previousNanos = 0L
 
