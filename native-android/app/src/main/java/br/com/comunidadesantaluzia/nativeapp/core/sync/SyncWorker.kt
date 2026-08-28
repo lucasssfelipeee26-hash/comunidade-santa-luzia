@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import br.com.comunidadesantaluzia.nativeapp.SantaLuziaApplication
+import br.com.comunidadesantaluzia.nativeapp.core.notifications.NativeNotificationDispatcher
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -22,9 +23,11 @@ internal class SyncWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as SantaLuziaApplication
         val container = app.container
+        val dispatcher = NativeNotificationDispatcher(applicationContext, container.database)
         val pending = container.database.pendingMutations(limit = 100)
         if (pending.isEmpty()) {
             runCatching { container.repository.warmEssentialCaches() }
+            runCatching { dispatcher.deliverUnreadFromCache() }
             return Result.success()
         }
 
@@ -79,6 +82,7 @@ internal class SyncWorker(
         }
 
         runCatching { container.repository.warmEssentialCaches() }
+        runCatching { dispatcher.deliverUnreadFromCache() }
         return Result.success()
     }
 }
