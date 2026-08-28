@@ -1,0 +1,101 @@
+name: Android — Santa Luzia Native Kotlin Compose
+
+on:
+  push:
+    branches:
+      - work/android-kotlin-compose-native
+    paths:
+      - native-android/**
+      - public/offline/**
+      - .github/workflows/android-kotlin-compose-native.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-native-kotlin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-kotlin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Instalar Android API 37
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;36.0.0"
+
+      - name: Auditoria de arquitetura nativa
+        run: |
+          set -euo pipefail
+          test -f native-android/MIGRATION-CONTRACT.md
+          test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/MainActivity.kt
+          test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/data/NativeDatabase.kt
+          test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/audit/SantaLuziaAuditor.kt
+          test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/liturgy/OfflineLiturgyRepository.kt
+          grep -Fq 'compileSdk = 37' native-android/app/build.gradle.kts
+          grep -Fq 'android.builtInKotlin=true' native-android/gradle.properties
+          grep -Fq 'compose = true' native-android/app/build.gradle.kts
+          if grep -R -nE 'android\.webkit\.WebView|JavascriptInterface|loadUrl\("file:///android_asset' native-android/app/src; then
+            echo 'ERRO: WebView/ponte JavaScript encontrada no aplicativo Kotlin nativo.' >&2
+            exit 1
+          fi
+          if grep -R -nE '<html|<script|\.js"|\.css"' native-android/app/src/main; then
+            echo 'ERRO: interface web encontrada dentro do aplicativo nativo.' >&2
+            exit 1
+          fi
+          grep -Fq 'HomeCard(' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          grep -Fq 'Centro Litúrgico' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          grep -Fq 'Escala do Dia' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          grep -Fq 'Biblioteca' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          grep -Fq 'Liturgia Diária' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
+          test "$(find public/offline/liturgia-completa -maxdepth 1 -name '2026-*.json' | wc -l)" -eq 12
+
+      - name: Compilar e testar Kotlin
+        working-directory: native-android
+        run: |
+          gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Auditar APK nativo
+        run: |
+          set -euo pipefail
+          APK="$(find native-android/app/build/outputs/apk/debug -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 1000000
+          unzip -l "$APK" > "$RUNNER_TEMP/native-files.txt"
+          grep -Fq 'assets/liturgia-completa/2026-01.json' "$RUNNER_TEMP/native-files.txt"
+          grep -Fq 'assets/liturgia-completa/2026-12.json' "$RUNNER_TEMP/native-files.txt"
+          if grep -Eq 'assets/(index\.html|.*\.js|.*\.css)$' "$RUNNER_TEMP/native-files.txt"; then
+            echo 'ERRO: pacote nativo contém interface WebView.' >&2
+            exit 1
+          fi
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Native-Kotlin-alpha1.apk
+          sha256sum dist/Santa-Luzia-Native-Kotlin-alpha1.apk | tee dist/SHA256-NATIVE.txt
+
+      - name: Guardar alpha nativa
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-native-kotlin-alpha1
+          path: |
+            dist/Santa-Luzia-Native-Kotlin-alpha1.apk
+            dist/SHA256-NATIVE.txt
+          retention-days: 14
+          if-no-files-found: error
