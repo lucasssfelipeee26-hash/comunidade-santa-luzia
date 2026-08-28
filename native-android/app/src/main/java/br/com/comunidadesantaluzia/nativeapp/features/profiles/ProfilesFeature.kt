@@ -31,7 +31,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Dialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +54,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
@@ -290,7 +290,7 @@ private fun ProfileDialog(profile: NativeTeamProfile, onClose: () -> Unit) {
                     }
                     item {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ProfileStat(Icons.Rounded.EmojiEvents, profile.ranking?.position?.let { "$itº" } ?: "—", "Classificação", Modifier.weight(1f))
+                            ProfileStat(Icons.Rounded.EmojiEvents, profile.ranking?.position?.let { "${it}º" } ?: "—", "Classificação", Modifier.weight(1f))
                             ProfileStat(Icons.Rounded.MilitaryTech, (profile.ranking?.points ?: 0).toString(), "Pontos", Modifier.weight(1f))
                             ProfileStat(Icons.Rounded.Verified, "${profile.ranking?.successRate ?: 0}%", "Aproveitamento", Modifier.weight(1f))
                         }
