@@ -82,8 +82,9 @@ internal suspend fun loadPrivateProfile(container: AppContainer): PrivateProfile
                     id = item.optString("id"),
                     name = item.optString("nome"),
                     role = item.optString("funcao"),
-                    birthDate = item.optString("data_nascimento").takeUnless { it == "null" },
-                    vowsDate = item.optString("data_votos").takeUnless { it == "null" }.ifBlank { item.optString("desde").takeUnless { it == "null" } },
+                    birthDate = item.optString("data_nascimento").takeUnless { it == "null" }.orEmpty(),
+                    vowsDate = item.optString("data_votos").takeUnless { it == "null" }.orEmpty()
+                        .ifBlank { item.optString("desde").takeUnless { it == "null" }.orEmpty() },
                     photo = item.optString("foto").takeIf { it.isNotBlank() && it != "null" },
                     bio = item.optString("bio"),
                 ),
