@@ -78,14 +78,18 @@ def audit_home() -> None:
     text = read(HOME)
     block = function_slice(text, "HomeScreen", "HomeCard")
     require(bool(block), "HomeScreen Compose não localizada")
-    cards = re.findall(r"\bHomeCard\s*\(", block)
-    require(len(cards) == 4, f"Home deve ter exatamente 4 cards; encontrado {len(cards)}")
+    calls = re.findall(r"\bHomeCard\s*\((.*?)\)\s*\{", block, flags=re.S)
+    require(len(calls) == 4, f"Home deve ter exatamente 4 cards; encontrado {len(calls)}")
     expected = ["Centro Litúrgico", "Escala do Dia", "Biblioteca", "Liturgia Diária"]
     for title in expected:
-        require(block.count(f'title = "{title}"') == 1, f"Card {title!r} ausente ou duplicado")
-    require(block.count("icon = ") == 4, "Cada um dos 4 cards deve declarar exatamente um ícone")
+        require(block.count(f'"{title}"') == 1, f"Card {title!r} ausente ou duplicado")
+    # Cada chamada precisa carregar um ícone Material próprio; aceita argumentos
+    # posicionais ou nomeados para não acoplar o gate ao estilo de formatação Kotlin.
+    for index, call in enumerate(calls, start=1):
+        require("Icons." in call, f"Card {index} da Home não declara ícone Material")
     require("Liturgia Diária" in block, "Card Liturgia Diária ausente")
-    require("Liturgia" not in re.sub(r"Liturgia Diária|Centro Litúrgico", "", block), "Há um quinto acesso/card de Liturgia na Home")
+    without_expected = re.sub(r"Liturgia Diária|Centro Litúrgico", "", block)
+    require('HomeCard' not in without_expected.replace('HomeCard', '', 4), "Há acesso/card extra na Home")
 
 
 def audit_navigation() -> None:
@@ -94,12 +98,13 @@ def audit_navigation() -> None:
         'NavItem(Route.Home, "Início"',
         'NavItem(Route.Scale, "Escala"',
         'NavItem(Route.Formation, "Formação"',
-        'NavItem(Route.Ranking, "Quiz"',
+        'NavItem(Route.Journey, "Quiz"',
         "AnimatedNavIcon",
         "rememberInfiniteTransition",
         "NavMotion.Home",
     ]:
         require(marker in text, f"Navegação/animação obrigatória ausente: {marker}")
+    require('NavItem(Route.Ranking, "Quiz"' not in text, "Quiz não pode apontar para Ranking; deve abrir a Jornada Litúrgica")
     require('label: "Perfil"' not in text, "Perfil não pode substituir Início na barra inferior")
 
 
