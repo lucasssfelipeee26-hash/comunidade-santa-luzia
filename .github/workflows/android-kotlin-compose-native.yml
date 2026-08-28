@@ -35,13 +35,12 @@ jobs:
       - name: Configurar Android SDK atual
         uses: android-actions/setup-android@v3
 
-      - name: Atualizar SDK e instalar API 37
+      - name: Instalar Android API 36
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --update >/dev/null
-          sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
-          test -f "$ANDROID_HOME/platforms/android-37/android.jar"
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
 
       - name: Gradle 9.5
         uses: gradle/actions/setup-gradle@v4
@@ -62,7 +61,8 @@ jobs:
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/data/NativeDatabase.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/audit/SantaLuziaAuditor.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/liturgy/OfflineLiturgyRepository.kt
-          grep -Fq 'compileSdk = 37' native-android/app/build.gradle.kts
+          grep -Fq 'compileSdk = 36' native-android/app/build.gradle.kts
+          grep -Fq 'compose-bom:2026.06.00' native-android/app/build.gradle.kts
           grep -Fq 'android.builtInKotlin=true' native-android/gradle.properties
           grep -Fq 'compose = true' native-android/app/build.gradle.kts
           if grep -R -nE 'android\.webkit\.WebView|JavascriptInterface|loadUrl\("file:///android_asset' native-android/app/src; then
