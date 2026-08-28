@@ -27,6 +27,14 @@ android {
         buildConfig = true
     }
 
+    sourceSets {
+        getByName("main") {
+            // Reaproveita o mesmo acervo já auditado da Beta 18, mas como asset
+            // nativo do APK. Nenhum WebView é necessário para ler a Liturgia.
+            assets.srcDir("../../public/offline")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
