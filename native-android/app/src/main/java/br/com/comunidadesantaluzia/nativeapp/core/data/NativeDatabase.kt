@@ -165,12 +165,9 @@ internal class NativeDatabase(context: Context) :
     }
 
     fun failMutation(id: String, error: String) {
-        val values = ContentValues().apply {
-            put("last_error", error.take(400))
-        }
         writableDatabase.execSQL(
             "UPDATE mutation_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?",
-            arrayOf(error.take(400), id),
+            arrayOf<Any?>(error.take(400), id),
         )
     }
 
@@ -208,7 +205,7 @@ internal class NativeDatabase(context: Context) :
                   occurrences = audit_events.occurrences + 1,
                   last_at = excluded.last_at
                 """.trimIndent(),
-                arrayOf(signature, level, type, message.take(600), detail?.take(4000), at, at),
+                arrayOf<Any?>(signature, level, type, message.take(600), detail?.take(4000), at, at),
             )
             writableDatabase.setTransactionSuccessful()
         } finally {
