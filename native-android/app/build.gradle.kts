@@ -3,6 +3,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val generatedOfflineAssets = layout.buildDirectory.dir("generated/offlineAssets")
+val prepareOfflineAssets = tasks.register<Sync>("prepareOfflineAssets") {
+    from(rootProject.file("../public/offline/liturgia-completa")) {
+        include("2026-*.json")
+        into("liturgia-completa")
+    }
+    into(generatedOfflineAssets)
+}
+
 android {
     namespace = "br.com.comunidadesantaluzia.nativeapp"
     compileSdk = 36
@@ -29,9 +38,9 @@ android {
 
     sourceSets {
         getByName("main") {
-            // O mesmo acervo offline auditado da Beta 18 vira asset nativo.
-            // A Liturgia é lida pelo Kotlin e não depende de WebView.
-            assets.srcDir("../../public/offline")
+            // Empacota somente os 12 JSONs mensais auditados. O diretório público
+            // contém outros artefatos comprimidos da Beta que não pertencem ao APK nativo.
+            assets.srcDir(generatedOfflineAssets)
         }
     }
 
@@ -50,6 +59,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+}
+
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn(prepareOfflineAssets)
 }
 
 composeCompiler {
