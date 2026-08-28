@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.ExternalLink
+import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.AssistChip
@@ -243,7 +243,7 @@ private fun LibraryBookCard(book: NativeLibraryBook) {
                         modifier = Modifier.weight(1f),
                         enabled = book.downloadUrl.startsWith("http"),
                     ) {
-                        Icon(if (book.directDownload) Icons.Rounded.Download else Icons.Rounded.ExternalLink, null, Modifier.size(17.dp))
+                        Icon(if (book.directDownload) Icons.Rounded.Download else Icons.Rounded.OpenInNew, null, Modifier.size(17.dp))
                         Spacer(Modifier.size(5.dp))
                         Text(if (book.directDownload) "Baixar" else "Abrir")
                     }
@@ -252,7 +252,7 @@ private fun LibraryBookCard(book: NativeLibraryBook) {
                         modifier = Modifier.weight(1f),
                         enabled = book.sourceUrl.startsWith("http"),
                     ) {
-                        Icon(Icons.Rounded.ExternalLink, null, Modifier.size(17.dp))
+                        Icon(Icons.Rounded.OpenInNew, null, Modifier.size(17.dp))
                         Spacer(Modifier.size(5.dp))
                         Text("Fonte")
                     }
