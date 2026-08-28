@@ -35,6 +35,7 @@ internal class NativeHttpClient(
             doInput = true
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "SantaLuziaNative/${BuildConfig.VERSION_NAME} Android")
+            setRequestProperty("X-Santa-Luzia-Native", "1")
             if (authenticated) {
                 sessionStore.session.first().sessionCookie?.takeIf { it.isNotBlank() }?.let {
                     setRequestProperty("Cookie", it)
