@@ -3,13 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val generatedOfflineAssets = layout.buildDirectory.dir("generated/offlineAssets")
+val generatedOfflineAssetsDir = layout.buildDirectory.dir("generated/offlineAssets").get().asFile
 val prepareOfflineAssets = tasks.register<Sync>("prepareOfflineAssets") {
     from(rootProject.file("../public/offline/liturgia-completa")) {
         include("2026-*.json")
         into("liturgia-completa")
     }
-    into(generatedOfflineAssets)
+    into(generatedOfflineAssetsDir)
 }
 
 android {
@@ -40,7 +40,7 @@ android {
         getByName("main") {
             // Empacota somente os 12 JSONs mensais auditados. O diretório público
             // contém outros artefatos comprimidos da Beta que não pertencem ao APK nativo.
-            assets.srcDir(generatedOfflineAssets)
+            assets.srcDir(generatedOfflineAssetsDir)
         }
     }
 
