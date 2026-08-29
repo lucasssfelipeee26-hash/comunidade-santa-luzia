@@ -3,4 +3,7 @@
     <files-path
         name="formation_materials"
         path="formation-materials/" />
+    <files-path
+        name="diagnostic_reports"
+        path="diagnosticos/" />
 </paths>
