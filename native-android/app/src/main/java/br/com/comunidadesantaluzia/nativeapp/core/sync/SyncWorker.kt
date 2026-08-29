@@ -40,6 +40,18 @@ internal class SyncWorker(
                 )
                 when {
                     response.successful -> container.database.completeMutation(mutation.id)
+                    isAlreadyAppliedJustification(mutation.method, mutation.path, response.status) -> {
+                        // O PUT de justificativa é semanticamente de envio único. Se a primeira
+                        // requisição chegou ao servidor mas a resposta se perdeu, o replay pode
+                        // voltar 409. Nesse endpoint específico isso significa "já aplicado".
+                        container.database.completeMutation(mutation.id)
+                        container.auditor.recordAsync(
+                            "info",
+                            "sync-idempotent-replay",
+                            "Justificativa offline já estava registrada no servidor",
+                            "{\"path\":${org.json.JSONObject.quote(mutation.path)},\"status\":409}",
+                        )
+                    }
                     response.status == 401 || response.status == 403 -> {
                         container.database.failMutation(mutation.id, "HTTP ${response.status}: sessão/autorização")
                         container.auditor.recordAsync(
@@ -85,6 +97,11 @@ internal class SyncWorker(
         runCatching { dispatcher.deliverUnreadFromCache() }
         return Result.success()
     }
+
+    private fun isAlreadyAppliedJustification(method: String, path: String, status: Int): Boolean =
+        status == 409 &&
+            method.equals("PUT", ignoreCase = true) &&
+            Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)
 }
 
 internal object SyncScheduler {
