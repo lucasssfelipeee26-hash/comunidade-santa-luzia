@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.sync.SyncScheduler
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import kotlinx.coroutines.launch
@@ -85,6 +86,23 @@ internal suspend fun loadNotifications(container: AppContainer): NotificationsSt
     is RepositoryResult.Queued -> NotificationsState(loading = false, error = "A leitura de notificações não deve entrar em fila.")
 }
 
+private fun NotificationsState.toCacheJson(): String = JSONObject().apply {
+    put("naoLidas", unread)
+    put("notificacoes", JSONArray().apply {
+        notifications.forEach { notification ->
+            put(JSONObject().apply {
+                put("id", notification.id)
+                put("tipo", notification.type)
+                put("titulo", notification.title)
+                put("mensagem", notification.message)
+                put("href", notification.href)
+                put("criado_em", notification.createdAt)
+                if (notification.readAt == null) put("lida_em", JSONObject.NULL) else put("lida_em", notification.readAt)
+            })
+        }
+    })
+}.toString()
+
 @Composable
 internal fun NotificationsScreen(container: AppContainer) {
     var state by remember { mutableStateOf(NotificationsState()) }
@@ -104,13 +122,31 @@ internal fun NotificationsScreen(container: AppContainer) {
                     Text("${state.unread} não lida(s)", style = MaterialTheme.typography.bodySmall)
                 }
                 if (state.unread > 0) Button(onClick = {
-                    val optimistic = state.copy(notifications = state.notifications.map { it.copy(readAt = it.readAt ?: System.currentTimeMillis()) }, unread = 0, fromCache = true)
+                    val optimistic = state.copy(
+                        notifications = state.notifications.map { it.copy(readAt = it.readAt ?: System.currentTimeMillis()) },
+                        unread = 0,
+                        fromCache = true,
+                    )
                     state = optimistic
                     scope.launch {
-                        when (container.repository.mutate("POST", "/api/notificacoes", JSONObject().put("action", "todas").toString())) {
+                        when (
+                            val result = container.repository.mutate(
+                                "POST",
+                                "/api/notificacoes",
+                                JSONObject().put("action", "todas").toString(),
+                                optimisticCacheKey = "notificacoes",
+                                optimisticPayload = optimistic.toCacheJson(),
+                            )
+                        ) {
                             is RepositoryResult.Success -> state = loadNotifications(container)
-                            is RepositoryResult.Queued -> feedback = "Leitura salva e aguardando sincronização."
-                            is RepositoryResult.Failure -> feedback = "Não foi possível atualizar as notificações."
+                            is RepositoryResult.Queued -> {
+                                feedback = "Leitura salva no aparelho e aguardando sincronização."
+                                SyncScheduler.syncNow(container.appContext)
+                            }
+                            is RepositoryResult.Failure -> {
+                                feedback = result.message
+                                state = loadNotifications(container)
+                            }
                         }
                     }
                 }) { Icon(Icons.Rounded.DoneAll, null); Text(" Todas") }
@@ -125,14 +161,33 @@ internal fun NotificationsScreen(container: AppContainer) {
             else -> items(state.notifications, key = { it.id }) { notification ->
                 NotificationCard(notification) {
                     if (notification.readAt != null) return@NotificationCard
-                    state = state.copy(
+                    val optimistic = state.copy(
                         notifications = state.notifications.map { if (it.id == notification.id) it.copy(readAt = System.currentTimeMillis()) else it },
                         unread = (state.unread - 1).coerceAtLeast(0),
                         fromCache = true,
                     )
+                    state = optimistic
                     scope.launch {
                         val body = JSONObject().put("action", "lida").put("id", notification.id).toString()
-                        container.repository.mutate("POST", "/api/notificacoes", body)
+                        when (
+                            val result = container.repository.mutate(
+                                "POST",
+                                "/api/notificacoes",
+                                body,
+                                optimisticCacheKey = "notificacoes",
+                                optimisticPayload = optimistic.toCacheJson(),
+                            )
+                        ) {
+                            is RepositoryResult.Success -> state = loadNotifications(container)
+                            is RepositoryResult.Queued -> {
+                                feedback = "Leitura salva no aparelho e aguardando sincronização."
+                                SyncScheduler.syncNow(container.appContext)
+                            }
+                            is RepositoryResult.Failure -> {
+                                feedback = result.message
+                                state = loadNotifications(container)
+                            }
+                        }
                     }
                 }
             }
