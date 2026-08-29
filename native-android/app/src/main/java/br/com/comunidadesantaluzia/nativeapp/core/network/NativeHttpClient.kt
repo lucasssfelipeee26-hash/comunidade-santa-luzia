@@ -112,7 +112,7 @@ internal class NativeHttpClient(
         }
     }
 
-    private fun readResult(connection: HttpURLConnection): HttpResult {
+    private suspend fun readResult(connection: HttpURLConnection): HttpResult {
         val status = connection.responseCode
         val stream = if (status in 200..399) connection.inputStream else connection.errorStream
         val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
