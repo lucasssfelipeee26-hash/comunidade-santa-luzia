@@ -201,6 +201,7 @@ internal class SantaLuziaRepository(
         optimisticPayload: String? = null,
     ): RepositoryResult<String> = withContext(Dispatchers.IO) {
         val mayQueue = canQueueOffline(method, path, payload)
+        val preserveOnAuthFailure = mayQueue && shouldPreserveOnAuthFailure(method, path, payload)
         fun commitOptimisticCache() {
             if (optimisticCacheKey != null && optimisticPayload != null) {
                 database.putDocument(optimisticCacheKey, optimisticPayload)
@@ -214,7 +215,12 @@ internal class SantaLuziaRepository(
                     commitOptimisticCache()
                     RepositoryResult.Success(response.body)
                 }
-                mayQueue && (response.status in 500..599 || response.status == 408 || response.status == 429) -> {
+                mayQueue && (
+                    response.status in 500..599 ||
+                        response.status == 408 ||
+                        response.status == 429 ||
+                        (preserveOnAuthFailure && response.status in setOf(401, 403))
+                ) -> {
                     val id = database.enqueue(method, path, payload)
                     commitOptimisticCache()
                     RepositoryResult.Queued(id)
@@ -241,6 +247,21 @@ internal class SantaLuziaRepository(
         } catch (error: Exception) {
             RepositoryResult.Failure(error.message ?: "Não foi possível concluir a alteração.")
         }
+    }
+
+    private fun shouldPreserveOnAuthFailure(method: String, path: String, payload: String?): Boolean {
+        val verb = method.uppercase()
+        if (verb == "POST" && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) {
+            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull() ?: return false
+            return body.optString("clientRequestId").isNotBlank() &&
+                (body.optJSONArray("respostas")?.length() ?: 0) > 0
+        }
+        if (verb == "POST" && path == "/api/quizzes/liturgia/offline") {
+            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull() ?: return false
+            return body.optString("clientRequestId").isNotBlank() &&
+                (body.optJSONArray("respostas")?.length() ?: 0) > 0
+        }
+        return false
     }
 
     private fun canQueueOffline(method: String, path: String, payload: String?): Boolean {
