@@ -60,29 +60,34 @@ export async function GET(req: NextRequest) {
   const ano = anoOperacionalValido(anoParam) ? anoParam : nowCuiaba().ano
   const { config, ranking } = calcularRanking(ano)
   const membros = listarMembrosAprovados().map((m) => ({ id: m.id, nome: m.nome, funcao: m.funcao, foto: m.foto || null }))
+
+  // O atraso individual é um registro privado. A pontuação agregada do ranking pode
+  // considerar atrasos confirmados, mas o detalhe do relato só é devolvido para a
+  // moderação e para os dois membros diretamente envolvidos no relato.
   const todasOcorrencias = listarPontualidadeOcorrencias(true)
-  const ocorrencias = todasOcorrencias
-    .filter((o) =>
-      ctx.usuario.tipo === "moderador" ||
-      o.status === "confirmado" ||
-      o.usuario_id === ctx.usuario.id ||
-      o.reportado_por === ctx.usuario.id
-    )
-    .map((o) => ({
-      id: o.id,
-      usuario_id: o.usuario_id,
-      usuario_nome: buscarUsuario(o.usuario_id)?.nome || "Membro",
-      escala_id: o.escala_id,
-      data_missa: o.data_missa,
-      horario_missa: o.horario_missa,
-      limite_chegada: o.limite_chegada,
-      observacao: o.observacao,
-      status: o.status,
-      criado_em: o.criado_em,
-      reportado_por: o.reportado_por,
-      reportado_por_nome: o.reportado_por ? (buscarUsuario(o.reportado_por)?.nome || "Membro") : null,
-    }))
-  const reacoes = listarPontualidadeReacoes().map((r) => ({ ocorrencia_id: r.ocorrencia_id, emoji: r.emoji }))
+  const ocorrenciasVisiveis = todasOcorrencias.filter((o) =>
+    ctx.usuario.tipo === "moderador" ||
+    o.usuario_id === ctx.usuario.id ||
+    o.reportado_por === ctx.usuario.id
+  )
+  const idsVisiveis = new Set(ocorrenciasVisiveis.map((o) => o.id))
+  const ocorrencias = ocorrenciasVisiveis.map((o) => ({
+    id: o.id,
+    usuario_id: o.usuario_id,
+    usuario_nome: buscarUsuario(o.usuario_id)?.nome || "Membro",
+    escala_id: o.escala_id,
+    data_missa: o.data_missa,
+    horario_missa: o.horario_missa,
+    limite_chegada: o.limite_chegada,
+    observacao: o.observacao,
+    status: o.status,
+    criado_em: o.criado_em,
+    reportado_por: o.reportado_por,
+    reportado_por_nome: o.reportado_por ? (buscarUsuario(o.reportado_por)?.nome || "Membro") : null,
+  }))
+  const reacoes = listarPontualidadeReacoes()
+    .filter((r) => idsVisiveis.has(r.ocorrencia_id))
+    .map((r) => ({ ocorrencia_id: r.ocorrencia_id, emoji: r.emoji }))
 
   return NextResponse.json({
     ano,
@@ -182,6 +187,8 @@ export async function POST(req: NextRequest) {
     if (!emojisPermitidos.includes(emoji)) return NextResponse.json({ erro: "Reação inválida." }, { status: 400 })
     const ocorrencia = buscarPontualidadeOcorrencia(ocorrenciaId)
     if (!ocorrencia || ocorrencia.status !== "confirmado") return NextResponse.json({ erro: "Ocorrência não disponível para reações." }, { status: 404 })
+    const podeVerOcorrencia = ctx.usuario.tipo === "moderador" || ocorrencia.usuario_id === ctx.usuario.id || ocorrencia.reportado_por === ctx.usuario.id
+    if (!podeVerOcorrencia) return NextResponse.json({ erro: "Ocorrência não disponível para este perfil." }, { status: 403 })
     return NextResponse.json({ ok: true, reacao: salvarPontualidadeReacao(ocorrenciaId, ctx.usuario.id, emoji) })
   }
 
