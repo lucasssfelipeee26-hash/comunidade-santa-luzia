@@ -10,7 +10,7 @@
   "categorias": [
     {"id":"catequeses","nome":"Catequeses","total":56,"arquivos":["catequeses.html.json.gz"]},
     {"id":"comentarios","nome":"Comentários","total":25,"arquivos":["comentarios.html.json.gz"]},
-    {"id":"evangelho","nome":"Evangelhos e Lectio Divina","total":469,"arquivos":["evangelhos-01.html.json.gz","evangelhos-02.html.json.gz","evangelhos-03.html.json.gz","evangelhos-04.html.json.gz","evangelhos-05.html.json.gz","evangelhos-06.html.json.gz","evangelhos-07.html.json.gz","evangelhos-08.html.json.gz","evangelhos-09.html.json.gz","evangelhos-10.html.json.gz","evangelhos-11.html.json.gz","evangelhos-12.html.json.gz"]},
+    {"id":"evangelho","nome":"Evangelhos e Lectio Divina","total":469,"arquivos":["gerais.html.json.gz"],"androidFonteIntegra":"gerais.html.json.gz"},
     {"id":"geral","nome":"Documentos gerais","total":4,"arquivos":["gerais.html.json.gz"]},
     {"id":"lecionario","nome":"Lecionário","total":736,"arquivos":["lecionario.html.json.gz"]},
     {"id":"missal","nome":"Missal e ritos","total":387,"arquivos":["missal.html.json.gz"]},
