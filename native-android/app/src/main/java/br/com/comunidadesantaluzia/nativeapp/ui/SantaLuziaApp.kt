@@ -88,6 +88,7 @@ import br.com.comunidadesantaluzia.nativeapp.features.delays.DelaysScreen
 import br.com.comunidadesantaluzia.nativeapp.features.formation.FormationScreen
 import br.com.comunidadesantaluzia.nativeapp.features.journey.JourneyScreen
 import br.com.comunidadesantaluzia.nativeapp.features.library.LibraryScreen
+import br.com.comunidadesantaluzia.nativeapp.features.liturgy.LiturgyCenterScreen
 import br.com.comunidadesantaluzia.nativeapp.features.notifications.NotificationsScreen
 import br.com.comunidadesantaluzia.nativeapp.features.profile.PrivateProfileScreen
 import br.com.comunidadesantaluzia.nativeapp.features.profiles.ProfilesScreen
@@ -192,7 +193,7 @@ internal fun SantaLuziaApp(container: AppContainer) {
                     },
                 )
             }
-            composable(Route.LiturgyCenter.value) { LibraryScreen(container) }
+            composable(Route.LiturgyCenter.value) { LiturgyCenterScreen(container) }
             composable(Route.Scale.value) { ScaleScreen(container) }
             composable(Route.Library.value) { LibraryScreen(container) }
             composable(Route.Login.value) {
