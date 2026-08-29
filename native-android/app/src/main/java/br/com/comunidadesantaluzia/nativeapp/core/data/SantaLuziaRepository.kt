@@ -302,6 +302,7 @@ internal class SantaLuziaRepository(
             "biblioteca" to "/api/biblioteca",
             "quizzes" to "/api/quizzes",
             "constancia" to "/api/constancia-luz",
+            "notificacoes" to "/api/notificacoes",
         )
         essentials.forEach { (key, path) ->
             readLocalFirst(cacheKey = key, path = path, authenticated = key != "biblioteca")
