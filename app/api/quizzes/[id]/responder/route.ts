@@ -27,9 +27,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const existente = buscarRespostaQuiz(id, usuario.id)
-  if (existente) return NextResponse.json({ erro: "Este quiz já foi respondido.", resultado: existente }, { status: 409 })
+  if (existente) {
+    return NextResponse.json({
+      ok: true,
+      duplicado: true,
+      resultado: existente,
+      mensagem: "Quiz já sincronizado.",
+    })
+  }
 
-  const body = await req.json().catch(() => ({})) as { respostas?: unknown[] }
+  const body = await req.json().catch(() => ({})) as { respostas?: unknown[]; clientRequestId?: unknown }
   const respostas = Array.isArray(body.respostas) ? body.respostas.map((v) => Number(v)) : []
   if (
     quiz.perguntas.length < 1 || quiz.perguntas.length > 50 ||
@@ -51,5 +58,5 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const antes = snapshotRanking(ano)
   const resultado = salvarRespostaQuiz({ quiz_id: quiz.id, usuario_id: usuario.id, respostas, acertos, pontos, total_pontos: totalPontos })
   notificarMudancasRanking(ano, antes, usuario.id, `quiz:${quiz.id}`)
-  return NextResponse.json({ ok: true, resultado, detalhes })
+  return NextResponse.json({ ok: true, resultado, detalhes, clientRequestId: String(body.clientRequestId || "") || null })
 }
