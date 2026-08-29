@@ -205,6 +205,20 @@ internal class SantaLuziaRepository(
             }
         }
 
+        // CRUD de escalas e formações gera IDs/efeitos no servidor e ainda não possui chave de idempotência.
+        // Justificativas e presença continuam fora desta regra e podem usar o fluxo local-first próprio.
+        if (path == "/api/escalas" && verb == "POST") return false
+        if (Regex("^/api/escalas/[^/]+$").matches(path) && verb in setOf("PATCH", "DELETE")) return false
+        if (path == "/api/formacoes" && verb == "POST") return false
+        if (Regex("^/api/formacoes/[^/]+$").matches(path) && verb in setOf("PATCH", "DELETE")) return false
+
+        // Registros administrativos não podem ser duplicados ou excluídos duas vezes por replay.
+        if (Regex("^/api/membros/[^/]+/registros$").matches(path) && verb == "POST") return false
+        if (Regex("^/api/membros/[^/]+/registros/[^/]+$").matches(path) && verb == "DELETE") return false
+
+        // Administração de dados é destrutiva/sensível e sempre precisa de resposta confirmada.
+        if (path == "/api/app/admin-dados" && verb != "GET") return false
+
         return true
     }
 
