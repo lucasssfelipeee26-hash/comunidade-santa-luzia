@@ -50,6 +50,8 @@ import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -162,8 +164,10 @@ private fun FormationState.toCacheJson(): String = JSONObject().apply {
 @Composable
 internal fun FormationScreen(container: AppContainer) {
     var state by remember { mutableStateOf(FormationState()) }
+    var actionMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val today = remember { LocalDate.now().toString() }
+    val cuiaba = remember { ZoneId.of("America/Cuiaba") }
+    val today = remember { LocalDate.now(cuiaba).toString() }
 
     LaunchedEffect(Unit) { state = loadFormations(container) }
 
@@ -184,15 +188,21 @@ internal fun FormationScreen(container: AppContainer) {
                 }
             }
         }
+        actionMessage?.let { message -> item { Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .12f))) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall) } } }
         when {
             state.loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
             state.error != null -> item {
                 Card { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { state = FormationState() }) { Text("Tentar novamente") }
+                    Button(onClick = { scope.launch { state = FormationState(); state = loadFormations(container) } }) { Text("Tentar novamente") }
                 } }
             }
             else -> {
+                if (state.userType == "moderador") item {
+                    FormationModeratorPanel(container = container, formations = state.formations) {
+                        state = loadFormations(container)
+                    }
+                }
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Rounded.CalendarMonth, null, tint = SantaWine)
@@ -205,7 +215,9 @@ internal fun FormationScreen(container: AppContainer) {
                         item = next,
                         isFutureSection = true,
                         today = today,
+                        cuiaba = cuiaba,
                         onPresence = { situation, justification ->
+                            val before = state
                             val optimistic = state.copy(
                                 formations = state.formations.map { formation ->
                                     if (formation.id == next.id) formation.copy(
@@ -216,14 +228,20 @@ internal fun FormationScreen(container: AppContainer) {
                             state = optimistic
                             scope.launch {
                                 val payload = JSONObject().apply { put("situacao", situation); put("justificativa", justification.orEmpty()) }.toString()
-                                val result = container.repository.mutate(
+                                when (val result = container.repository.mutate(
                                     method = "PUT",
                                     path = "/api/formacoes/${next.id}/minha-presenca",
                                     payload = payload,
                                     optimisticCacheKey = "formacoes",
                                     optimisticPayload = optimistic.toCacheJson(),
-                                )
-                                if (result is RepositoryResult.Success) state = loadFormations(container)
+                                )) {
+                                    is RepositoryResult.Success -> { actionMessage = "Participação registrada."; state = loadFormations(container) }
+                                    is RepositoryResult.Queued -> actionMessage = "Sem conexão: registro salvo no aparelho e aguardando sincronização."
+                                    is RepositoryResult.Failure -> {
+                                        state = before
+                                        actionMessage = result.message
+                                    }
+                                }
                             }
                         },
                     )
@@ -235,7 +253,7 @@ internal fun FormationScreen(container: AppContainer) {
                     }
                 }
                 if (history.isEmpty()) item { Card { Text("As formações realizadas aparecerão aqui automaticamente depois da data.", Modifier.padding(20.dp)) } }
-                else items(history, key = { it.id }) { formation -> FormationCard(formation, false, today, onPresence = { _, _ -> }) }
+                else items(history, key = { it.id }) { formation -> FormationCard(formation, false, today, cuiaba, onPresence = { _, _ -> }) }
             }
         }
     }
@@ -246,13 +264,18 @@ private fun FormationCard(
     item: NativeFormation,
     isFutureSection: Boolean,
     today: String,
+    cuiaba: ZoneId,
     onPresence: (String, String?) -> Unit,
 ) {
     var dialog by remember(item.id) { mutableStateOf<String?>(null) }
     var justification by remember(item.id) { mutableStateOf("") }
     val uri = LocalUriHandler.current
     val cancelled = item.status == "cancelada"
-    val canMarkToday = isFutureSection && item.date == today && !cancelled
+    val startReached = remember(item.date, item.time, today) {
+        if (item.date != today || item.time.isNullOrBlank()) item.date == today
+        else runCatching { !LocalTime.now(cuiaba).isBefore(LocalTime.parse(item.time)) }.getOrDefault(false)
+    }
+    val canMarkToday = isFutureSection && item.date == today && startReached && !cancelled
     val canJustify = isFutureSection && item.date >= today && !cancelled
 
     Card(
@@ -289,6 +312,7 @@ private fun FormationCard(
                 }
             } else if (canJustify && item.myPresence == null) {
                 OutlinedButton(onClick = { dialog = "justificada" }, modifier = Modifier.fillMaxWidth()) { Text("Justificar falta antecipadamente") }
+                if (item.date == today && !startReached && item.time != null) Text("A presença será liberada às ${item.time}.", style = MaterialTheme.typography.bodySmall)
             }
             item.file?.let { file ->
                 OutlinedButton(
@@ -303,7 +327,7 @@ private fun FormationCard(
             if (isFutureSection && item.date > today && item.myPresence == null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Rounded.Schedule, null, Modifier.size(17.dp))
-                    Text("A presença será liberada no dia da formação.", style = MaterialTheme.typography.bodySmall)
+                    Text("A presença será liberada no dia da formação; a justificativa já pode ser enviada.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
