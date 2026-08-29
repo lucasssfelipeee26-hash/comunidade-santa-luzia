@@ -471,6 +471,8 @@ private fun LoginScreen(container: AppContainer, onSuccess: () -> Unit, onBack: 
                 enabled = !busy && login.isNotBlank() && password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (busy) "Entrando…" else "Entrar") }
+            Spacer(Modifier.height(8.dp))
+            AuthActions(container)
             message?.let { Text(it, Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.error) }
         }
     }
