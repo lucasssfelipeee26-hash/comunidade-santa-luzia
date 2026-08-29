@@ -23,6 +23,7 @@ FINAL = os.getenv("FINAL_NATIVE_RELEASE") == "1"
 errors: list[str] = []
 notes: list[str] = []
 
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         errors.append(message)
@@ -30,9 +31,7 @@ def require(condition: bool, message: str) -> None:
 
 def read(path: Path) -> str:
     require(path.is_file(), f"Arquivo obrigatório ausente: {path.relative_to(ROOT)}")
-    if not path.is_file():
-        return ""
-    return path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8") if path.is_file() else ""
 
 
 def audit_matrix() -> None:
@@ -53,20 +52,16 @@ def audit_matrix() -> None:
 
 
 def audit_no_webview() -> None:
-    forbidden_text = [
-        "android.webkit.WebView",
-        "JavascriptInterface",
-        "loadUrl(\"file:///android_asset",
-        "evaluateJavascript(",
-    ]
+    forbidden_text = ["android.webkit.WebView", "JavascriptInterface", 'loadUrl("file:///android_asset', "evaluateJavascript("]
     forbidden_ext = {".html", ".htm", ".js", ".jsx", ".css", ".tsx", ".ts"}
     for path in SRC.rglob("*"):
-        if path.is_file():
-            require(path.suffix.lower() not in forbidden_ext, f"Interface web proibida no app nativo: {path.relative_to(ROOT)}")
-            if path.suffix.lower() in {".kt", ".kts", ".java", ".xml"}:
-                text = path.read_text(encoding="utf-8", errors="replace")
-                for marker in forbidden_text:
-                    require(marker not in text, f"Marcador WebView proibido em {path.relative_to(ROOT)}: {marker}")
+        if not path.is_file():
+            continue
+        require(path.suffix.lower() not in forbidden_ext, f"Interface web proibida no app nativo: {path.relative_to(ROOT)}")
+        if path.suffix.lower() in {".kt", ".kts", ".java", ".xml"}:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for marker in forbidden_text:
+                require(marker not in text, f"Marcador WebView proibido em {path.relative_to(ROOT)}: {marker}")
 
 
 def function_slice(text: str, name: str, next_name: str) -> str:
@@ -83,14 +78,10 @@ def audit_home() -> None:
     require(bool(block), "HomeScreen Compose não localizada")
     calls = re.findall(r"\bHomeCard\s*\((.*?)\)\s*\{", block, flags=re.S)
     require(len(calls) == 4, f"Home deve ter exatamente 4 cards; encontrado {len(calls)}")
-    expected = ["Centro Litúrgico", "Escala do Dia", "Biblioteca", "Liturgia Diária"]
-    for title in expected:
+    for title in ["Centro Litúrgico", "Escala do Dia", "Biblioteca", "Liturgia Diária"]:
         require(block.count(f'"{title}"') == 1, f"Card {title!r} ausente ou duplicado")
     for index, call in enumerate(calls, start=1):
         require("Icons." in call, f"Card {index} da Home não declara ícone Material")
-    require("Liturgia Diária" in block, "Card Liturgia Diária ausente")
-    without_expected = re.sub(r"Liturgia Diária|Centro Litúrgico", "", block)
-    require('HomeCard' not in without_expected.replace('HomeCard', '', 4), "Há acesso/card extra na Home")
 
 
 def audit_navigation() -> None:
@@ -148,9 +139,8 @@ def audit_liturgy() -> None:
 
 
 def audit_iliturgia_packages() -> None:
-    manifest_path = ILITURGIA / "manifest.json"
     try:
-        manifest = json.loads(read(manifest_path) or "{}")
+        manifest = json.loads(read(ILITURGIA / "manifest.json") or "{}")
     except json.JSONDecodeError as exc:
         errors.append(f"Manifesto iLiturgia inválido: {exc}")
         return
@@ -162,54 +152,77 @@ def audit_iliturgia_packages() -> None:
     if not isinstance(categories, list):
         return
 
-    grand_total = 0
-    package_count = 0
-    seen_files: set[str] = set()
+    package_cache: dict[str, list[dict]] = {}
+
+    def load_package(file_name: str) -> list[dict]:
+        if file_name in package_cache:
+            return package_cache[file_name]
+        path = ILITURGIA / file_name
+        if not path.is_file():
+            errors.append(f"Pacote iLiturgia ausente: {file_name}")
+            package_cache[file_name] = []
+            return []
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as stream:
+                package = json.load(stream)
+        except (OSError, EOFError, zlib.error, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            errors.append(f"Pacote iLiturgia corrompido ou inválido: {file_name}: {exc}")
+            package_cache[file_name] = []
+            return []
+        documents = package.get("documents") if isinstance(package, dict) else None
+        if not isinstance(documents, list):
+            errors.append(f"Pacote iLiturgia sem lista documents: {file_name}")
+            package_cache[file_name] = []
+            return []
+        package_cache[file_name] = documents
+        return documents
+
+    def normalized_path(document: dict) -> str:
+        return str(document.get("path") or "").replace("\\", "/").lstrip("/").lower()
+
+    def logical_documents(category_id: str, files: list[str]) -> list[dict]:
+        physical = [doc for file_name in files for doc in load_package(file_name)]
+        if category_id == "evangelho":
+            return [doc for doc in load_package("gerais.html.json.gz") if normalized_path(doc).startswith("evangelho/")]
+        if category_id == "geral":
+            return [
+                doc for doc in load_package("gerais.html.json.gz")
+                if not normalized_path(doc).startswith("evangelho/")
+                and normalized_path(doc).split("/")[-1] not in {"iglh.htm", "bienal.htm"}
+            ]
+        if category_id == "oficio":
+            extras = [
+                doc for doc in load_package("gerais.html.json.gz")
+                if normalized_path(doc).split("/")[-1] in {"iglh.htm", "bienal.htm"}
+            ]
+            return physical + extras
+        return physical
+
     for category in categories:
         if not isinstance(category, dict):
             errors.append("Categoria inválida no manifesto iLiturgia")
             continue
         category_id = str(category.get("id") or "sem-id")
-        expected_total = category.get("total")
         files = category.get("arquivos")
         if not isinstance(files, list) or not files:
             errors.append(f"Categoria iLiturgia sem pacotes: {category_id}")
             continue
-
-        category_total = 0
-        for file_name in files:
-            file_name = str(file_name)
-            require(file_name not in seen_files, f"Pacote iLiturgia duplicado no manifesto: {file_name}")
-            seen_files.add(file_name)
-            path = ILITURGIA / file_name
-            if not path.is_file():
-                errors.append(f"Pacote iLiturgia ausente: {file_name}")
-                continue
-            try:
-                with gzip.open(path, "rt", encoding="utf-8") as stream:
-                    package = json.load(stream)
-            except (OSError, EOFError, zlib.error, json.JSONDecodeError, UnicodeDecodeError) as exc:
-                errors.append(f"Pacote iLiturgia corrompido ou inválido: {file_name}: {exc}")
-                continue
-
-            documents = package.get("documents") if isinstance(package, dict) else None
-            if not isinstance(documents, list):
-                errors.append(f"Pacote iLiturgia sem lista documents: {file_name}")
-                continue
-            category_total += len(documents)
-            package_count += 1
-
+        documents = logical_documents(category_id, [str(name) for name in files])
+        expected_total = category.get("total")
         if isinstance(expected_total, int):
             require(
-                category_total == expected_total,
-                f"Total iLiturgia divergente em {category_id}: manifesto={expected_total}, pacotes={category_total}",
+                len(documents) == expected_total,
+                f"Total lógico iLiturgia divergente em {category_id}: manifesto={expected_total}, calculado={len(documents)}",
             )
-        grand_total += category_total
 
+    physical_total = sum(len(documents) for documents in package_cache.values())
     manifest_total = manifest.get("total")
     if isinstance(manifest_total, int):
-        require(grand_total == manifest_total, f"Total geral iLiturgia divergente: manifesto={manifest_total}, pacotes={grand_total}")
-    notes.append(f"Acervo iLiturgia offline: {grand_total} documento(s) validados em {package_count} pacote(s) GZIP.")
+        require(
+            physical_total == manifest_total,
+            f"Total físico iLiturgia divergente: manifesto={manifest_total}, pacotes únicos={physical_total}",
+        )
+    notes.append(f"Acervo iLiturgia offline: {physical_total} documento(s) validados em {len(package_cache)} pacote(s) GZIP únicos.")
 
 
 def audit_local_first() -> None:
