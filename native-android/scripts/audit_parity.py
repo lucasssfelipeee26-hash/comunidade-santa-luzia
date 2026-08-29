@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import re
@@ -15,6 +16,7 @@ KOTLIN = SRC / "java" / "br" / "com" / "comunidadesantaluzia" / "nativeapp"
 HOME = KOTLIN / "ui" / "SantaLuziaApp.kt"
 MATRIX = NATIVE / "PARITY-MATRIX.json"
 LITURGY = ROOT / "public" / "offline" / "liturgia-completa"
+ILITURGIA = ROOT / "public" / "offline" / "iliturgia"
 FINAL = os.getenv("FINAL_NATIVE_RELEASE") == "1"
 
 errors: list[str] = []
@@ -146,6 +148,71 @@ def audit_liturgy() -> None:
     notes.append("Liturgia offline: 365/365 dias com primeira leitura, Evangelho e coleta.")
 
 
+def audit_iliturgia_packages() -> None:
+    manifest_path = ILITURGIA / "manifest.json"
+    try:
+        manifest = json.loads(read(manifest_path) or "{}")
+    except json.JSONDecodeError as exc:
+        errors.append(f"Manifesto iLiturgia inválido: {exc}")
+        return
+
+    require(manifest.get("offline") is True, "Acervo iLiturgia precisa permanecer marcado como offline")
+    require(manifest.get("embedded") is True, "Acervo iLiturgia precisa permanecer empacotado no aplicativo")
+    categories = manifest.get("categorias")
+    require(isinstance(categories, list) and bool(categories), "Manifesto iLiturgia sem categorias")
+    if not isinstance(categories, list):
+        return
+
+    grand_total = 0
+    package_count = 0
+    seen_files: set[str] = set()
+    for category in categories:
+        if not isinstance(category, dict):
+            errors.append("Categoria inválida no manifesto iLiturgia")
+            continue
+        category_id = str(category.get("id") or "sem-id")
+        expected_total = category.get("total")
+        files = category.get("arquivos")
+        if not isinstance(files, list) or not files:
+            errors.append(f"Categoria iLiturgia sem pacotes: {category_id}")
+            continue
+
+        category_total = 0
+        for file_name in files:
+            file_name = str(file_name)
+            require(file_name not in seen_files, f"Pacote iLiturgia duplicado no manifesto: {file_name}")
+            seen_files.add(file_name)
+            path = ILITURGIA / file_name
+            if not path.is_file():
+                errors.append(f"Pacote iLiturgia ausente: {file_name}")
+                continue
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as stream:
+                    package = json.load(stream)
+            except (OSError, EOFError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+                errors.append(f"Pacote iLiturgia corrompido ou inválido: {file_name}: {exc}")
+                continue
+
+            documents = package.get("documents") if isinstance(package, dict) else None
+            if not isinstance(documents, list):
+                errors.append(f"Pacote iLiturgia sem lista documents: {file_name}")
+                continue
+            category_total += len(documents)
+            package_count += 1
+
+        if isinstance(expected_total, int):
+            require(
+                category_total == expected_total,
+                f"Total iLiturgia divergente em {category_id}: manifesto={expected_total}, pacotes={category_total}",
+            )
+        grand_total += category_total
+
+    manifest_total = manifest.get("total")
+    if isinstance(manifest_total, int):
+        require(grand_total == manifest_total, f"Total geral iLiturgia divergente: manifesto={manifest_total}, pacotes={grand_total}")
+    notes.append(f"Acervo iLiturgia offline: {grand_total} documento(s) validados em {package_count} pacote(s) GZIP.")
+
+
 def audit_local_first() -> None:
     db = read(KOTLIN / "core" / "data" / "NativeDatabase.kt")
     queue = read(KOTLIN / "core" / "sync" / "SyncWorker.kt")
@@ -186,6 +253,7 @@ def main() -> int:
     audit_home()
     audit_navigation()
     audit_liturgy()
+    audit_iliturgia_packages()
     audit_local_first()
     audit_auditor()
     audit_source_language()
