@@ -171,13 +171,13 @@ internal fun QuizAdminScreen(container: AppContainer, onBack: () -> Unit) {
         QuizEditor(
             initial = editor,
             working = working,
-            onCancel = { creating = false; editor = null },
+            feedback = feedback,
+            onCancel = { creating = false; editor = null; feedback = "" },
             onSave = { title, description, active, questions ->
                 if (!isQuizAdminOnline(context)) {
-                    feedback = "Conecte o aparelho à internet para salvar ou publicar um Quiz avulso."
-                    creating = false
-                    editor = null
+                    feedback = "Conecte o aparelho à internet para salvar ou publicar o Quiz avulso. O que você digitou foi mantido nesta tela."
                 } else {
+                    feedback = ""
                     working = true
                     scope.launch {
                         val payload = JSONObject().apply {
@@ -208,8 +208,10 @@ internal fun QuizAdminScreen(container: AppContainer, onBack: () -> Unit) {
                                 refresh()
                                 SyncScheduler.syncNow(container.appContext)
                             }
-                            is RepositoryResult.Failure -> feedback = result.message
-                            is RepositoryResult.Queued -> feedback = "Publicação de Quiz avulso nunca entra na fila offline."
+                            is RepositoryResult.Failure -> {
+                                feedback = "${result.message} O conteúdo continua aberto para você tentar novamente."
+                            }
+                            is RepositoryResult.Queued -> feedback = "Publicação de Quiz avulso nunca entra na fila offline. O conteúdo continua aberto."
                         }
                         working = false
                     }
@@ -246,7 +248,10 @@ internal fun QuizAdminScreen(container: AppContainer, onBack: () -> Unit) {
             Button(
                 onClick = {
                     if (!isQuizAdminOnline(context)) feedback = "Conecte o aparelho à internet para criar um novo Quiz avulso."
-                    else creating = true
+                    else {
+                        feedback = ""
+                        creating = true
+                    }
                 },
                 enabled = !working,
                 modifier = Modifier.fillMaxWidth(),
@@ -283,7 +288,10 @@ internal fun QuizAdminScreen(container: AppContainer, onBack: () -> Unit) {
                                 OutlinedButton(
                                     onClick = {
                                         if (!isQuizAdminOnline(context)) feedback = "Conecte o aparelho à internet para editar um Quiz avulso."
-                                        else editor = quiz
+                                        else {
+                                            feedback = ""
+                                            editor = quiz
+                                        }
                                     },
                                     enabled = !working,
                                     modifier = Modifier.weight(1f),
@@ -337,6 +345,7 @@ internal fun QuizAdminScreen(container: AppContainer, onBack: () -> Unit) {
 private fun QuizEditor(
     initial: AdminQuiz?,
     working: Boolean,
+    feedback: String,
     onCancel: () -> Unit,
     onSave: (String, String, Boolean, List<AdminQuizQuestion>) -> Unit,
 ) {
@@ -345,6 +354,7 @@ private fun QuizEditor(
     var active by remember(initial?.id) { mutableStateOf(initial?.active ?: true) }
     var questions by remember(initial?.id) { mutableStateOf(initial?.questions?.takeIf { it.isNotEmpty() } ?: listOf(emptyQuestion(0))) }
     var validation by remember(initial?.id) { mutableStateOf("") }
+    val context = LocalContext.current
 
     fun updateQuestion(index: Int, transform: (AdminQuizQuestion) -> AdminQuizQuestion) {
         questions = questions.toMutableList().also { list -> list[index] = transform(list[index]) }
@@ -369,6 +379,15 @@ private fun QuizEditor(
                 }
             }
         }
+
+        if (feedback.isNotBlank()) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f))) {
+                    Text(feedback, Modifier.fillMaxWidth().padding(12.dp), color = SantaWine, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
         item {
             Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .12f))) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -428,8 +447,12 @@ private fun QuizEditor(
                 enabled = !working,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    if (!valid) validation = "Preencha o título e todas as perguntas com três alternativas e pontos entre 1 e 100."
-                    else onSave(title.trim(), description.trim(), active, questions)
+                    validation = when {
+                        !valid -> "Preencha o título e todas as perguntas com três alternativas e pontos entre 1 e 100."
+                        !isQuizAdminOnline(context) -> "Conecte o aparelho à internet para publicar. O conteúdo digitado continuará nesta tela."
+                        else -> ""
+                    }
+                    if (validation.isBlank()) onSave(title.trim(), description.trim(), active, questions)
                 },
             ) {
                 if (working) CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp))
