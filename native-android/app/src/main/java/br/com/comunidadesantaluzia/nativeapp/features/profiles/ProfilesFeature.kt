@@ -1,7 +1,5 @@
 package br.com.comunidadesantaluzia.nativeapp.features.profiles
 
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -49,19 +47,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.media.loadProfileBitmap
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
-import java.net.URL
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class NativeProfileRanking(
@@ -321,8 +317,9 @@ private fun ProfileStat(icon: androidx.compose.ui.graphics.vector.ImageVector, v
 
 @Composable
 private fun ProfilePhoto(source: String?, name: String, circular: Boolean) {
+    val context = LocalContext.current
     val bitmap by produceState<ImageBitmap?>(initialValue = null, source) {
-        value = source?.let { loadBitmap(it) }
+        value = loadProfileBitmap(context.applicationContext, source)
     }
     val shape = if (circular) CircleShape else RoundedCornerShape(16.dp)
     if (bitmap != null) {
@@ -337,17 +334,6 @@ private fun ProfilePhoto(source: String?, name: String, circular: Boolean) {
             Text(initials(name), color = SantaWine, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
     }
-}
-
-private suspend fun loadBitmap(source: String): ImageBitmap? = withContext(Dispatchers.IO) {
-    runCatching {
-        val bytes = when {
-            source.startsWith("data:image/") -> Base64.decode(source.substringAfter("base64,"), Base64.DEFAULT)
-            source.startsWith("https://") -> URL(source).openStream().use { it.readBytes() }
-            else -> return@runCatching null
-        }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-    }.getOrNull()
 }
 
 private fun initials(name: String): String = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
