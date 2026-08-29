@@ -115,26 +115,56 @@ internal class SantaLuziaRepository(
         optimisticCacheKey: String? = null,
         optimisticPayload: String? = null,
     ): RepositoryResult<String> = withContext(Dispatchers.IO) {
-        if (optimisticCacheKey != null && optimisticPayload != null) {
-            database.putDocument(optimisticCacheKey, optimisticPayload)
+        val mayQueue = canQueueOffline(method, path)
+        fun commitOptimisticCache() {
+            if (optimisticCacheKey != null && optimisticPayload != null) {
+                database.putDocument(optimisticCacheKey, optimisticPayload)
+            }
         }
+
         try {
             val response = http.request(method, path, payload)
-            if (response.successful) {
-                RepositoryResult.Success(response.body)
-            } else if (response.status in 500..599 || response.status == 408 || response.status == 429) {
-                val id = database.enqueue(method, path, payload)
-                RepositoryResult.Queued(id)
-            } else {
-                val message = runCatching { JSONObject(response.body).optString("erro") }.getOrNull()
-                    ?.takeIf { it.isNotBlank() }
-                    ?: "A alteração foi rejeitada pelo servidor (${response.status})."
-                RepositoryResult.Failure(message, response.status)
+            when {
+                response.successful -> {
+                    commitOptimisticCache()
+                    RepositoryResult.Success(response.body)
+                }
+                mayQueue && (response.status in 500..599 || response.status == 408 || response.status == 429) -> {
+                    val id = database.enqueue(method, path, payload)
+                    commitOptimisticCache()
+                    RepositoryResult.Queued(id)
+                }
+                else -> {
+                    val message = runCatching { JSONObject(response.body).optString("erro") }.getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: if (!mayQueue && (response.status in 500..599 || response.status == 408 || response.status == 429)) {
+                            "Esta operação precisa ser confirmada online. Tente novamente quando a conexão estiver estável."
+                        } else {
+                            "A alteração foi rejeitada pelo servidor (${response.status})."
+                        }
+                    RepositoryResult.Failure(message, response.status)
+                }
             }
         } catch (_: IOException) {
-            val id = database.enqueue(method, path, payload)
-            RepositoryResult.Queued(id)
+            if (mayQueue) {
+                val id = database.enqueue(method, path, payload)
+                commitOptimisticCache()
+                RepositoryResult.Queued(id)
+            } else {
+                RepositoryResult.Failure("Esta operação precisa de internet para evitar envio duplicado. Reconecte e tente novamente.")
+            }
+        } catch (error: Exception) {
+            RepositoryResult.Failure(error.message ?: "Não foi possível concluir a alteração.")
         }
+    }
+
+    private fun canQueueOffline(method: String, path: String): Boolean {
+        val verb = method.uppercase()
+        // Respostas de quiz são de envio único e o backend ainda não oferece clientRequestId.
+        // Enfileirar poderia repetir uma resposta já aceita caso apenas a resposta HTTP se perca.
+        if (verb == "POST" && Regex("^/api/quizzes(?:/liturgia)?/[^/]+/responder$").matches(path)) return false
+        if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
+        return true
     }
 
     suspend fun warmEssentialCaches() {
