@@ -1,5 +1,6 @@
 package br.com.comunidadesantaluzia.nativeapp.core.data
 
+import br.com.comunidadesantaluzia.nativeapp.core.network.MultipartUpload
 import br.com.comunidadesantaluzia.nativeapp.core.network.NativeHttpClient
 import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.core.session.SessionStore
@@ -108,10 +109,6 @@ internal class SantaLuziaRepository(
         optimisticPayload = optimisticPayload,
     )
 
-    /**
-     * Executa operações que não podem ser repetidas com segurança.
-     * Nunca grava em fila offline e nunca aplica cache otimista antes da confirmação do servidor.
-     */
     suspend fun mutateOnlineOnly(
         method: String,
         path: String,
@@ -133,6 +130,37 @@ internal class SantaLuziaRepository(
             RepositoryResult.Failure("Esta operação precisa de internet para evitar envio duplicado. Reconecte e tente novamente.")
         } catch (error: Exception) {
             RepositoryResult.Failure(error.message ?: "Não foi possível concluir a alteração online.")
+        }
+    }
+
+    suspend fun mutateMultipartOnlineOnly(
+        method: String,
+        path: String,
+        fields: Map<String, String>,
+        fileField: String? = null,
+        fileName: String? = null,
+        mimeType: String? = null,
+        fileBytes: ByteArray? = null,
+    ): RepositoryResult<String> = withContext(Dispatchers.IO) {
+        try {
+            val upload = if (fileField != null && fileName != null && fileBytes != null) {
+                MultipartUpload(fileField, fileName, mimeType.orEmpty(), fileBytes)
+            } else null
+            val response = http.requestMultipart(method, path, fields, upload)
+            if (response.successful) {
+                RepositoryResult.Success(response.body)
+            } else {
+                val serverMessage = runCatching { JSONObject(response.body).optString("erro") }.getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                RepositoryResult.Failure(
+                    serverMessage ?: "O envio foi rejeitado pelo servidor (${response.status}).",
+                    response.status,
+                )
+            }
+        } catch (_: IOException) {
+            RepositoryResult.Failure("Este envio precisa de internet. O arquivo não foi duplicado nem colocado em fila.")
+        } catch (error: Exception) {
+            RepositoryResult.Failure(error.message ?: "Não foi possível enviar os dados e o arquivo.")
         }
     }
 
@@ -189,34 +217,27 @@ internal class SantaLuziaRepository(
     private fun canQueueOffline(method: String, path: String, payload: String?): Boolean {
         val verb = method.uppercase()
 
-        // Respostas de quiz são de envio único e o backend ainda não oferece clientRequestId.
-        // Enfileirar poderia repetir uma resposta já aceita caso apenas a resposta HTTP se perca.
         if (verb == "POST" && Regex("^/api/quizzes(?:/liturgia)?/[^/]+/responder$").matches(path)) return false
         if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
 
         if (verb == "POST" && path == "/api/ranking") {
             val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull()
             return when (body?.optString("action")) {
-                // O backend deduplica relatos pelo par clientRequestId + reportado_por.
                 "reportar_atraso" -> body.optString("clientRequestId").isNotBlank()
-                // Estas ações não possuem chave de idempotência e precisam de confirmação online.
                 "reconhecer", "reagir", "moderar_atraso", "ajustar_pontos", "salvar_config" -> false
                 else -> false
             }
         }
 
-        // CRUD de escalas e formações gera IDs/efeitos no servidor e ainda não possui chave de idempotência.
-        // Justificativas e presença continuam fora desta regra e podem usar o fluxo local-first próprio.
         if (path == "/api/escalas" && verb == "POST") return false
         if (Regex("^/api/escalas/[^/]+$").matches(path) && verb in setOf("PATCH", "DELETE")) return false
         if (path == "/api/formacoes" && verb == "POST") return false
         if (Regex("^/api/formacoes/[^/]+$").matches(path) && verb in setOf("PATCH", "DELETE")) return false
+        if (Regex("^/api/formacoes/[^/]+/presencas$").matches(path) && verb == "PUT") return false
 
-        // Registros administrativos não podem ser duplicados ou excluídos duas vezes por replay.
         if (Regex("^/api/membros/[^/]+/registros$").matches(path) && verb == "POST") return false
         if (Regex("^/api/membros/[^/]+/registros/[^/]+$").matches(path) && verb == "DELETE") return false
 
-        // Administração de dados é destrutiva/sensível e sempre precisa de resposta confirmada.
         if (path == "/api/app/admin-dados" && verb != "GET") return false
 
         return true
