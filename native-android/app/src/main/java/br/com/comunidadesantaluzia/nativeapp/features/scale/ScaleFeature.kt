@@ -97,7 +97,7 @@ private fun prettyDate(value: String): String = runCatching {
 }.getOrDefault(value)
 
 internal suspend fun loadScales(container: AppContainer): ScaleState = when (
-    val result = container.repository.readLocalFirst("escalas", "/api/escalas", authenticated = false)
+    val result = container.repository.readLocalFirst("escalas", "/api/escalas", authenticated = true)
 ) {
     is RepositoryResult.Success -> parseScales(result.value, result.fromCache)
     is RepositoryResult.Failure -> ScaleState(loading = false, error = result.message)
@@ -201,6 +201,13 @@ internal fun ScaleScreen(container: AppContainer) {
             }
         }
         actionMessage?.let { message -> item { Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .14f))) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall) } } }
+        if (state.userType == "moderador" && !state.loading) {
+            item {
+                ScaleModeratorPanel(container = container, scales = state.scales) {
+                    state = loadScales(container)
+                }
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
