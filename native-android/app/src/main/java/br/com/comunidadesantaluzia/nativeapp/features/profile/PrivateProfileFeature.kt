@@ -1,6 +1,5 @@
 package br.com.comunidadesantaluzia.nativeapp.features.profile
 
-import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,19 +36,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.media.loadProfileBitmap
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import kotlinx.coroutines.Dispatchers
@@ -222,17 +223,12 @@ internal fun PrivateProfileScreen(container: AppContainer) {
 
 @Composable
 private fun ProfileImage(photo: String?, name: String) {
-    val bitmap = remember(photo) {
-        runCatching {
-            if (photo?.startsWith("data:image/") != true) null
-            else {
-                val bytes = Base64.decode(photo.substringAfter("base64,"), Base64.DEFAULT)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }
-        }.getOrNull()
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, photo) {
+        value = loadProfileBitmap(context.applicationContext, photo)
     }
     if (bitmap != null) {
-        Image(bitmap = bitmap, contentDescription = "Foto do perfil", modifier = Modifier.size(112.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+        Image(bitmap = bitmap!!, contentDescription = "Foto do perfil", modifier = Modifier.size(112.dp).clip(CircleShape), contentScale = ContentScale.Crop)
     } else {
         Box(Modifier.size(112.dp).clip(CircleShape).background(SantaWine.copy(alpha = .1f)), contentAlignment = Alignment.Center) {
             if (name.isBlank()) Icon(Icons.Rounded.AccountCircle, null, tint = SantaWine, modifier = Modifier.size(58.dp))
