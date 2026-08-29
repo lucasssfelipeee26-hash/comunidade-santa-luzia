@@ -9,6 +9,13 @@ val prepareOfflineAssets = tasks.register<Sync>("prepareOfflineAssets") {
         include("2026-*.json")
         into("liturgia-completa")
     }
+    from(rootProject.file("../public/offline/iliturgia")) {
+        // O Centro Liturgico da Beta usa estes mesmos pacotes JSON compactados.
+        // Mantemos os arquivos comprimidos no APK e fazemos a leitura nativa,
+        // sem WebView, JavaScript ou CSS.
+        include("manifest.json", "*.html.json.gz")
+        into("iliturgia")
+    }
     into(generatedOfflineAssetsDir)
 }
 
@@ -38,8 +45,6 @@ android {
 
     sourceSets {
         getByName("main") {
-            // Empacota somente os 12 JSONs mensais auditados. O diretório público
-            // contém outros artefatos comprimidos da Beta que não pertencem ao APK nativo.
             assets.srcDir(generatedOfflineAssetsDir)
         }
     }
