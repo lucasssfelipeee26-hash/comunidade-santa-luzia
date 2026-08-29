@@ -246,8 +246,21 @@ internal class SantaLuziaRepository(
     private fun canQueueOffline(method: String, path: String, payload: String?): Boolean {
         val verb = method.uppercase()
 
+        // A tentativa cronometrada usa token efêmero e nunca pode ser repetida depois.
         if (verb == "POST" && Regex("^/api/quizzes(?:/liturgia)?/[^/]+/responder$").matches(path)) return false
         if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
+
+        // O replay offline da Liturgia é uma operação distinta e idempotente. O servidor
+        // reconstrói o mesmo quiz pela data, valida as respostas e deduplica por quiz/usuário.
+        if (verb == "POST" && path == "/api/quizzes/liturgia/offline") {
+            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull() ?: return false
+            val dateIso = body.optString("dataIso")
+            val requestId = body.optString("clientRequestId")
+            val answers = body.optJSONArray("respostas")
+            return Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(dateIso) &&
+                requestId.isNotBlank() &&
+                answers != null && answers.length() > 0
+        }
 
         if (verb == "POST" && path == "/api/ranking") {
             val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull()
