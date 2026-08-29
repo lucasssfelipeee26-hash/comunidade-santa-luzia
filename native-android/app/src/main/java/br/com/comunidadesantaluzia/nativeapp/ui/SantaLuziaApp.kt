@@ -78,6 +78,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgress
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyDay
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyReading
 import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
@@ -151,6 +152,7 @@ internal fun SantaLuziaApp(container: AppContainer) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val hideBottom = currentRoute == Route.Login.value
+    var afterLoginRoute by remember { mutableStateOf<Route?>(null) }
 
     Scaffold(
         containerColor = SantaCream,
@@ -160,6 +162,7 @@ internal fun SantaLuziaApp(container: AppContainer) {
                     items = if (session.loggedIn) authenticatedNavigation else publicNavigation,
                     currentRoute = currentRoute,
                     onNavigate = { item ->
+                        if (item.route == Route.Login) afterLoginRoute = null
                         navController.navigate(item.route.value) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
@@ -176,7 +179,19 @@ internal fun SantaLuziaApp(container: AppContainer) {
             modifier = Modifier.padding(padding),
         ) {
             composable(Route.Home.value) { HomeScreen(onNavigate = { navController.navigate(it.value) }) }
-            composable(Route.Liturgy.value) { LiturgyScreen(container) }
+            composable(Route.Liturgy.value) {
+                LiturgyScreen(
+                    container = container,
+                    onFinishReading = {
+                        if (session.loggedIn) {
+                            navController.navigate(Route.Journey.value)
+                        } else {
+                            afterLoginRoute = Route.Journey
+                            navController.navigate(Route.Login.value)
+                        }
+                    },
+                )
+            }
             composable(Route.LiturgyCenter.value) { LibraryScreen(container) }
             composable(Route.Scale.value) { ScaleScreen(container) }
             composable(Route.Library.value) { LibraryScreen(container) }
@@ -184,11 +199,16 @@ internal fun SantaLuziaApp(container: AppContainer) {
                 LoginScreen(
                     container = container,
                     onSuccess = {
-                        navController.navigate(Route.Area.value) {
+                        val destination = afterLoginRoute ?: Route.Area
+                        afterLoginRoute = null
+                        navController.navigate(destination.value) {
                             popUpTo(Route.Login.value) { inclusive = true }
                         }
                     },
-                    onBack = { navController.popBackStack() },
+                    onBack = {
+                        afterLoginRoute = null
+                        navController.popBackStack()
+                    },
                 )
             }
             composable(Route.Area.value) {
@@ -204,7 +224,12 @@ internal fun SantaLuziaApp(container: AppContainer) {
                 )
             }
             composable(Route.Formation.value) { FormationScreen(container) }
-            composable(Route.Journey.value) { JourneyScreen(container) }
+            composable(Route.Journey.value) {
+                JourneyScreen(
+                    container = container,
+                    onOpenLiturgy = { navController.navigate(Route.Liturgy.value) },
+                )
+            }
             composable(Route.Ranking.value) { RankingScreen(container) }
             composable(Route.Profiles.value) { ProfilesScreen(container) }
             composable(Route.Profile.value) { PrivateProfileScreen(container) }
@@ -332,8 +357,14 @@ private fun HomeCard(modifier: Modifier, title: String, subtitle: String, icon: 
 }
 
 @Composable
-private fun LiturgyScreen(container: AppContainer) {
-    var selectedDate by remember { mutableStateOf(LocalDate.now().let { if (it.year == 2026) it else LocalDate.of(2026, 1, 1) }) }
+private fun LiturgyScreen(
+    container: AppContainer,
+    onFinishReading: () -> Unit,
+) {
+    val today = remember { LiturgicalReadingProgress.todayCuiaba() }
+    var selectedDate by remember {
+        mutableStateOf(today.takeIf { it.year == 2026 } ?: LocalDate.of(2026, 1, 1))
+    }
     val day = remember(selectedDate) { container.liturgy.day(selectedDate) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -357,6 +388,20 @@ private fun LiturgyScreen(container: AppContainer) {
             readingItems("Evangelho", day.gospel)
             item { PrayerCard("Oração sobre as Oferendas", day.offerings) }
             item { PrayerCard("Oração depois da Comunhão", day.communion) }
+            if (selectedDate == today) {
+                item {
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            LiturgicalReadingProgress.markRead(container.appContext, today)
+                            onFinishReading()
+                        },
+                    ) {
+                        Icon(Icons.Rounded.Quiz, contentDescription = null)
+                        Text(" Concluir leitura e abrir Quiz")
+                    }
+                }
+            }
         }
     }
 }
@@ -414,7 +459,7 @@ private fun LoginScreen(container: AppContainer, onSuccess: () -> Unit, onBack: 
                         message = null
                         when (val result = container.repository.login(login, password)) {
                             is RepositoryResult.Success -> {
-                                SyncScheduler.syncNow((container.javaClass.getDeclaredField("appContext").apply { isAccessible = true }.get(container) as android.content.Context))
+                                SyncScheduler.syncNow(container.appContext)
                                 onSuccess()
                             }
                             is RepositoryResult.Failure -> message = result.message
