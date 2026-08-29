@@ -8,15 +8,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -42,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.features.ranking.RankingScreen
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
@@ -49,10 +47,37 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class QuizQuestion(val id: String, val prompt: String, val options: List<String>, val points: Int)
-data class NativeQuiz(val id: String, val title: String, val description: String, val origin: String, val dateReference: String?, val answered: Boolean, val questions: List<QuizQuestion>)
-data class QuizzesState(val quizzes: List<NativeQuiz> = emptyList(), val fromCache: Boolean = false, val loading: Boolean = true, val error: String? = null)
-data class ConstancyDay(val number: Int, val date: String, val received: Boolean, val today: Boolean)
+data class QuizQuestion(
+    val id: String,
+    val prompt: String,
+    val options: List<String>,
+    val points: Int,
+)
+
+data class NativeQuiz(
+    val id: String,
+    val title: String,
+    val description: String,
+    val origin: String,
+    val dateReference: String?,
+    val answered: Boolean,
+    val questions: List<QuizQuestion>,
+)
+
+data class QuizzesState(
+    val quizzes: List<NativeQuiz> = emptyList(),
+    val fromCache: Boolean = false,
+    val loading: Boolean = true,
+    val error: String? = null,
+)
+
+data class ConstancyDay(
+    val number: Int,
+    val date: String,
+    val received: Boolean,
+    val today: Boolean,
+)
+
 data class ConstancyState(
     val title: String = "Constância de Luz",
     val pointsPerDay: Int = 2,
@@ -67,124 +92,381 @@ data class ConstancyState(
     val error: String? = null,
 )
 
-internal suspend fun loadQuizzes(container: AppContainer): QuizzesState = when (val result = container.repository.readLocalFirst("quizzes", "/api/quizzes", authenticated = true)) {
-    is RepositoryResult.Success -> runCatching {
-        val root = JSONObject(result.value)
-        val array = root.optJSONArray("quizzes") ?: JSONArray()
-        val quizzes = buildList {
-            repeat(array.length()) { index ->
-                val item = array.optJSONObject(index) ?: return@repeat
-                val questionsArray = item.optJSONArray("perguntas") ?: JSONArray()
-                val questions = buildList {
-                    repeat(questionsArray.length()) { qIndex ->
-                        val question = questionsArray.optJSONObject(qIndex) ?: return@repeat
-                        val optionsJson = question.optJSONArray("opcoes") ?: JSONArray()
-                        add(QuizQuestion(question.optString("id"), question.optString("enunciado"), List(optionsJson.length()) { optionsJson.optString(it) }, question.optInt("pontos")))
+internal suspend fun loadQuizzes(container: AppContainer): QuizzesState =
+    when (val result = container.repository.readLocalFirst("quizzes", "/api/quizzes", authenticated = true)) {
+        is RepositoryResult.Success -> runCatching {
+            val root = JSONObject(result.value)
+            val array = root.optJSONArray("quizzes") ?: JSONArray()
+            val quizzes = buildList {
+                repeat(array.length()) { index ->
+                    val item = array.optJSONObject(index) ?: return@repeat
+                    val questionsArray = item.optJSONArray("perguntas") ?: JSONArray()
+                    val questions = buildList {
+                        repeat(questionsArray.length()) { qIndex ->
+                            val question = questionsArray.optJSONObject(qIndex) ?: return@repeat
+                            val optionsJson = question.optJSONArray("opcoes") ?: JSONArray()
+                            add(
+                                QuizQuestion(
+                                    id = question.optString("id"),
+                                    prompt = question.optString("enunciado"),
+                                    options = List(optionsJson.length()) { optionsJson.optString(it) },
+                                    points = question.optInt("pontos"),
+                                ),
+                            )
+                        }
                     }
+                    add(
+                        NativeQuiz(
+                            id = item.optString("id"),
+                            title = item.optString("titulo"),
+                            description = item.optString("descricao"),
+                            origin = item.optString("origem"),
+                            dateReference = item.optString("data_referencia").takeIf { it.isNotBlank() && it != "null" },
+                            answered = item.optBoolean("respondido"),
+                            questions = questions,
+                        ),
+                    )
                 }
-                add(NativeQuiz(item.optString("id"), item.optString("titulo"), item.optString("descricao"), item.optString("origem"), item.optString("data_referencia").takeIf { it.isNotBlank() && it != "null" }, item.optBoolean("respondido"), questions))
             }
+            QuizzesState(quizzes = quizzes, fromCache = result.fromCache, loading = false)
+        }.getOrElse {
+            QuizzesState(loading = false, error = "Os quizzes salvos estão em formato inválido.")
         }
-        QuizzesState(quizzes = quizzes, fromCache = result.fromCache, loading = false)
-    }.getOrElse { QuizzesState(loading = false, error = "Os quizzes salvos estão em formato inválido.") }
-    is RepositoryResult.Failure -> QuizzesState(loading = false, error = result.message)
-    is RepositoryResult.Queued -> QuizzesState(loading = false, error = "A leitura dos quizzes não deve entrar em fila.")
-}
 
-internal suspend fun loadConstancy(container: AppContainer): ConstancyState = when (val result = container.repository.readLocalFirst("constancia", "/api/constancia-luz", authenticated = true)) {
-    is RepositoryResult.Success -> runCatching {
-        val item = JSONObject(result.value).getJSONObject("constancia")
-        val daysArray = item.optJSONArray("dias") ?: JSONArray()
-        val days = buildList { repeat(daysArray.length()) { index -> val day = daysArray.optJSONObject(index) ?: return@repeat; add(ConstancyDay(day.optInt("numero"), day.optString("data"), day.optBoolean("recebido"), day.optBoolean("hoje"))) } }
-        ConstancyState(
-            title = item.optString("titulo", "Constância de Luz"),
-            pointsPerDay = item.optInt("pontosPorDia", 2),
-            maxWeekly = item.optInt("maximoSemanal", 14),
-            days = days,
-            completedDays = item.optInt("diasConcluidos"),
-            weekPoints = item.optInt("pontosSemana"),
-            receivedToday = item.optBoolean("recebidoHoje"),
-            completed = item.optBoolean("concluida"),
-            fromCache = result.fromCache,
-            loading = false,
-        )
-    }.getOrElse { ConstancyState(loading = false, error = "A Constância de Luz salva está em formato inválido.") }
-    is RepositoryResult.Failure -> ConstancyState(loading = false, error = result.message)
-    is RepositoryResult.Queued -> ConstancyState(loading = false, error = "A leitura da constância não deve entrar em fila.")
-}
+        is RepositoryResult.Failure -> QuizzesState(loading = false, error = result.message)
+        is RepositoryResult.Queued -> QuizzesState(loading = false, error = "A leitura dos quizzes não deve entrar em fila.")
+    }
 
-private enum class JourneyTab { Quiz, Constancy }
+internal suspend fun loadConstancy(container: AppContainer): ConstancyState =
+    when (val result = container.repository.readLocalFirst("constancia", "/api/constancia-luz", authenticated = true)) {
+        is RepositoryResult.Success -> runCatching {
+            val item = JSONObject(result.value).getJSONObject("constancia")
+            val daysArray = item.optJSONArray("dias") ?: JSONArray()
+            val days = buildList {
+                repeat(daysArray.length()) { index ->
+                    val day = daysArray.optJSONObject(index) ?: return@repeat
+                    add(
+                        ConstancyDay(
+                            number = day.optInt("numero"),
+                            date = day.optString("data"),
+                            received = day.optBoolean("recebido"),
+                            today = day.optBoolean("hoje"),
+                        ),
+                    )
+                }
+            }
+            ConstancyState(
+                title = item.optString("titulo", "Constância de Luz"),
+                pointsPerDay = item.optInt("pontosPorDia", 2),
+                maxWeekly = item.optInt("maximoSemanal", 14),
+                days = days,
+                completedDays = item.optInt("diasConcluidos"),
+                weekPoints = item.optInt("pontosSemana"),
+                receivedToday = item.optBoolean("recebidoHoje"),
+                completed = item.optBoolean("concluida"),
+                fromCache = result.fromCache,
+                loading = false,
+            )
+        }.getOrElse {
+            ConstancyState(loading = false, error = "A Constância de Luz salva está em formato inválido.")
+        }
+
+        is RepositoryResult.Failure -> ConstancyState(loading = false, error = result.message)
+        is RepositoryResult.Queued -> ConstancyState(loading = false, error = "A leitura da constância não deve entrar em fila.")
+    }
+
+private enum class JourneyTab { Quiz, Jewels, Ranking, Standalone }
+
+private fun NativeQuiz.isLiturgical(): Boolean {
+    val normalized = origin.lowercase()
+    return normalized.contains("liturg") || normalized.contains("automatic") || normalized.contains("diario")
+}
 
 @Composable
 internal fun JourneyScreen(container: AppContainer) {
     var tab by remember { mutableStateOf(JourneyTab.Quiz) }
     var quizzes by remember { mutableStateOf(QuizzesState()) }
     var constancy by remember { mutableStateOf(ConstancyState()) }
-    LaunchedEffect(Unit) { quizzes = loadQuizzes(container); constancy = loadConstancy(container) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Jornada Litúrgica", style = MaterialTheme.typography.headlineMedium, color = SantaWine, fontWeight = FontWeight.Bold)
-        Text("Aprenda, mantenha sua Constância de Luz e some pontos no mesmo ranking da comunidade.", style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = tab == JourneyTab.Quiz, onClick = { tab = JourneyTab.Quiz }, label = { Text("Quiz") }, leadingIcon = { Icon(Icons.Rounded.Quiz, null) }, modifier = Modifier.weight(1f))
-            FilterChip(selected = tab == JourneyTab.Constancy, onClick = { tab = JourneyTab.Constancy }, label = { Text("Constância") }, leadingIcon = { Icon(Icons.Rounded.LightMode, null) }, modifier = Modifier.weight(1f))
+    LaunchedEffect(Unit) {
+        quizzes = loadQuizzes(container)
+        constancy = loadConstancy(container)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "Jornada Litúrgica",
+            style = MaterialTheme.typography.headlineMedium,
+            color = SantaWine,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "Quiz, Joias da Luz, Ranking e desafios avulsos em uma única jornada.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+
+        ConstancySummary(
+            container = container,
+            state = constancy,
+            onState = { constancy = it },
+        )
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            JourneyTabChip("Quiz", tab == JourneyTab.Quiz, { tab = JourneyTab.Quiz }, Modifier.weight(1f))
+            JourneyTabChip("Joias", tab == JourneyTab.Jewels, { tab = JourneyTab.Jewels }, Modifier.weight(1f))
+            JourneyTabChip("Ranking", tab == JourneyTab.Ranking, { tab = JourneyTab.Ranking }, Modifier.weight(1f))
+            JourneyTabChip("Avulsos", tab == JourneyTab.Standalone, { tab = JourneyTab.Standalone }, Modifier.weight(1f))
         }
-        Box(Modifier.weight(1f)) {
-            if (tab == JourneyTab.Quiz) QuizList(container, quizzes) { quizzes = it } else ConstancyPanel(container, constancy) { constancy = it }
+
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (tab) {
+                JourneyTab.Quiz -> QuizList(
+                    container = container,
+                    state = quizzes.copy(quizzes = quizzes.quizzes.filter { it.isLiturgical() }),
+                    emptyMessage = "O Quiz da Liturgia ainda não está disponível.",
+                    onReload = { quizzes = it },
+                )
+
+                JourneyTab.Jewels -> JewelsGamePanel(container)
+                JourneyTab.Ranking -> RankingScreen(container)
+                JourneyTab.Standalone -> QuizList(
+                    container = container,
+                    state = quizzes.copy(quizzes = quizzes.quizzes.filterNot { it.isLiturgical() }),
+                    emptyMessage = "Nenhum quiz avulso disponível no momento.",
+                    onReload = { quizzes = it },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun QuizList(container: AppContainer, state: QuizzesState, onState: (QuizzesState) -> Unit) {
+private fun JourneyTabChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ConstancySummary(
+    container: AppContainer,
+    state: ConstancyState,
+    onState: (ConstancyState) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val today = remember { LocalDate.now().toString() }
+    var feedback by remember { mutableStateOf("") }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f)),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = SantaWine)
+                    Column {
+                        Text("Constância de Luz", color = SantaWine, fontWeight = FontWeight.Bold)
+                        if (!state.loading && state.error == null) {
+                            Text(
+                                "${state.completedDays}/7 dias · ${state.weekPoints}/${state.maxWeekly} pontos",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                }
+                if (state.fromCache) Text("offline", style = MaterialTheme.typography.labelSmall, color = SantaWine)
+            }
+
+            when {
+                state.loading -> CircularProgressIndicator()
+                state.error != null -> Text(state.error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                state.receivedToday -> Text(
+                    if (state.completed) "Semana completa. Constância de hoje já registrada." else "Constância de hoje já registrada.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                else -> Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        val optimisticDays = state.days.map {
+                            if (it.date == today || it.today) it.copy(received = true) else it
+                        }
+                        onState(
+                            state.copy(
+                                days = optimisticDays,
+                                receivedToday = true,
+                                completedDays = minOf(7, state.completedDays + 1),
+                                weekPoints = minOf(state.maxWeekly, state.weekPoints + state.pointsPerDay),
+                                fromCache = true,
+                            ),
+                        )
+                        scope.launch {
+                            val payload = JSONObject().put("data", today).toString()
+                            when (val result = container.repository.mutate("POST", "/api/constancia-luz", payload)) {
+                                is RepositoryResult.Success -> {
+                                    onState(loadConstancy(container))
+                                    feedback = "+${state.pointsPerDay} pontos de Constância registrados."
+                                }
+
+                                is RepositoryResult.Queued -> feedback = "Constância salva no aparelho para sincronizar."
+                                is RepositoryResult.Failure -> {
+                                    feedback = result.message
+                                    onState(loadConstancy(container))
+                                }
+                            }
+                        }
+                    },
+                ) { Text("Registrar Constância de hoje") }
+            }
+
+            if (feedback.isNotBlank()) {
+                Text(feedback, style = MaterialTheme.typography.labelSmall, color = SantaWine)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuizList(
+    container: AppContainer,
+    state: QuizzesState,
+    emptyMessage: String,
+    onReload: (QuizzesState) -> Unit,
+) {
     var active by remember { mutableStateOf<NativeQuiz?>(null) }
     var feedback by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-        if (state.fromCache) item { AssistChip(onClick = {}, label = { Text("Quizzes salvos · offline") }, leadingIcon = { Icon(Icons.Rounded.WifiOff, null) }) }
-        if (feedback.isNotBlank()) item { Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f))) { Text(feedback, Modifier.padding(12.dp), color = SantaWine) } }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 20.dp),
+    ) {
+        if (state.fromCache) {
+            item {
+                AssistChip(
+                    onClick = {},
+                    label = { Text("Conteúdo salvo · offline") },
+                    leadingIcon = { Icon(Icons.Rounded.WifiOff, null) },
+                )
+            }
+        }
+        if (feedback.isNotBlank()) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f))) {
+                    Text(feedback, Modifier.padding(12.dp), color = SantaWine)
+                }
+            }
+        }
+
         when {
-            state.loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            state.error != null -> item { Card { Text(state.error.orEmpty(), Modifier.padding(18.dp), color = MaterialTheme.colorScheme.error) } }
-            state.quizzes.isEmpty() -> item { Card { Text("Nenhum quiz disponível no momento.", Modifier.padding(20.dp)) } }
-            else -> items(state.quizzes.size) { index ->
-                val quiz = state.quizzes[index]
+            state.loading -> item {
+                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            state.error != null -> item {
+                Card { Text(state.error, Modifier.padding(18.dp), color = MaterialTheme.colorScheme.error) }
+            }
+
+            state.quizzes.isEmpty() -> item {
+                Card { Text(emptyMessage, Modifier.padding(20.dp)) }
+            }
+
+            else -> itemsIndexed(state.quizzes, key = { _, quiz -> quiz.id }) { _, quiz ->
                 Card(shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text(quiz.title, style = MaterialTheme.typography.titleMedium, color = SantaWine, fontWeight = FontWeight.Bold)
+                        Text(
+                            quiz.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = SantaWine,
+                            fontWeight = FontWeight.Bold,
+                        )
                         if (quiz.description.isNotBlank()) Text(quiz.description, style = MaterialTheme.typography.bodySmall)
-                        Text("${quiz.questions.size} pergunta(s) · ${quiz.questions.sumOf { it.points }} ponto(s) possíveis", style = MaterialTheme.typography.labelSmall)
-                        if (quiz.answered) AssistChip(onClick = {}, label = { Text("Já respondido") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) })
-                        else Button(onClick = { active = quiz }, modifier = Modifier.fillMaxWidth()) { Text("Responder") }
+                        quiz.dateReference?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                        Text(
+                            "${quiz.questions.size} pergunta(s) · ${quiz.questions.sumOf { it.points }} ponto(s) possíveis",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        if (quiz.answered) {
+                            AssistChip(
+                                onClick = {},
+                                label = { Text("Já respondido") },
+                                leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) },
+                            )
+                        } else {
+                            Button(onClick = { active = quiz }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Responder")
+                            }
+                        }
                     }
                 }
             }
         }
     }
+
     active?.let { quiz ->
-        QuizDialog(quiz = quiz, onDismiss = { active = null }, onSubmit = { answers ->
-            val optimistic = state.copy(quizzes = state.quizzes.map { if (it.id == quiz.id) it.copy(answered = true) else it }, fromCache = true)
-            onState(optimistic); active = null
-            scope.launch {
-                val payload = JSONObject().apply { put("respostas", JSONArray(answers)) }.toString()
-                when (val result = container.repository.mutate("POST", "/api/quizzes/${quiz.id}/responder", payload)) {
-                    is RepositoryResult.Success -> {
-                        val json = runCatching { JSONObject(result.value) }.getOrNull()
-                        val r = json?.optJSONObject("resultado")
-                        feedback = if (r != null) "Quiz concluído: ${r.optInt("acertos")} acerto(s) e ${r.optInt("pontos")} ponto(s)." else "Quiz concluído."
-                        onState(loadQuizzes(container))
+        QuizDialog(
+            quiz = quiz,
+            onDismiss = { active = null },
+            onSubmit = { answers ->
+                active = null
+                scope.launch {
+                    val payload = JSONObject().put("respostas", JSONArray(answers)).toString()
+                    when (val result = container.repository.mutate("POST", "/api/quizzes/${quiz.id}/responder", payload)) {
+                        is RepositoryResult.Success -> {
+                            val json = runCatching { JSONObject(result.value) }.getOrNull()
+                            val outcome = json?.optJSONObject("resultado")
+                            feedback = if (outcome != null) {
+                                "Quiz concluído: ${outcome.optInt("acertos")} acerto(s) e ${outcome.optInt("pontos")} ponto(s)."
+                            } else {
+                                "Quiz concluído."
+                            }
+                            onReload(loadQuizzes(container))
+                        }
+
+                        is RepositoryResult.Queued -> {
+                            feedback = "Quiz salvo no aparelho e aguardando sincronização."
+                            onReload(loadQuizzes(container))
+                        }
+
+                        is RepositoryResult.Failure -> {
+                            feedback = result.message
+                            onReload(loadQuizzes(container))
+                        }
                     }
-                    is RepositoryResult.Queued -> feedback = "Respostas salvas no aparelho. O resultado será calculado quando a internet voltar."
-                    is RepositoryResult.Failure -> { feedback = result.message; onState(loadQuizzes(container)) }
                 }
-            }
-        })
+            },
+        )
     }
 }
 
 @Composable
-private fun QuizDialog(quiz: NativeQuiz, onDismiss: () -> Unit, onSubmit: (List<Int>) -> Unit) {
-    val answers = remember(quiz.id) { mutableStateListOf<Int>().apply { repeat(quiz.questions.size) { add(-1) } } }
+private fun QuizDialog(
+    quiz: NativeQuiz,
+    onDismiss: () -> Unit,
+    onSubmit: (List<Int>) -> Unit,
+) {
+    val answers = remember(quiz.id) {
+        mutableStateListOf<Int>().apply { repeat(quiz.questions.size) { add(-1) } }
+    }
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(quiz.title) },
@@ -196,7 +478,10 @@ private fun QuizDialog(quiz: NativeQuiz, onDismiss: () -> Unit, onSubmit: (List<
                             Text("${index + 1}. ${question.prompt}", fontWeight = FontWeight.Bold)
                             question.options.forEachIndexed { optionIndex, option ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = answers[index] == optionIndex, onClick = { answers[index] = optionIndex })
+                                    RadioButton(
+                                        selected = answers[index] == optionIndex,
+                                        onClick = { answers[index] = optionIndex },
+                                    )
                                     Text(option)
                                 }
                             }
@@ -205,60 +490,12 @@ private fun QuizDialog(quiz: NativeQuiz, onDismiss: () -> Unit, onSubmit: (List<
                 }
             }
         },
-        confirmButton = { Button(enabled = answers.all { it >= 0 }, onClick = { onSubmit(answers.toList()) }) { Text("Enviar respostas") } },
+        confirmButton = {
+            Button(
+                enabled = answers.all { it >= 0 },
+                onClick = { onSubmit(answers.toList()) },
+            ) { Text("Enviar respostas") }
+        },
         dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } },
     )
-}
-
-@Composable
-private fun ConstancyPanel(container: AppContainer, state: ConstancyState, onState: (ConstancyState) -> Unit) {
-    val scope = rememberCoroutineScope()
-    var feedback by remember { mutableStateOf("") }
-    val today = remember { LocalDate.now().toString() }
-    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-        if (state.fromCache) item { AssistChip(onClick = {}, label = { Text("Constância salva · offline") }, leadingIcon = { Icon(Icons.Rounded.WifiOff, null) }) }
-        when {
-            state.loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            state.error != null -> item { Card { Text(state.error.orEmpty(), Modifier.padding(18.dp), color = MaterialTheme.colorScheme.error) } }
-            else -> {
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f)), shape = RoundedCornerShape(24.dp)) {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) { Icon(Icons.Rounded.AutoAwesome, null, tint = SantaWine); Text(state.title, style = MaterialTheme.typography.titleLarge, color = SantaWine, fontWeight = FontWeight.Bold) }
-                            Text("${state.pointsPerDay} pontos por dia · máximo semanal de ${state.maxWeekly} pontos")
-                            Text("${state.completedDays}/7 dias concluídos · ${state.weekPoints} pontos nesta semana", fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-                itemsIndexed(state.days) { _, day ->
-                    Card {
-                        Row(Modifier.fillMaxWidth().padding(13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column { Text("Dia ${day.number}", fontWeight = FontWeight.Bold); Text(day.date, style = MaterialTheme.typography.bodySmall) }
-                            AssistChip(onClick = {}, label = { Text(if (day.received) "+${state.pointsPerDay} pontos" else if (day.today) "Hoje" else "Pendente") }, leadingIcon = if (day.received) ({ Icon(Icons.Rounded.CheckCircle, null) }) else null)
-                        }
-                    }
-                }
-                if (!state.receivedToday) item {
-                    Button(
-                        onClick = {
-                            val optimisticDays = state.days.map { if (it.date == today || it.today) it.copy(received = true) else it }
-                            val optimistic = state.copy(days = optimisticDays, receivedToday = true, completedDays = minOf(7, state.completedDays + 1), weekPoints = state.weekPoints + state.pointsPerDay, fromCache = true)
-                            onState(optimistic)
-                            scope.launch {
-                                val payload = JSONObject().apply { put("data", today) }.toString()
-                                when (val result = container.repository.mutate("POST", "/api/constancia-luz", payload)) {
-                                    is RepositoryResult.Success -> { onState(loadConstancy(container)); feedback = "Constância de hoje registrada: +${state.pointsPerDay} pontos." }
-                                    is RepositoryResult.Queued -> feedback = "Constância registrada no aparelho. Os pontos serão sincronizados quando a internet voltar."
-                                    is RepositoryResult.Failure -> { feedback = result.message; onState(loadConstancy(container)) }
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Registrar Constância de hoje") }
-                }
-                if (state.completed) item { Card(colors = CardDefaults.cardColors(containerColor = SantaWine)) { Text("Semana completa! Você concluiu os 7 dias da Constância de Luz.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) } }
-                if (feedback.isNotBlank()) item { Text(feedback, color = SantaWine, style = MaterialTheme.typography.bodySmall) }
-            }
-        }
-    }
 }
