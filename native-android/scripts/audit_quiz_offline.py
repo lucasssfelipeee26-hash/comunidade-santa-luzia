@@ -48,7 +48,13 @@ require('path == "/api/quizzes/liturgia/responder") return false' in repository,
 # 5) Criar/editar/publicar/excluir Quiz avulso é administrativo e necessariamente online.
 require('mutateOnlineOnly("POST", "/api/quizzes"' in admin, "Administração de Quiz avulso não está restrita à rede")
 require('isQuizAdminOnline' in admin, "Tela administrativa não valida conexão antes de publicar")
-require('Publicação exige internet' in admin or 'publicar um Quiz avulso' in admin, "Regra de publicação online não está explícita na UI")
+online_copy = (
+    'Criação e publicação exigem internet' in admin
+    or 'Publicação exige internet' in admin
+    or 'publicar um Quiz avulso' in admin
+)
+require(online_copy, "Regra de publicação online não está explícita na UI")
+require('O servidor só receberá esta alteração se houver conexão.' in admin, "Editor não deixa claro que alterações administrativas dependem de rede")
 
 # 6) Reconexão precisa ser idempotente: se o servidor já recebeu, não duplica pontuação.
 require('duplicado: true' in backend and 'ok: true' in backend and 'Quiz já sincronizado' in backend, "Backend não trata replay de resposta como já sincronizado")
