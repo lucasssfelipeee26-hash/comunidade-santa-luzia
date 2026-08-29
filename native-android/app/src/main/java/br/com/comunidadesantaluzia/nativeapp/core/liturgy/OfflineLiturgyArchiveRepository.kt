@@ -41,8 +41,9 @@ internal data class LiturgyArchiveDocument(
 
 /**
  * Le o mesmo acervo iLiturgia compactado usado pela Beta, mas sem WebView.
- * Os pacotes .json.gz ficam dentro do APK e sao descompactados somente quando
- * uma categoria e aberta. Cada categoria permanece em memoria durante a sessao.
+ * Os pacotes JSON compactados ficam dentro do APK com sufixo .bin para impedir
+ * que o merger de assets do Android tente descompacta-los durante o build.
+ * A descompactacao real continua sendo feita aqui, de forma nativa e sob demanda.
  */
 internal class OfflineLiturgyArchiveRepository(private val context: Context) {
     private val cache = ConcurrentHashMap<String, List<LiturgyArchiveDocument>>()
@@ -84,7 +85,8 @@ internal class OfflineLiturgyArchiveRepository(private val context: Context) {
     }
 
     private fun readPackage(fileName: String): List<LiturgyArchiveDocument> {
-        val root = context.assets.open("iliturgia/$fileName").use { raw ->
+        val assetName = if (fileName.endsWith(".gz")) "$fileName.bin" else fileName
+        val root = context.assets.open("iliturgia/$assetName").use { raw ->
             GZIPInputStream(raw).bufferedReader(Charsets.UTF_8).use { reader ->
                 JSONObject(reader.readText())
             }
