@@ -1,9 +1,6 @@
 package br.com.comunidadesantaluzia.nativeapp.features.ranking
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,6 +59,7 @@ data class RankingLine(
     val hits: Int,
     val successRate: Int,
 )
+
 data class RankingState(
     val year: Int = 0,
     val myId: String? = null,
@@ -114,7 +113,14 @@ internal suspend fun loadRanking(container: AppContainer): RankingState {
 @Composable
 internal fun RankingScreen(container: AppContainer) {
     var state by remember { mutableStateOf(RankingState()) }
-    LaunchedEffect(Unit) { state = loadRanking(container) }
+    var animationKey by remember { mutableIntStateOf(0) }
+
+    suspend fun refreshRanking() {
+        state = loadRanking(container)
+        animationKey += 1
+    }
+
+    LaunchedEffect(Unit) { refreshRanking() }
     val mine = remember(state.ranking, state.myId) { state.ranking.firstOrNull { it.userId == state.myId } }
     val podium = remember(state.ranking) { state.ranking.take(3) }
     val rest = remember(state.ranking) { state.ranking.drop(3) }
@@ -128,21 +134,42 @@ internal fun RankingScreen(container: AppContainer) {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("Classificação", style = MaterialTheme.typography.headlineMedium, color = SantaWine, fontWeight = FontWeight.Bold)
                 Text("Pontuação da Jornada Litúrgica${if (state.year > 0) " · ${state.year}" else ""}", style = MaterialTheme.typography.bodySmall)
-                if (state.fromCache) AssistChip(onClick = {}, label = { Text("Última classificação salva · offline") }, leadingIcon = { Icon(Icons.Rounded.WifiOff, null) })
+                if (state.fromCache) {
+                    AssistChip(
+                        onClick = {},
+                        label = { Text("Última classificação salva · offline") },
+                        leadingIcon = { Icon(Icons.Rounded.WifiOff, null) },
+                    )
+                }
             }
         }
         when {
-            state.loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            state.error != null -> item { Card { Text(state.error.orEmpty(), Modifier.padding(18.dp), color = MaterialTheme.colorScheme.error) } }
-            state.ranking.isEmpty() -> item { Card { Text("A classificação ainda não possui participantes.", Modifier.padding(20.dp)) } }
+            state.loading -> item {
+                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            }
+            state.error != null -> item {
+                Card { Text(state.error.orEmpty(), Modifier.padding(18.dp), color = MaterialTheme.colorScheme.error) }
+            }
+            state.ranking.isEmpty() -> item {
+                Card { Text("A classificação ainda não possui participantes.", Modifier.padding(20.dp)) }
+            }
             else -> {
                 mine?.let { line -> item { MyRankingCard(line) } }
+                item { Text("Pódio", style = MaterialTheme.typography.titleLarge, color = SantaWine, fontWeight = FontWeight.Bold) }
                 item {
-                    Text("Pódio", style = MaterialTheme.typography.titleLarge, color = SantaWine, fontWeight = FontWeight.Bold)
-                }
-                item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                        podium.forEach { line -> PodiumCard(line, Modifier.weight(1f), champion = line.position == 1) }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        podium.forEach { line ->
+                            PodiumCard(
+                                line = line,
+                                modifier = Modifier.weight(1f),
+                                champion = line.position == 1,
+                                animationKey = animationKey,
+                            )
+                        }
                     }
                 }
                 if (rest.isNotEmpty()) {
@@ -151,13 +178,26 @@ internal fun RankingScreen(container: AppContainer) {
                 }
             }
         }
+
+        if (!state.loading && state.error == null) {
+            item {
+                RankingActionsPanel(
+                    container = container,
+                    onRankingChanged = { refreshRanking() },
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun MyRankingCard(line: RankingLine) {
     Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .14f)), shape = RoundedCornerShape(20.dp)) {
-        Row(Modifier.fillMaxWidth().padding(15.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().padding(15.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(Modifier.weight(1f)) {
                 Text("Sua posição", style = MaterialTheme.typography.labelSmall, color = SantaWine, fontWeight = FontWeight.Black)
                 Text("${line.position}º · ${line.points} pontos", style = MaterialTheme.typography.titleLarge, color = SantaWine, fontWeight = FontWeight.Bold)
@@ -169,24 +209,47 @@ private fun MyRankingCard(line: RankingLine) {
 }
 
 @Composable
-private fun PodiumCard(line: RankingLine, modifier: Modifier, champion: Boolean) {
-    val transition = rememberInfiniteTransition(label = "podium-${line.userId}")
-    val turn by transition.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(tween(if (champion) 1700 else 2300), RepeatMode.Reverse),
-        label = "avatar-turn",
-    )
+private fun PodiumCard(line: RankingLine, modifier: Modifier, champion: Boolean, animationKey: Int) {
+    val turn = remember(line.userId) { Animatable(-13f) }
+    val trophyTurn = remember(line.userId) { Animatable(-18f) }
+    LaunchedEffect(line.userId, animationKey) {
+        turn.snapTo(-13f)
+        trophyTurn.snapTo(-18f)
+        turn.animateTo(0f, animationSpec = tween(720))
+        trophyTurn.animateTo(0f, animationSpec = tween(860))
+    }
+
     Card(
         modifier = modifier.graphicsLayer { translationY = if (champion) -8f else 0f },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(22.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = if (champion) 5.dp else 2.dp),
     ) {
-        Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Icon(if (line.position == 1) Icons.Rounded.EmojiEvents else Icons.Rounded.MilitaryTech, null, tint = SantaGold, modifier = Modifier.size(if (champion) 34.dp else 26.dp).graphicsLayer { rotationY = turn })
+        Column(
+            Modifier.fillMaxWidth().padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Icon(
+                if (line.position == 1) Icons.Rounded.EmojiEvents else Icons.Rounded.MilitaryTech,
+                null,
+                tint = SantaGold,
+                modifier = Modifier
+                    .size(if (champion) 34.dp else 26.dp)
+                    .graphicsLayer {
+                        rotationY = trophyTurn.value
+                        cameraDistance = 18f * density
+                    },
+            )
             Box(
-                modifier = Modifier.size(if (champion) 62.dp else 52.dp).clip(CircleShape).background(SantaWine.copy(alpha = .1f)).graphicsLayer { rotationY = turn },
+                modifier = Modifier
+                    .size(if (champion) 62.dp else 52.dp)
+                    .clip(CircleShape)
+                    .background(SantaWine.copy(alpha = .1f))
+                    .graphicsLayer {
+                        rotationY = turn.value
+                        cameraDistance = 18f * density
+                    },
                 contentAlignment = Alignment.Center,
             ) { Text(initials(line.name), color = SantaWine, fontWeight = FontWeight.Black) }
             Text(line.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
@@ -199,11 +262,19 @@ private fun PodiumCard(line: RankingLine, modifier: Modifier, champion: Boolean)
 @Composable
 private fun RankingRow(line: RankingLine, highlighted: Boolean) {
     Card(colors = CardDefaults.cardColors(containerColor = if (highlighted) SantaGold.copy(alpha = .12f) else MaterialTheme.colorScheme.surface)) {
-        Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(SantaWine.copy(alpha = .08f)), contentAlignment = Alignment.Center) {
-                Text("${line.position}º", color = SantaWine, fontWeight = FontWeight.Black)
-            }
-            Box(Modifier.size(42.dp).clip(CircleShape).background(SantaWine.copy(alpha = .1f)), contentAlignment = Alignment.Center) { Text(initials(line.name), color = SantaWine, fontWeight = FontWeight.Bold) }
+        Row(
+            Modifier.fillMaxWidth().padding(13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(SantaWine.copy(alpha = .08f)),
+                contentAlignment = Alignment.Center,
+            ) { Text("${line.position}º", color = SantaWine, fontWeight = FontWeight.Black) }
+            Box(
+                Modifier.size(42.dp).clip(CircleShape).background(SantaWine.copy(alpha = .1f)),
+                contentAlignment = Alignment.Center,
+            ) { Text(initials(line.name), color = SantaWine, fontWeight = FontWeight.Bold) }
             Column(Modifier.weight(1f)) {
                 Text(line.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(line.role ?: "Participante", style = MaterialTheme.typography.bodySmall)
@@ -219,4 +290,8 @@ private fun RankingRow(line: RankingLine, highlighted: Boolean) {
     }
 }
 
-private fun initials(name: String): String = name.trim().split(Regex("\\s+")).filter(String::isNotBlank).take(2).joinToString("") { it.first().uppercase() }
+private fun initials(name: String): String = name.trim()
+    .split(Regex("\\s+"))
+    .filter(String::isNotBlank)
+    .take(2)
+    .joinToString("") { it.first().uppercase() }
