@@ -9,6 +9,7 @@ internal data class LiturgyReading(
     val title: String,
     val reference: String,
     val text: String,
+    val refrain: String = "",
 )
 
 internal data class LiturgyDay(
@@ -16,6 +17,7 @@ internal data class LiturgyDay(
     val displayDate: String,
     val celebration: String,
     val color: String,
+    val liturgicalPeriod: String,
     val collect: String,
     val offerings: String,
     val communion: String,
@@ -41,6 +43,7 @@ internal class OfflineLiturgyRepository(private val context: Context) {
             displayDate = day.optString("data", key),
             celebration = day.optString("liturgia", "Liturgia diária"),
             color = day.optString("cor"),
+            liturgicalPeriod = day.optString("tempoLiturgicoAtual"),
             collect = prayers.optString("coleta"),
             offerings = prayers.optString("oferendas"),
             communion = prayers.optString("comunhao"),
@@ -73,6 +76,7 @@ internal class OfflineLiturgyRepository(private val context: Context) {
                         title = item.optString("titulo"),
                         reference = item.optString("referencia"),
                         text = item.optString("texto"),
+                        refrain = item.optString("refrao"),
                     ),
                 )
             }
