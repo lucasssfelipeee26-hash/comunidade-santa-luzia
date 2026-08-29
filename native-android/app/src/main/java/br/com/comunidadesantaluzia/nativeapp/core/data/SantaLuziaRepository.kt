@@ -108,6 +108,34 @@ internal class SantaLuziaRepository(
         optimisticPayload = optimisticPayload,
     )
 
+    /**
+     * Executa operações que não podem ser repetidas com segurança.
+     * Nunca grava em fila offline e nunca aplica cache otimista antes da confirmação do servidor.
+     */
+    suspend fun mutateOnlineOnly(
+        method: String,
+        path: String,
+        payload: String?,
+    ): RepositoryResult<String> = withContext(Dispatchers.IO) {
+        try {
+            val response = http.request(method, path, payload)
+            if (response.successful) {
+                RepositoryResult.Success(response.body)
+            } else {
+                val serverMessage = runCatching { JSONObject(response.body).optString("erro") }.getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                RepositoryResult.Failure(
+                    serverMessage ?: "A alteração foi rejeitada pelo servidor (${response.status}).",
+                    response.status,
+                )
+            }
+        } catch (_: IOException) {
+            RepositoryResult.Failure("Esta operação precisa de internet para evitar envio duplicado. Reconecte e tente novamente.")
+        } catch (error: Exception) {
+            RepositoryResult.Failure(error.message ?: "Não foi possível concluir a alteração online.")
+        }
+    }
+
     suspend fun mutateLocalFirst(
         method: String,
         path: String,
