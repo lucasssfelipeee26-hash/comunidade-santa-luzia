@@ -246,9 +246,17 @@ internal class SantaLuziaRepository(
     private fun canQueueOffline(method: String, path: String, payload: String?): Boolean {
         val verb = method.uppercase()
 
-        // A tentativa cronometrada usa token efêmero e nunca pode ser repetida depois.
-        if (verb == "POST" && Regex("^/api/quizzes(?:/liturgia)?/[^/]+/responder$").matches(path)) return false
+        // O quiz litúrgico cronometrado usa token efêmero e precisa ser confirmado na hora.
         if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
+
+        // Quizzes avulsos já baixados podem ser respondidos offline. A resposta leva um
+        // identificador único e fica na fila até existir conexão para o servidor validá-la.
+        if (verb == "POST" && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) {
+            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull() ?: return false
+            val requestId = body.optString("clientRequestId")
+            val answers = body.optJSONArray("respostas")
+            return requestId.isNotBlank() && answers != null && answers.length() > 0
+        }
 
         // O replay offline da Liturgia é uma operação distinta e idempotente. O servidor
         // reconstrói o mesmo quiz pela data, valida as respostas e deduplica por quiz/usuário.
@@ -292,6 +300,8 @@ internal class SantaLuziaRepository(
             "ranking" to "/api/ranking",
             "perfis" to "/api/perfis",
             "biblioteca" to "/api/biblioteca",
+            "quizzes" to "/api/quizzes",
+            "constancia" to "/api/constancia-luz",
         )
         essentials.forEach { (key, path) ->
             readLocalFirst(cacheKey = key, path = path, authenticated = key != "biblioteca")
