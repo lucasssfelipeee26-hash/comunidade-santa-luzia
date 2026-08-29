@@ -73,8 +73,20 @@ private const val PENDING_KEY = "pending"
 private const val SOUND_KEY = "sound"
 private const val RECORD_KEY = "record"
 
-private val gemNames = listOf("Diamante", "Rubi", "Safira", "Esmeralda", "Ametista", "Topázio", "Água-marinha")
-private val gemSymbols = listOf("◇", "◆", "⬟", "⬢", "✦", "⬣", "❖")
+private val liturgicalPieceNames = listOf(
+    "Cruz",
+    "Cálice",
+    "Turíbulo",
+    "Naveta",
+    "Missal",
+    "Vela",
+    "Galhetas",
+    "Alfaias",
+)
+
+// Os glifos são deliberadamente simples para permanecerem nítidos em qualquer aparelho,
+// sem depender de imagens externas ou de rede. Cada um representa um objeto litúrgico.
+private val liturgicalSymbols = listOf("✝", "♙", "♨", "◒", "▣", "♢", "⚗", "✦")
 
 private data class JewelState(
     val board: List<Int>,
@@ -92,7 +104,11 @@ private data class PendingJewelResult(
     val savedAt: Long,
 )
 
-private fun typeCount(level: Int) = if (level < 3) 6 else 7
+private fun typeCount(level: Int) = when {
+    level < 3 -> 6
+    level < 5 -> 7
+    else -> 8
+}
 private fun phaseTarget(level: Int) = 780 + max(0, level - 1) * 260
 private fun phaseMoves(level: Int) = max(20, 28 - ((level - 1) / 3))
 private fun accumulatedBonus(phase: Int): Int = when {
@@ -101,22 +117,22 @@ private fun accumulatedBonus(phase: Int): Int = when {
     else -> min(RANKING_LIMIT, 25 + (phase - 5) * 2)
 }
 private fun phaseName(level: Int) = when (level) {
-    1 -> "Cristal"
-    2 -> "Safira"
-    3 -> "Rubi"
-    4 -> "Esmeralda"
-    5 -> "Diamante"
-    else -> "Coleção $level"
+    1 -> "Cruz Processional"
+    2 -> "Cálice e Altar"
+    3 -> "Incenso"
+    4 -> "Missal"
+    5 -> "Luz do Altar"
+    else -> "Serviço Litúrgico $level"
 }
 private fun phaseCall(level: Int) = when (level) {
-    1 -> "Comece a lapidação"
+    1 -> "Comece servindo com atenção"
     2 -> "Ganhe ritmo e precisão"
-    3 -> "Construa combos maiores"
+    3 -> "Forme combinações maiores"
     4 -> "Domine as cascatas"
-    5 -> "Complete a coleção rara"
-    else -> "Continue lapidando combinações"
+    5 -> "Complete o conjunto litúrgico"
+    else -> "Continue avançando na Jornada"
 }
-private fun phaseMode(level: Int) = if (level <= 5) "Joias da Luz · etapa $level de 5 · ${phaseName(level)}" else "Joias da Luz · coleção $level"
+private fun phaseMode(level: Int) = if (level <= 5) "Joias da Luz · etapa $level de 5 · ${phaseName(level)}" else "Joias da Luz · serviço $level"
 
 private fun adjacent(a: Int, b: Int): Boolean {
     val ar = a / BOARD_SIZE
@@ -256,7 +272,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
     var selected by remember { mutableStateOf<Int?>(null) }
     var exploding by remember { mutableStateOf(emptySet<Int>()) }
     var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Toque em duas joias vizinhas. Combine 3 ou mais.") }
+    var message by remember { mutableStateOf("Toque em duas peças vizinhas. Combine 3 ou mais símbolos litúrgicos iguais.") }
     var rankingMessage by remember { mutableStateOf("") }
     var sound by remember { mutableStateOf(prefs.getBoolean(SOUND_KEY, true)) }
     var offline by remember { mutableStateOf(false) }
@@ -371,7 +387,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
             board = original
             tone("error")
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            message = "Essa troca não cria uma combinação. Alinhe 3 ou mais joias iguais."
+            message = "Essa troca não cria uma combinação. Alinhe 3 ou mais símbolos iguais."
             busy = false
             return
         }
@@ -380,7 +396,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
         board = resolved
         phaseScore += gain
         totalScore += gain
-        message = if (cascades > 1) "Combo x$cascades! Cascata de joias." else "Boa combinação! +$gain pontos."
+        message = if (cascades > 1) "Combo x$cascades! Cascata litúrgica." else "Boa combinação! +$gain pontos."
         val completedScore = phaseScore
         val completedTotal = totalScore
         if (completedScore >= target) {
@@ -391,7 +407,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
             val (ok, _) = sendResult(result)
             if (!ok) savePending(result)
             if (offline) rankingMessage = "Bônus local estimado: ${accumulatedBonus(completed)}/$RANKING_LIMIT · aguardando servidor."
-            message = if (completed <= 5) "${phaseName(completed)} concluída. Avançando para ${phaseName(next)}." else "Coleção $completed concluída. +2 no ranking até o limite diário."
+            message = if (completed <= 5) "${phaseName(completed)} concluída. Avançando para ${phaseName(next)}." else "Serviço $completed concluído. +2 no ranking até o limite diário."
             delay(480)
             level = next
             phaseScore = 0
@@ -403,7 +419,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
             message = "Fim da rodada. Reinicie para tentar um novo recorde."
         } else if (!hasMove(board)) {
             board = initialBoard(level)
-            message = "Sem jogadas possíveis. Embaralhamos as joias sem gastar movimento."
+            message = "Sem jogadas possíveis. Embaralhamos as peças sem gastar movimento."
         }
         persist()
         busy = false
@@ -420,7 +436,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("JOIAS DA LUZ · ${if (level <= 5) "ETAPA $level DE 5" else "COLEÇÃO $level"}", style = MaterialTheme.typography.labelSmall, color = SantaGold, fontWeight = FontWeight.Black)
+                        Text("JOIAS DA LUZ · ${if (level <= 5) "ETAPA $level DE 5" else "JORNADA $level"}", style = MaterialTheme.typography.labelSmall, color = SantaGold, fontWeight = FontWeight.Black)
                         Text(phaseName(level), style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
                         Text(phaseCall(level), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .8f))
                     }
@@ -450,7 +466,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
             itemsIndexed(board) { index, type ->
                 val isSelected = selected == index
                 val isExploding = index in exploding
-                val animatedScale by animateFloatAsState(if (isExploding) .25f else if (isSelected) 1.12f else 1f, label = "gem-scale")
+                val animatedScale by animateFloatAsState(if (isExploding) .25f else if (isSelected) 1.12f else 1f, label = "liturgical-piece-scale")
                 Box(
                     modifier = Modifier
                         .aspectRatio(1f)
@@ -468,15 +484,21 @@ internal fun JewelsGamePanel(container: AppContainer) {
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (type >= 0) Text(gemSymbols[type], style = MaterialTheme.typography.headlineSmall, color = when (type) {
-                        1 -> Color(0xFFD93B62)
-                        2 -> Color(0xFF3B69D9)
-                        3 -> Color(0xFF37A978)
-                        4 -> Color(0xFF8D56BD)
-                        5 -> Color(0xFFE49A3B)
-                        6 -> Color(0xFF3DB6BA)
-                        else -> Color(0xFF8BBDCC)
-                    }, fontWeight = FontWeight.Black)
+                    if (type >= 0) Text(
+                        liturgicalSymbols[type],
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = when (type) {
+                            0 -> SantaWine
+                            1 -> Color(0xFFD6A441)
+                            2 -> Color(0xFF8D6E63)
+                            3 -> Color(0xFF3B69D9)
+                            4 -> Color(0xFF7A4D9B)
+                            5 -> Color(0xFFE49A3B)
+                            6 -> Color(0xFF3DB6BA)
+                            else -> Color(0xFF8BBDCC)
+                        },
+                        fontWeight = FontWeight.Black,
+                    )
                 }
             }
         }
@@ -487,12 +509,16 @@ internal fun JewelsGamePanel(container: AppContainer) {
                 modifier = Modifier.weight(1f),
                 onClick = {
                     level = 1; phaseScore = 0; totalScore = 0; moves = phaseMoves(1); board = initialBoard(1); selected = null; busy = false
-                    message = "Nova jornada iniciada. Combine 3 ou mais joias."
+                    message = "Nova jornada iniciada. Combine 3 ou mais símbolos litúrgicos."
                     prefs.edit().remove(STATE_KEY).apply()
                 },
             ) { Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.size(6.dp)); Text("Reiniciar") }
             Button(modifier = Modifier.weight(1f), onClick = { scope.launch { syncPending() } }) { Icon(Icons.Rounded.AutoAwesome, null); Spacer(Modifier.size(6.dp)); Text("Sincronizar") }
         }
-        Text("Peças: ${gemNames.take(typeCount(level)).joinToString(" · ")}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "Peças litúrgicas: ${liturgicalPieceNames.take(typeCount(level)).joinToString(" · ")}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
