@@ -2,6 +2,7 @@ package br.com.comunidadesantaluzia.nativeapp.core.network
 
 import br.com.comunidadesantaluzia.nativeapp.BuildConfig
 import br.com.comunidadesantaluzia.nativeapp.core.session.SessionStore
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -13,6 +14,15 @@ internal data class HttpResult(
     val status: Int,
     val body: String,
     val setCookie: String? = null,
+) {
+    val successful: Boolean get() = status in 200..299
+}
+
+internal data class DownloadResult(
+    val status: Int,
+    val contentType: String?,
+    val contentLength: Long,
+    val errorBody: String = "",
 ) {
     val successful: Boolean get() = status in 200..299
 }
@@ -46,6 +56,50 @@ internal class NativeHttpClient(
             }
             readResult(connection)
         } finally {
+            connection.disconnect()
+        }
+    }
+
+    suspend fun downloadToFile(
+        path: String,
+        targetFile: File,
+        authenticated: Boolean = true,
+    ): DownloadResult = withContext(Dispatchers.IO) {
+        val connection = openConnection("GET", path, authenticated)
+        val tempFile = File(targetFile.parentFile, ".${targetFile.name}.${UUID.randomUUID()}.part")
+        try {
+            val status = connection.responseCode
+            val contentType = connection.contentType?.substringBefore(';')?.trim()?.takeIf { it.isNotBlank() }
+            val contentLength = connection.getHeaderFieldLong("Content-Length", -1L)
+            updateCookieFrom(connection)
+
+            if (status !in 200..299) {
+                val error = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                return@withContext DownloadResult(status, contentType, contentLength, error)
+            }
+
+            targetFile.parentFile?.mkdirs()
+            tempFile.parentFile?.mkdirs()
+            connection.inputStream.buffered().use { input ->
+                tempFile.outputStream().buffered().use { output ->
+                    input.copyTo(output)
+                    output.flush()
+                }
+            }
+            check(tempFile.length() > 0L) { "Servidor retornou um arquivo vazio." }
+            if (contentLength > 0 && tempFile.length() != contentLength) {
+                error("Download incompleto: ${tempFile.length()} de $contentLength bytes.")
+            }
+            if (targetFile.exists() && !targetFile.delete()) {
+                error("Não foi possível substituir o material local anterior.")
+            }
+            if (!tempFile.renameTo(targetFile)) {
+                tempFile.copyTo(targetFile, overwrite = true)
+                tempFile.delete()
+            }
+            DownloadResult(status, contentType, targetFile.length())
+        } finally {
+            if (tempFile.exists()) tempFile.delete()
             connection.disconnect()
         }
     }
@@ -116,11 +170,16 @@ internal class NativeHttpClient(
         val status = connection.responseCode
         val stream = if (status in 200..399) connection.inputStream else connection.errorStream
         val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+        val setCookie = updateCookieFrom(connection)
+        return HttpResult(status = status, body = responseBody, setCookie = setCookie)
+    }
+
+    private suspend fun updateCookieFrom(connection: HttpURLConnection): String? {
         val setCookie = connection.getHeaderField("Set-Cookie")
             ?.substringBefore(';')
             ?.takeIf { it.contains('=') }
         if (setCookie != null) sessionStore.updateCookie(setCookie)
-        return HttpResult(status = status, body = responseBody, setCookie = setCookie)
+        return setCookie
     }
 
     private fun escapeDisposition(value: String): String = value
