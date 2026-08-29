@@ -20,10 +20,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AddAPhoto
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,11 +51,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.core.media.loadProfileBitmap
-import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
+import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -106,6 +112,7 @@ private fun PrivateProfile.toCacheJson(): String = JSONObject().apply {
 
 @Composable
 internal fun PrivateProfileScreen(container: AppContainer) {
+    val session by container.sessionStore.session.collectAsStateWithLifecycle(initialValue = NativeSession())
     var state by remember { mutableStateOf(PrivateProfileState()) }
     var name by remember { mutableStateOf("") }
     var birth by remember { mutableStateOf("") }
@@ -114,6 +121,11 @@ internal fun PrivateProfileScreen(container: AppContainer) {
     var photo by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
+    var deleteOpen by remember { mutableStateOf(false) }
+    var deletePassword by remember { mutableStateOf("") }
+    var deleteConfirmation by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf(false) }
+    var accountDeleted by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -157,7 +169,16 @@ internal fun PrivateProfileScreen(container: AppContainer) {
             Text("Informações pessoais e recado público", style = MaterialTheme.typography.bodySmall)
             if (state.fromCache) AssistChip(onClick = {}, label = { Text("Perfil salvo neste aparelho · offline") }, leadingIcon = { Icon(Icons.Rounded.WifiOff, null) })
         }
-        when {
+        if (accountDeleted) {
+            item {
+                Card {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text("Conta excluída", color = SantaWine, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                        Text("A sessão e os dados privados salvos neste aparelho foram removidos. Você já pode voltar ao Início.")
+                    }
+                }
+            }
+        } else when {
             state.loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
             state.error != null -> item { Card { Text(state.error.orEmpty(), Modifier.padding(18.dp), color = MaterialTheme.colorScheme.error) } }
             state.profile != null -> {
@@ -216,8 +237,79 @@ internal fun PrivateProfileScreen(container: AppContainer) {
                         }
                     }
                 }
+                item {
+                    Card(shape = RoundedCornerShape(24.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Text("Conta e privacidade", fontWeight = FontWeight.Bold, color = SantaWine)
+                            if (session.userType == "membro") {
+                                Text("A exclusão remove perfil, foto, registros, participações em escalas, quizzes, ranking e pontualidade. Esta ação não pode ser desfeita.", style = MaterialTheme.typography.bodySmall)
+                                Button(
+                                    onClick = { deletePassword = ""; deleteConfirmation = ""; feedback = ""; deleteOpen = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Icon(Icons.Rounded.DeleteForever, null, Modifier.size(18.dp)); Text(" Excluir minha conta")
+                                }
+                            } else {
+                                Text("Contas administrativas são mantidas pela comunidade e devem ser substituídas por outro responsável antes da remoção.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    if (deleteOpen) {
+        AlertDialog(
+            onDismissRequest = { if (!deleting) deleteOpen = false },
+            title = { Text("Excluir conta e dados?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Esta ação é definitiva e precisa de internet. Informe sua senha atual e digite EXCLUIR.")
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = { deletePassword = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Senha atual") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    OutlinedTextField(
+                        value = deleteConfirmation,
+                        onValueChange = { deleteConfirmation = it.take(20) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Digite EXCLUIR") },
+                        singleLine = true,
+                    )
+                    if (feedback.isNotBlank()) Text(feedback, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !deleting && deletePassword.isNotBlank() && deleteConfirmation.trim().uppercase() == "EXCLUIR",
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    onClick = {
+                        deleting = true
+                        feedback = ""
+                        scope.launch {
+                            when (val result = container.repository.deleteOwnAccount(deletePassword, deleteConfirmation)) {
+                                is RepositoryResult.Success -> {
+                                    accountDeleted = true
+                                    state = PrivateProfileState(loading = false)
+                                    deleteOpen = false
+                                    deletePassword = ""
+                                    deleteConfirmation = ""
+                                }
+                                is RepositoryResult.Failure -> feedback = result.message
+                                is RepositoryResult.Queued -> feedback = "A exclusão definitiva nunca é colocada em fila offline."
+                            }
+                            deleting = false
+                        }
+                    },
+                ) { Text(if (deleting) "Excluindo..." else "Excluir definitivamente") }
+            },
+            dismissButton = { TextButton(enabled = !deleting, onClick = { deleteOpen = false }) { Text("Cancelar") } },
+        )
     }
 }
 
