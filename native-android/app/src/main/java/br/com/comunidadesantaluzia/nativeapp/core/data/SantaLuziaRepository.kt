@@ -143,7 +143,7 @@ internal class SantaLuziaRepository(
         optimisticCacheKey: String? = null,
         optimisticPayload: String? = null,
     ): RepositoryResult<String> = withContext(Dispatchers.IO) {
-        val mayQueue = canQueueOffline(method, path)
+        val mayQueue = canQueueOffline(method, path, payload)
         fun commitOptimisticCache() {
             if (optimisticCacheKey != null && optimisticPayload != null) {
                 database.putDocument(optimisticCacheKey, optimisticPayload)
@@ -186,12 +186,25 @@ internal class SantaLuziaRepository(
         }
     }
 
-    private fun canQueueOffline(method: String, path: String): Boolean {
+    private fun canQueueOffline(method: String, path: String, payload: String?): Boolean {
         val verb = method.uppercase()
+
         // Respostas de quiz são de envio único e o backend ainda não oferece clientRequestId.
         // Enfileirar poderia repetir uma resposta já aceita caso apenas a resposta HTTP se perca.
         if (verb == "POST" && Regex("^/api/quizzes(?:/liturgia)?/[^/]+/responder$").matches(path)) return false
         if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
+
+        if (verb == "POST" && path == "/api/ranking") {
+            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull()
+            return when (body?.optString("action")) {
+                // O backend deduplica relatos pelo par clientRequestId + reportado_por.
+                "reportar_atraso" -> body.optString("clientRequestId").isNotBlank()
+                // Estas ações não possuem chave de idempotência e precisam de confirmação online.
+                "reconhecer", "reagir", "moderar_atraso", "ajustar_pontos", "salvar_config" -> false
+                else -> false
+            }
+        }
+
         return true
     }
 
