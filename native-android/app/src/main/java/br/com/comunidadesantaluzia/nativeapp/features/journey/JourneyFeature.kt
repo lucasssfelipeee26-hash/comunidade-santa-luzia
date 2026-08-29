@@ -41,11 +41,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.sync.SyncScheduler
 import br.com.comunidadesantaluzia.nativeapp.features.ranking.RankingScreen
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.UUID
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -58,6 +60,7 @@ data class NativeQuiz(
     val origin: String,
     val dateReference: String?,
     val answered: Boolean,
+    val pendingSync: Boolean,
     val questions: List<QuizQuestion>,
 )
 data class QuizzesState(
@@ -104,6 +107,7 @@ internal suspend fun loadQuizzes(container: AppContainer): QuizzesState =
                         origin = item.optString("origem"),
                         dateReference = item.optString("data_referencia").takeIf { it.isNotBlank() && it != "null" },
                         answered = item.optBoolean("respondido"),
+                        pendingSync = item.optBoolean("sincronizacaoPendente"),
                         questions = questions,
                     ))
                 }
@@ -145,6 +149,21 @@ internal suspend fun loadConstancy(container: AppContainer): ConstancyState =
 private enum class JourneyTab { Quiz, Jewels, Ranking, Standalone }
 private enum class StandaloneTab { Whatajong, Quizzes }
 private fun NativeQuiz.isLiturgical(): Boolean = origin.contains("liturg", ignoreCase = true) || origin.contains("automatic", ignoreCase = true)
+
+private fun optimisticStandaloneQuizPayload(container: AppContainer, quizId: String): String? = runCatching {
+    val cached = container.database.getDocument("quizzes")?.payload ?: return@runCatching null
+    val root = JSONObject(cached)
+    val array = root.optJSONArray("quizzes") ?: return@runCatching null
+    repeat(array.length()) { index ->
+        val item = array.optJSONObject(index) ?: return@repeat
+        if (item.optString("id") == quizId) {
+            item.put("respondido", true)
+            item.put("sincronizacaoPendente", true)
+            return@runCatching root.toString()
+        }
+    }
+    null
+}.getOrNull()
 
 @Composable
 internal fun JourneyScreen(container: AppContainer, onOpenLiturgy: () -> Unit) {
@@ -267,8 +286,13 @@ private fun QuizList(container: AppContainer, state: QuizzesState, emptyMessage:
                         if (quiz.description.isNotBlank()) Text(quiz.description, style = MaterialTheme.typography.bodySmall)
                         quiz.dateReference?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
                         Text("${quiz.questions.size} pergunta(s) · ${quiz.questions.sumOf { it.points }} ponto(s) possíveis", style = MaterialTheme.typography.labelSmall)
-                        if (quiz.answered) AssistChip(onClick = {}, label = { Text("Já respondido") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) })
-                        else Button(onClick = { active = quiz }, modifier = Modifier.fillMaxWidth()) { Text("Responder") }
+                        if (quiz.answered) {
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(if (quiz.pendingSync) "Respondido offline · aguardando envio" else "Já respondido") },
+                                leadingIcon = { Icon(if (quiz.pendingSync) Icons.Rounded.WifiOff else Icons.Rounded.CheckCircle, null) },
+                            )
+                        } else Button(onClick = { active = quiz }, modifier = Modifier.fillMaxWidth()) { Text("Responder") }
                     }
                 }
             }
@@ -278,15 +302,34 @@ private fun QuizList(container: AppContainer, state: QuizzesState, emptyMessage:
         QuizDialog(quiz, { active = null }) { answers ->
             active = null
             scope.launch {
-                val payload = JSONObject().put("respostas", JSONArray(answers)).toString()
-                when (val result = container.repository.mutateOnlineOnly("POST", "/api/quizzes/${quiz.id}/responder", payload)) {
+                val payload = JSONObject()
+                    .put("respostas", JSONArray(answers))
+                    .put("clientRequestId", UUID.randomUUID().toString())
+                    .toString()
+                val optimistic = optimisticStandaloneQuizPayload(container, quiz.id)
+                when (
+                    val result = container.repository.mutate(
+                        "POST",
+                        "/api/quizzes/${quiz.id}/responder",
+                        payload,
+                        optimisticCacheKey = "quizzes",
+                        optimisticPayload = optimistic,
+                    )
+                ) {
                     is RepositoryResult.Success -> {
                         val outcome = runCatching { JSONObject(result.value).optJSONObject("resultado") }.getOrNull()
                         feedback = if (outcome != null) "Quiz concluído: ${outcome.optInt("acertos")} acerto(s) e ${outcome.optInt("pontos")} ponto(s)." else "Quiz concluído."
                         onReload(loadQuizzes(container))
                     }
-                    is RepositoryResult.Failure -> { feedback = result.message; onReload(loadQuizzes(container)) }
-                    is RepositoryResult.Queued -> feedback = "O quiz avulso precisa ser confirmado online."
+                    is RepositoryResult.Failure -> {
+                        feedback = result.message
+                        onReload(loadQuizzes(container))
+                    }
+                    is RepositoryResult.Queued -> {
+                        feedback = "Resposta salva neste aparelho. Ela será enviada automaticamente quando a internet voltar."
+                        SyncScheduler.syncNow(container.appContext)
+                        onReload(loadQuizzes(container))
+                    }
                 }
             }
         }
