@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.People
@@ -42,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,8 +55,9 @@ import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 data class NativeScalePerson(
@@ -89,6 +92,7 @@ data class ScaleState(
     val scales: List<NativeScale> = emptyList(),
     val userId: String? = null,
     val userType: String? = null,
+    val rawPayload: String = "",
     val fromCache: Boolean = false,
     val loading: Boolean = true,
     val error: String? = null,
@@ -96,65 +100,78 @@ data class ScaleState(
 
 internal suspend fun loadScales(container: AppContainer): ScaleState {
     return when (val result = container.repository.readLocalFirst("escalas", "/api/escalas", authenticated = false)) {
-        is RepositoryResult.Success -> runCatching {
-            val root = JSONObject(result.value)
-            val array = root.optJSONArray("escalas")
-            val scales = buildList {
-                if (array != null) repeat(array.length()) { index ->
-                    val item = array.optJSONObject(index) ?: return@repeat
-                    val peopleArray = item.optJSONArray("pessoas")
-                    val people = buildList {
-                        if (peopleArray != null) repeat(peopleArray.length()) { pIndex ->
-                            val person = peopleArray.optJSONObject(pIndex) ?: return@repeat
-                            add(
-                                NativeScalePerson(
-                                    id = person.optString("id").takeIf { it.isNotBlank() && it != "null" },
-                                    name = person.optString("nome"),
-                                    role = person.optString("funcao"),
-                                    category = person.optString("categoria"),
-                                ),
-                            )
-                        }
-                    }
-                    val justification = item.optJSONObject("minha_justificativa")?.let {
-                        NativeScaleJustification(
-                            id = it.optString("id"),
-                            text = it.optString("justificativa"),
-                            createdAt = it.optLong("criado_em"),
-                        )
-                    }
-                    add(
-                        NativeScale(
-                            id = item.optString("id"),
-                            date = item.optString("data"),
-                            time = item.optString("horario"),
-                            celebrant = item.optString("celebrante"),
-                            people = people,
-                            notes = item.optString("observacoes"),
-                            celebration = item.optString("celebracao_liturgica").nullableJsonString(),
-                            liturgicalSeason = item.optString("tempo_liturgico").nullableJsonString(),
-                            liturgicalColor = item.optString("cor_liturgica").nullableJsonString(),
-                            sundayCycle = item.optString("ciclo_dominical").nullableJsonString(),
-                            liturgicalDate = item.optString("data_liturgica").nullableJsonString(),
-                            myJustification = justification,
-                        ),
-                    )
-                }
-            }
-            ScaleState(
-                scales = scales,
-                userId = root.optString("usuarioId").nullableJsonString(),
-                userType = root.optString("tipoUsuario").nullableJsonString(),
-                fromCache = result.fromCache,
-                loading = false,
-            )
-        }.getOrElse { ScaleState(loading = false, error = "As escalas salvas estão em formato inválido.") }
+        is RepositoryResult.Success -> parseScales(result.value, result.fromCache)
         is RepositoryResult.Failure -> ScaleState(loading = false, error = result.message)
         is RepositoryResult.Queued -> ScaleState(loading = false, error = "A leitura de escalas não deve entrar em fila.")
     }
 }
 
+private fun parseScales(payload: String, fromCache: Boolean): ScaleState = runCatching {
+    val root = JSONObject(payload)
+    val array = root.optJSONArray("escalas")
+    val scales = buildList {
+        if (array != null) repeat(array.length()) { index ->
+            val item = array.optJSONObject(index) ?: return@repeat
+            val peopleArray = item.optJSONArray("pessoas")
+            val people = buildList {
+                if (peopleArray != null) repeat(peopleArray.length()) { pIndex ->
+                    val person = peopleArray.optJSONObject(pIndex) ?: return@repeat
+                    add(
+                        NativeScalePerson(
+                            id = person.optString("id").nullableJsonString(),
+                            name = person.optString("nome"),
+                            role = person.optString("funcao"),
+                            category = person.optString("categoria"),
+                        ),
+                    )
+                }
+            }
+            val justificationObject = item.optJSONObject("minha_justificativa")
+                ?: item.optJSONObject("minhaJustificativa")
+            val justification = justificationObject?.let {
+                NativeScaleJustification(
+                    id = it.optString("id").ifBlank { "local-${item.optString("id")}" },
+                    text = it.optString("justificativa").ifBlank { it.optString("texto") },
+                    createdAt = it.optLong("criado_em", it.optLong("criadoEm", 0L)),
+                )
+            }
+            add(
+                NativeScale(
+                    id = item.optString("id"),
+                    date = item.optString("data"),
+                    time = item.optString("horario"),
+                    celebrant = item.optString("celebrante"),
+                    people = people,
+                    notes = item.optString("observacoes"),
+                    celebration = item.optString("celebracao_liturgica").nullableJsonString()
+                        ?: item.optString("celebracaoLiturgica").nullableJsonString(),
+                    liturgicalSeason = item.optString("tempo_liturgico").nullableJsonString()
+                        ?: item.optString("tempoLiturgico").nullableJsonString(),
+                    liturgicalColor = item.optString("cor_liturgica").nullableJsonString()
+                        ?: item.optString("corLiturgica").nullableJsonString(),
+                    sundayCycle = item.optString("ciclo_dominical").nullableJsonString()
+                        ?: item.optString("cicloDominical").nullableJsonString(),
+                    liturgicalDate = item.optString("data_liturgica").nullableJsonString()
+                        ?: item.optString("dataLiturgica").nullableJsonString(),
+                    myJustification = justification,
+                ),
+            )
+        }
+    }
+    ScaleState(
+        scales = scales,
+        userId = root.optString("usuarioId").nullableJsonString()
+            ?: root.optString("usuario_id").nullableJsonString(),
+        userType = root.optString("tipoUsuario").nullableJsonString()
+            ?: root.optString("tipo_usuario").nullableJsonString(),
+        rawPayload = payload,
+        fromCache = fromCache,
+        loading = false,
+    )
+}.getOrElse { ScaleState(loading = false, error = "As escalas salvas estão em formato inválido.") }
+
 private fun String.nullableJsonString(): String? = takeIf { isNotBlank() && this != "null" }
+
 private fun normalized(value: String?): String = value.orEmpty().lowercase(Locale("pt", "BR"))
     .replace(Regex("[áàâã]"), "a")
     .replace(Regex("[éèê]"), "e")
@@ -170,6 +187,24 @@ private fun prettyDate(value: String): String = runCatching {
     date.format(formatter).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("pt", "BR")) else it.toString() }
 }.getOrDefault(value)
 
+private fun payloadWithJustification(rawPayload: String, scaleId: String, text: String): String? = runCatching {
+    val root = JSONObject(rawPayload)
+    val scales = root.optJSONArray("escalas") ?: return@runCatching null
+    repeat(scales.length()) { index ->
+        val item = scales.optJSONObject(index) ?: return@repeat
+        if (item.optString("id") == scaleId) {
+            item.put(
+                "minha_justificativa",
+                JSONObject()
+                    .put("id", "local-$scaleId")
+                    .put("justificativa", text)
+                    .put("criado_em", System.currentTimeMillis()),
+            )
+        }
+    }
+    root.toString()
+}.getOrNull()
+
 private enum class ScaleTab { Upcoming, History }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -180,8 +215,12 @@ internal fun ScaleScreen(container: AppContainer) {
     var dateFilter by remember { mutableStateOf("") }
     var seasonFilter by remember { mutableStateOf("Todos") }
     var seasonMenu by remember { mutableStateOf(false) }
+    var savingScaleId by remember { mutableStateOf<String?>(null) }
+    var actionMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) { state = loadScales(container) }
+    suspend fun refresh() { state = loadScales(container) }
+    LaunchedEffect(Unit) { refresh() }
 
     val today = remember { LocalDate.now().toString() }
     val upcoming = remember(state.scales, today) {
@@ -221,6 +260,13 @@ internal fun ScaleScreen(container: AppContainer) {
                         else "Escalas atualizadas e salvas no aparelho para consulta sem internet.",
                         style = MaterialTheme.typography.bodySmall,
                     )
+                }
+            }
+        }
+        actionMessage?.let { message ->
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .14f))) {
+                    Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -265,10 +311,7 @@ internal fun ScaleScreen(container: AppContainer) {
                             }
                             DropdownMenu(expanded = seasonMenu, onDismissRequest = { seasonMenu = false }) {
                                 seasons.forEach { season ->
-                                    DropdownMenuItem(
-                                        text = { Text(season) },
-                                        onClick = { seasonFilter = season; seasonMenu = false },
-                                    )
+                                    DropdownMenuItem(text = { Text(season) }, onClick = { seasonFilter = season; seasonMenu = false })
                                 }
                             }
                         }
@@ -293,7 +336,7 @@ internal fun ScaleScreen(container: AppContainer) {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error)
-                        Button(onClick = { state = ScaleState() }) { Text("Tentar novamente") }
+                        Button(onClick = { scope.launch { state = ScaleState(); refresh() } }) { Text("Tentar novamente") }
                     }
                 }
             }
@@ -307,7 +350,63 @@ internal fun ScaleScreen(container: AppContainer) {
                 }
             }
             else -> items(shown, key = { it.id }) { scale ->
-                ScaleCard(scale = scale, historical = tab == ScaleTab.History, currentUserId = state.userId)
+                ScaleCard(
+                    scale = scale,
+                    historical = tab == ScaleTab.History,
+                    currentUserId = state.userId,
+                    saving = savingScaleId == scale.id,
+                    onSubmitJustification = { text ->
+                        scope.launch {
+                            val trimmed = text.trim()
+                            if (trimmed.length !in 3..500) {
+                                actionMessage = "A justificativa deve ter entre 3 e 500 caracteres."
+                                return@launch
+                            }
+                            if (scale.myJustification != null) {
+                                actionMessage = "Esta escala já possui uma justificativa enviada."
+                                return@launch
+                            }
+                            val mine = scale.people.any { it.id != null && it.id == state.userId }
+                            if (!mine) {
+                                actionMessage = "Somente quem está escalado pode enviar justificativa."
+                                return@launch
+                            }
+                            savingScaleId = scale.id
+                            val optimisticPayload = payloadWithJustification(state.rawPayload, scale.id, trimmed)
+                            val result = container.repository.mutate(
+                                method = "PUT",
+                                path = "/api/escalas/${scale.id}/minha-justificativa",
+                                payload = JSONObject().put("justificativa", trimmed).toString(),
+                                optimisticCacheKey = optimisticPayload?.let { "escalas" },
+                                optimisticPayload = optimisticPayload,
+                            )
+                            val localJustification = NativeScaleJustification("local-${scale.id}", trimmed, System.currentTimeMillis())
+                            when (result) {
+                                is RepositoryResult.Success -> {
+                                    actionMessage = "Justificativa enviada."
+                                    refresh()
+                                }
+                                is RepositoryResult.Queued -> {
+                                    val newPayload = optimisticPayload ?: state.rawPayload
+                                    state = state.copy(
+                                        scales = state.scales.map { if (it.id == scale.id) it.copy(myJustification = localJustification) else it },
+                                        rawPayload = newPayload,
+                                        fromCache = true,
+                                    )
+                                    actionMessage = "Sem conexão: justificativa salva no aparelho e aguardando sincronização."
+                                }
+                                is RepositoryResult.Failure -> {
+                                    actionMessage = when (result.status) {
+                                        409 -> "Esta escala já possui uma justificativa registrada no servidor. Atualize para conferir."
+                                        403 -> "O servidor não autorizou a justificativa para esta escala."
+                                        else -> result.message
+                                    }
+                                }
+                            }
+                            savingScaleId = null
+                        }
+                    },
+                )
             }
         }
     }
@@ -315,8 +414,17 @@ internal fun ScaleScreen(container: AppContainer) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ScaleCard(scale: NativeScale, historical: Boolean, currentUserId: String?) {
+private fun ScaleCard(
+    scale: NativeScale,
+    historical: Boolean,
+    currentUserId: String?,
+    saving: Boolean,
+    onSubmitJustification: (String) -> Unit,
+) {
     val mine = remember(scale.people, currentUserId) { scale.people.firstOrNull { it.id != null && it.id == currentUserId } }
+    var justificationText by remember(scale.id) { mutableStateOf("") }
+    var justificationOpen by remember(scale.id) { mutableStateOf(false) }
+
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -368,6 +476,38 @@ private fun ScaleCard(scale: NativeScale, historical: Boolean, currentUserId: St
                     Column(Modifier.padding(12.dp)) {
                         Text("Sua justificativa", fontWeight = FontWeight.Bold)
                         Text(it.text, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            if (!historical && mine != null && scale.myJustification == null) {
+                if (!justificationOpen) {
+                    OutlinedButton(onClick = { justificationOpen = true }, enabled = !saving) {
+                        Icon(Icons.Rounded.EditNote, null)
+                        Spacer(Modifier.size(7.dp))
+                        Text("Enviar justificativa")
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = justificationText,
+                        onValueChange = { justificationText = it.take(500) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Justificativa") },
+                        supportingText = { Text("${justificationText.length}/500 · mínimo 3 caracteres") },
+                        minLines = 3,
+                        enabled = !saving,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { justificationOpen = false }, enabled = !saving) { Text("Cancelar") }
+                        Button(
+                            onClick = { onSubmitJustification(justificationText) },
+                            enabled = !saving && justificationText.trim().length in 3..500,
+                        ) {
+                            if (saving) {
+                                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.size(7.dp))
+                            }
+                            Text(if (saving) "Salvando…" else "Confirmar")
+                        }
                     }
                 }
             }
