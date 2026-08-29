@@ -45,6 +45,10 @@ internal class SyncWorker(
                         // requisição chegou ao servidor mas a resposta se perdeu, o replay pode
                         // voltar 409. Nesse endpoint específico isso significa "já aplicado".
                         container.database.completeMutation(mutation.id)
+                        // Reconcilia imediatamente o cache otimista com o servidor. Isso é
+                        // importante porque uma mutação posterior pode encerrar este ciclo por
+                        // autenticação/validação antes do warmEssentialCaches() do final.
+                        runCatching { container.repository.warmEssentialCaches() }
                         container.auditor.recordAsync(
                             "info",
                             "sync-idempotent-replay",
@@ -60,6 +64,7 @@ internal class SyncWorker(
                             "Sincronização aguardando nova autenticação",
                             "{\"path\":${org.json.JSONObject.quote(mutation.path)},\"status\":${response.status}}",
                         )
+                        runCatching { container.repository.warmEssentialCaches() }
                         return Result.success()
                     }
                     response.status in 400..499 && response.status != 408 && response.status != 429 -> {
@@ -71,6 +76,7 @@ internal class SyncWorker(
                             "{\"path\":${org.json.JSONObject.quote(mutation.path)},\"status\":${response.status}}",
                         )
                         // Mantemos o item para revisão; não descartamos silenciosamente dados locais.
+                        runCatching { container.repository.warmEssentialCaches() }
                         return Result.success()
                     }
                     else -> {
