@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Upgrade
@@ -86,6 +87,12 @@ private fun isOnline(context: Context): Boolean {
 
 @Composable
 internal fun AdminDataScreen(container: AppContainer) {
+    var showQuizAdmin by remember { mutableStateOf(false) }
+    if (showQuizAdmin) {
+        QuizAdminScreen(container = container, onBack = { showQuizAdmin = false })
+        return
+    }
+
     var state by remember { mutableStateOf(AdminDataState()) }
     var deleteTarget by remember { mutableStateOf<AdminMember?>(null) }
     var promoteTarget by remember { mutableStateOf<AdminMember?>(null) }
@@ -124,6 +131,20 @@ internal fun AdminDataScreen(container: AppContainer) {
             }
             if (state.fromCache) Text("Visualizando a última cópia administrativa salva neste aparelho.", Modifier.padding(top = 6.dp), style = MaterialTheme.typography.labelSmall)
             if (feedback.isNotBlank()) Text(feedback, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = SantaWine)
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f)), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.Quiz, null, tint = SantaWine)
+                        Column {
+                            Text("Quizzes avulsos", color = SantaWine, fontWeight = FontWeight.Bold)
+                            Text("Criar, editar, publicar ou excluir. Publicação exige internet.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Button(onClick = { showQuizAdmin = true }, modifier = Modifier.fillMaxWidth()) { Text("Gerenciar quizzes avulsos") }
+                }
+            }
         }
         when {
             state.loading -> item { Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
