@@ -16,9 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Upgrade
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -85,12 +88,31 @@ private fun isOnline(context: Context): Boolean {
 internal fun AdminDataScreen(container: AppContainer) {
     var state by remember { mutableStateOf(AdminDataState()) }
     var deleteTarget by remember { mutableStateOf<AdminMember?>(null) }
+    var promoteTarget by remember { mutableStateOf<AdminMember?>(null) }
     var resetOpen by remember { mutableStateOf(false) }
     var confirmation by remember { mutableStateOf("") }
     var feedback by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    suspend fun refresh() {
+        state = loadAdminData(container)
+    }
+
+    suspend fun changeStatus(member: AdminMember, status: String) {
+        working = true
+        val payload = JSONObject().put("status", status).toString()
+        when (val result = container.repository.mutateOnlineOnly("PATCH", "/api/membros/${member.id}/status", payload)) {
+            is RepositoryResult.Success -> {
+                feedback = if (status == "aprovado") "${member.name} foi aprovado." else "Cadastro de ${member.name} recusado."
+                refresh()
+            }
+            is RepositoryResult.Failure -> feedback = result.message
+            is RepositoryResult.Queued -> feedback = "Mudanças de status precisam ser confirmadas online."
+        }
+        working = false
+    }
 
     LaunchedEffect(Unit) { state = loadAdminData(container) }
 
@@ -100,6 +122,7 @@ internal fun AdminDataScreen(container: AppContainer) {
                 Icon(Icons.Rounded.Security, null, tint = SantaWine)
                 Column { Text("Administração de dados", style = MaterialTheme.typography.headlineSmall, color = SantaWine, fontWeight = FontWeight.Bold); Text("Área exclusiva da moderação", style = MaterialTheme.typography.bodySmall) }
             }
+            if (state.fromCache) Text("Visualizando a última cópia administrativa salva neste aparelho.", Modifier.padding(top = 6.dp), style = MaterialTheme.typography.labelSmall)
             if (feedback.isNotBlank()) Text(feedback, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = SantaWine)
         }
         when {
@@ -115,21 +138,75 @@ internal fun AdminDataScreen(container: AppContainer) {
                         }
                     }
                 }
-                item { Text("Cadastros de membros (${state.members.size})", style = MaterialTheme.typography.titleMedium, color = SantaWine, fontWeight = FontWeight.Bold) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Cadastros de membros (${state.members.size})", style = MaterialTheme.typography.titleMedium, color = SantaWine, fontWeight = FontWeight.Bold)
+                        Text("Aprovação, recusa e promoção exigem conexão porque alteram o nível de acesso.", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 items(state.members, key = { it.id }) { member ->
                     Card(shape = RoundedCornerShape(18.dp)) {
-                        Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Column(Modifier.weight(1f)) {
-                                Text(member.name, fontWeight = FontWeight.Bold, color = SantaWine)
-                                Text("${member.role} · ${member.status}", style = MaterialTheme.typography.bodySmall)
-                                if (member.email.isNotBlank()) Text(member.email, style = MaterialTheme.typography.labelSmall)
+                        Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(member.name, fontWeight = FontWeight.Bold, color = SantaWine)
+                                    Text("${member.role} · ${member.status}", style = MaterialTheme.typography.bodySmall)
+                                    if (member.email.isNotBlank()) Text(member.email, style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(onClick = { confirmation = ""; deleteTarget = member }, enabled = !working) {
+                                    Icon(Icons.Rounded.DeleteForever, null, Modifier.size(18.dp)); Text(" Excluir")
+                                }
                             }
-                            OutlinedButton(onClick = { confirmation = ""; deleteTarget = member }, enabled = !working) { Icon(Icons.Rounded.DeleteForever, null, Modifier.size(18.dp)); Text(" Excluir") }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                if (member.status != "aprovado") {
+                                    Button(
+                                        onClick = { scope.launch { changeStatus(member, "aprovado") } },
+                                        enabled = !working,
+                                        modifier = Modifier.weight(1f),
+                                    ) { Icon(Icons.Rounded.CheckCircle, null, Modifier.size(17.dp)); Text(" Aprovar") }
+                                }
+                                if (member.status != "recusado") {
+                                    OutlinedButton(
+                                        onClick = { scope.launch { changeStatus(member, "recusado") } },
+                                        enabled = !working,
+                                        modifier = Modifier.weight(1f),
+                                    ) { Icon(Icons.Rounded.Block, null, Modifier.size(17.dp)); Text(" Recusar") }
+                                }
+                            }
+                            if (member.status == "aprovado" && (member.role.equals("Acólito", true) || member.role.equals("Coroinha", true))) {
+                                OutlinedButton(
+                                    onClick = { promoteTarget = member },
+                                    enabled = !working,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Icon(Icons.Rounded.Upgrade, null, Modifier.size(18.dp)); Text(" Promover a moderador") }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    promoteTarget?.let { member ->
+        AlertDialog(
+            onDismissRequest = { promoteTarget = null },
+            title = { Text("Promover ${member.name}?") },
+            text = { Text("O cadastro passará a ter acesso de moderador nas próximas requisições. Esta mudança exige confirmação do servidor.") },
+            confirmButton = {
+                Button(enabled = !working, onClick = {
+                    working = true
+                    scope.launch {
+                        when (val result = container.repository.mutateOnlineOnly("PATCH", "/api/membros/${member.id}/promover", "{}")) {
+                            is RepositoryResult.Success -> { feedback = "${member.name} agora é moderador."; promoteTarget = null; refresh() }
+                            is RepositoryResult.Failure -> feedback = result.message
+                            is RepositoryResult.Queued -> feedback = "A promoção precisa ser confirmada online."
+                        }
+                        working = false
+                    }
+                }) { Text("Promover") }
+            },
+            dismissButton = { TextButton(onClick = { promoteTarget = null }) { Text("Cancelar") } },
+        )
     }
 
     deleteTarget?.let { member ->
