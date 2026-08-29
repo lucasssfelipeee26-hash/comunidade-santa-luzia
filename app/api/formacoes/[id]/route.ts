@@ -15,18 +15,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await request.json().catch(() => null) as { status?: unknown; motivo_cancelamento?: unknown; titulo?: unknown; tema?: unknown; data?: unknown; horario?: unknown; descricao?: unknown } | null
   if (!body) return NextResponse.json({ erro: "Requisição inválida." }, { status: 400 })
-  const windowsBeta = request.headers.get("user-agent")?.includes("SantaLuziaWindowsBeta/") || request.headers.get("x-santa-luzia-windows-beta") === "1"
-  if (windowsBeta && body.status === undefined) {
+
+  if (body.status === undefined) {
     const titulo = String(body.titulo || "").trim()
     const tema = String(body.tema || "").trim()
     const data = String(body.data || "").trim()
     const horario = String(body.horario || "").trim()
-    if (titulo.length < 2 || titulo.length > 160 || tema.length < 2 || tema.length > 240 || !/^\d{4}-\d{2}-\d{2}$/.test(data) || (horario && !/^\d{2}:\d{2}$/.test(horario))) {
+    const descricao = String(body.descricao || "").trim()
+    if (titulo.length < 2 || titulo.length > 180 || tema.length < 2 || tema.length > 180 || !/^\d{4}-\d{2}-\d{2}$/.test(data) || (horario && !/^\d{2}:\d{2}$/.test(horario))) {
       return NextResponse.json({ erro: "Informe título, tema, data e horário válidos." }, { status: 400 })
     }
-    const editada = atualizarFormacao(id, { titulo, tema, data, horario: horario || null, descricao: String(body.descricao || "").trim() })
+    if (descricao.length > 4_000) return NextResponse.json({ erro: "A descrição deve ter no máximo 4.000 caracteres." }, { status: 400 })
+    const editada = atualizarFormacao(id, { titulo, tema, data, horario: horario || null, descricao })
     return editada ? NextResponse.json({ formacao: editada }, { headers: { "Cache-Control": "no-store" } }) : NextResponse.json({ erro: "Formação não encontrada." }, { status: 404 })
   }
+
   if (body.status !== "agendada" && body.status !== "concluida" && body.status !== "cancelada") {
     return NextResponse.json({ erro: "Status da formação inválido." }, { status: 400 })
   }
