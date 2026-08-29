@@ -203,8 +203,20 @@ internal fun ScaleScreen(container: AppContainer) {
         actionMessage?.let { message -> item { Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .14f))) { Text(message, Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall) } } }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(Modifier.weight(1f), tab == ScaleTab.Upcoming, { tab = ScaleTab.Upcoming }, { Text("Próximas (${upcoming.size})") }, leadingIcon = { Icon(Icons.Rounded.CalendarMonth, null) })
-                FilterChip(Modifier.weight(1f), tab == ScaleTab.History, { tab = ScaleTab.History }, { Text("Histórico (${history.size})") }, leadingIcon = { Icon(Icons.Rounded.History, null) })
+                FilterChip(
+                    selected = tab == ScaleTab.Upcoming,
+                    onClick = { tab = ScaleTab.Upcoming },
+                    label = { Text("Próximas (${upcoming.size})") },
+                    modifier = Modifier.weight(1f),
+                    leadingIcon = { Icon(Icons.Rounded.CalendarMonth, null) },
+                )
+                FilterChip(
+                    selected = tab == ScaleTab.History,
+                    onClick = { tab = ScaleTab.History },
+                    label = { Text("Histórico (${history.size})") },
+                    modifier = Modifier.weight(1f),
+                    leadingIcon = { Icon(Icons.Rounded.History, null) },
+                )
             }
         }
         if (tab == ScaleTab.History) item {
