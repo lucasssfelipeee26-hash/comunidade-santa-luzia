@@ -158,15 +158,16 @@ internal fun RecordsScreen(container: AppContainer, session: NativeSession) {
                                     val member = selectedMember ?: return@Button
                                     val payload = JSONObject().apply { put("tipo", selectedType); put("data", date); put("descricao", description.trim()) }.toString()
                                     scope.launch {
-                                        when (val result = container.repository.mutate("POST", "/api/membros/${member.id}/registros", payload)) {
+                                        when (val result = container.repository.mutateOnlineOnly("POST", "/api/membros/${member.id}/registros", payload)) {
                                             is RepositoryResult.Success -> { feedback = "Registro salvo."; state = loadRecords(container, session); description = "" }
-                                            is RepositoryResult.Queued -> { feedback = "Registro salvo no aparelho e aguardando sincronização."; description = "" }
+                                            is RepositoryResult.Queued -> feedback = "Esta operação não pode entrar na fila offline."
                                             is RepositoryResult.Failure -> feedback = result.message
                                         }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                             ) { Text("Salvar ${labelFor(selectedType).lowercase()}") }
+                            Text("Este registro exige internet para evitar criação duplicada.", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -180,9 +181,9 @@ internal fun RecordsScreen(container: AppContainer, session: NativeSession) {
                             if (session.userType == "moderador") OutlinedButton(onClick = {
                                 val member = selectedMember ?: return@OutlinedButton
                                 scope.launch {
-                                    when (val result = container.repository.mutate("DELETE", "/api/membros/${member.id}/registros/${record.id}", null)) {
+                                    when (val result = container.repository.mutateOnlineOnly("DELETE", "/api/membros/${member.id}/registros/${record.id}", null)) {
                                         is RepositoryResult.Success -> { feedback = "Registro excluído."; state = loadRecords(container, session) }
-                                        is RepositoryResult.Queued -> feedback = "Exclusão salva e aguardando sincronização."
+                                        is RepositoryResult.Queued -> feedback = "Esta operação não pode entrar na fila offline."
                                         is RepositoryResult.Failure -> feedback = result.message
                                     }
                                 }
