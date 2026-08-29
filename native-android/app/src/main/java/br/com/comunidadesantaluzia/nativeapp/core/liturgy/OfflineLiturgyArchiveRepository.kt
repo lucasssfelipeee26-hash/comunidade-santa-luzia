@@ -40,13 +40,20 @@ internal data class LiturgyArchiveDocument(
 }
 
 /**
- * Le o mesmo acervo iLiturgia compactado usado pela Beta, mas sem WebView.
- * Os pacotes JSON compactados ficam dentro do APK com sufixo .bin para impedir
- * que o merger de assets do Android tente descompacta-los durante o build.
- * A descompactacao real continua sendo feita aqui, de forma nativa e sob demanda.
+ * Lê o mesmo acervo iLiturgia compactado usado pela Beta 18, sem WebView.
+ *
+ * A Beta 18 compartilha gerais.html.json.gz entre três categorias lógicas:
+ * - 469 documentos em evangelho/* pertencem a Evangelhos/Lectio Divina;
+ * - IGLH.htm e bienal.htm completam o Ofício (3.750 + 2 = 3.752);
+ * - os quatro documentos raiz restantes pertencem a Documentos gerais.
+ *
+ * Os pacotes GZIP ficam dentro do APK com sufixo .bin para impedir que o merger
+ * de assets do Android tente descompactá-los durante o build. A leitura nativa
+ * continua sendo feita sob demanda com GZIPInputStream.
  */
 internal class OfflineLiturgyArchiveRepository(private val context: Context) {
-    private val cache = ConcurrentHashMap<String, List<LiturgyArchiveDocument>>()
+    private val categoryCache = ConcurrentHashMap<String, List<LiturgyArchiveDocument>>()
+    private val packageCache = ConcurrentHashMap<String, List<LiturgyArchiveDocument>>()
 
     val categories: List<LiturgyArchiveCategory> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         val root = context.assets.open("iliturgia/manifest.json")
@@ -75,24 +82,40 @@ internal class OfflineLiturgyArchiveRepository(private val context: Context) {
         }
     }
 
-    fun documents(categoryId: String): List<LiturgyArchiveDocument> = cache.getOrPut(categoryId) {
+    fun documents(categoryId: String): List<LiturgyArchiveDocument> = categoryCache.getOrPut(categoryId) {
         val category = categories.firstOrNull { it.id == categoryId } ?: return@getOrPut emptyList()
-        category.files.flatMap { fileName -> readPackage(fileName) }
+        when (categoryId) {
+            "evangelho" -> sharedGeneralDocuments().filter { it.normalizedPath().startsWith("evangelho/") }
+            "geral" -> sharedGeneralDocuments().filter { document ->
+                val path = document.normalizedPath()
+                !path.startsWith("evangelho/") && path.substringAfterLast('/') !in OFFICE_GENERAL_FILES
+            }
+            "oficio" -> {
+                val office = category.files.flatMap(::readPackage)
+                val sharedOffice = sharedGeneralDocuments().filter { document ->
+                    document.normalizedPath().substringAfterLast('/') in OFFICE_GENERAL_FILES
+                }
+                office + sharedOffice
+            }
+            else -> category.files.flatMap(::readPackage)
+        }
     }
 
     fun clearCategory(categoryId: String) {
-        cache.remove(categoryId)
+        categoryCache.remove(categoryId)
     }
 
-    private fun readPackage(fileName: String): List<LiturgyArchiveDocument> {
+    private fun sharedGeneralDocuments(): List<LiturgyArchiveDocument> = readPackage(GENERAL_PACKAGE)
+
+    private fun readPackage(fileName: String): List<LiturgyArchiveDocument> = packageCache.getOrPut(fileName) {
         val assetName = if (fileName.endsWith(".gz")) "$fileName.bin" else fileName
         val root = context.assets.open("iliturgia/$assetName").use { raw ->
             GZIPInputStream(raw).bufferedReader(Charsets.UTF_8).use { reader ->
                 JSONObject(reader.readText())
             }
         }
-        val array = root.optJSONArray("documents") ?: return emptyList()
-        return buildList(array.length()) {
+        val array = root.optJSONArray("documents") ?: return@getOrPut emptyList()
+        buildList(array.length()) {
             repeat(array.length()) { index ->
                 val item = array.optJSONObject(index) ?: return@repeat
                 add(
@@ -106,5 +129,15 @@ internal class OfflineLiturgyArchiveRepository(private val context: Context) {
                 )
             }
         }
+    }
+
+    private fun LiturgyArchiveDocument.normalizedPath(): String = path
+        .replace('\\', '/')
+        .trimStart('/')
+        .lowercase()
+
+    private companion object {
+        const val GENERAL_PACKAGE = "gerais.html.json.gz"
+        val OFFICE_GENERAL_FILES = setOf("iglh.htm", "bienal.htm")
     }
 }
