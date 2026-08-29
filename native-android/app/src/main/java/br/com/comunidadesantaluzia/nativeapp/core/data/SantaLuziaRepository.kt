@@ -69,6 +69,35 @@ internal class SantaLuziaRepository(
         }
     }
 
+    suspend fun deleteOwnAccount(password: String, confirmation: String): RepositoryResult<Unit> = withContext(Dispatchers.IO) {
+        if (confirmation.trim().uppercase() != "EXCLUIR") {
+            return@withContext RepositoryResult.Failure("Digite EXCLUIR para confirmar.")
+        }
+        if (password.isBlank()) return@withContext RepositoryResult.Failure("Informe sua senha atual.")
+        try {
+            val payload = JSONObject()
+                .put("senha", password)
+                .put("confirmacao", "EXCLUIR")
+                .toString()
+            val response = http.request("POST", "/api/perfil/excluir", payload, authenticated = true)
+            val json = runCatching { JSONObject(response.body.ifBlank { "{}" }) }.getOrElse { JSONObject() }
+            if (!response.successful || !json.optBoolean("ok")) {
+                RepositoryResult.Failure(
+                    json.optString("erro").ifBlank { "Não foi possível excluir a conta." },
+                    response.status,
+                )
+            } else {
+                database.clearLocalUserData()
+                sessionStore.clear()
+                RepositoryResult.Success(Unit)
+            }
+        } catch (_: IOException) {
+            RepositoryResult.Failure("A exclusão definitiva precisa de internet. Nenhum dado foi removido parcialmente.")
+        } catch (error: Exception) {
+            RepositoryResult.Failure(error.message ?: "Não foi possível excluir a conta.")
+        }
+    }
+
     suspend fun readLocalFirst(
         cacheKey: String,
         path: String,
