@@ -12,8 +12,6 @@ function normalizarCelebrante(valor: string) {
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
   if (!sessao || sessao.tipo !== "moderador") return NextResponse.json({ ok: false, erro: "Acesso exclusivo do moderador." }, { status: 403 })
-  const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
-  if (!windowsBeta) return NextResponse.json({ ok: false, erro: "Edição disponível somente na Beta Windows." }, { status: 403 })
   const { id } = await params
   if (!id || id.length > 160 || !buscarEscala(id)) return NextResponse.json({ ok: false, erro: "Escala não encontrada." }, { status: 404 })
 
