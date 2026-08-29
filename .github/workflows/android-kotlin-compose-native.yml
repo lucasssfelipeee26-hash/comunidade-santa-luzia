@@ -57,6 +57,11 @@ jobs:
           set -euo pipefail
           python3 native-android/scripts/audit_quiz_offline.py
 
+      - name: Auditoria de materiais e compartilhamento
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_native_offline_assets.py
+
       - name: Auditoria de arquitetura nativa
         run: |
           set -euo pipefail
@@ -101,6 +106,7 @@ jobs:
           unzip -l "$APK" > "$RUNNER_TEMP/native-files.txt"
           grep -Fq 'assets/liturgia-completa/2026-01.json' "$RUNNER_TEMP/native-files.txt"
           grep -Fq 'assets/liturgia-completa/2026-12.json' "$RUNNER_TEMP/native-files.txt"
+          grep -Fq 'res/xml/file_paths.xml' "$RUNNER_TEMP/native-files.txt"
           if grep -Eq 'assets/(index\.html|.*\.js|.*\.css)$' "$RUNNER_TEMP/native-files.txt"; then
             echo 'ERRO: pacote nativo contém interface WebView.' >&2
             exit 1
