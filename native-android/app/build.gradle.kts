@@ -4,17 +4,37 @@ plugins {
 }
 
 val generatedOfflineAssetsDir = layout.buildDirectory.dir("generated/offlineAssets").get().asFile
+val beta18LiturgyPackages = listOf(
+    "catequeses.html.json.gz",
+    "comentarios.html.json.gz",
+    "gerais.html.json.gz",
+    "lecionario.html.json.gz",
+    "missal.html.json.gz",
+    "oficio-01.html.json.gz",
+    "oficio-02.html.json.gz",
+    "oficio-03.html.json.gz",
+    "oficio-04.html.json.gz",
+    "oficio-05.html.json.gz",
+    "oficio-06.html.json.gz",
+    "oficio-07.html.json.gz",
+    "oficio-08.html.json.gz",
+    "oficio-09.html.json.gz",
+    "oficio-10.html.json.gz",
+    "rosario.html.json.gz",
+    "salterio.html.json.gz",
+)
 val prepareOfflineAssets = tasks.register<Sync>("prepareOfflineAssets") {
     from(rootProject.file("../public/offline/liturgia-completa")) {
         include("2026-*.json")
         into("liturgia-completa")
     }
     from(rootProject.file("../public/offline/iliturgia")) {
-        // O Centro Liturgico da Beta usa estes mesmos pacotes JSON compactados.
-        // O merger de assets do Android tenta descompactar automaticamente arquivos
-        // terminados em .gz. Renomeamos apenas dentro do APK para preservar os bytes
-        // compactados e fazemos a leitura nativa com GZIPInputStream em runtime.
-        include("manifest.json", "*.html.json.gz")
+        // O Centro Litúrgico nativo empacota somente os arquivos efetivamente
+        // referenciados pela Beta 18. Os evangelhos-XX históricos não fazem parte
+        // do manifesto da Beta 18 e alguns blobs antigos estão corrompidos.
+        include("manifest.json", *beta18LiturgyPackages.toTypedArray())
+        // O merger do Android tenta abrir automaticamente arquivos .gz. O sufixo
+        // .bin preserva os bytes GZIP, que são lidos por GZIPInputStream em runtime.
         rename { fileName -> if (fileName.endsWith(".gz")) "$fileName.bin" else fileName }
         into("iliturgia")
     }
