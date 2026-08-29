@@ -11,9 +11,11 @@ val prepareOfflineAssets = tasks.register<Sync>("prepareOfflineAssets") {
     }
     from(rootProject.file("../public/offline/iliturgia")) {
         // O Centro Liturgico da Beta usa estes mesmos pacotes JSON compactados.
-        // Mantemos os arquivos comprimidos no APK e fazemos a leitura nativa,
-        // sem WebView, JavaScript ou CSS.
+        // O merger de assets do Android tenta descompactar automaticamente arquivos
+        // terminados em .gz. Renomeamos apenas dentro do APK para preservar os bytes
+        // compactados e fazemos a leitura nativa com GZIPInputStream em runtime.
         include("manifest.json", "*.html.json.gz")
+        rename { fileName -> if (fileName.endsWith(".gz")) "$fileName.bin" else fileName }
         into("iliturgia")
     }
     into(generatedOfflineAssetsDir)
