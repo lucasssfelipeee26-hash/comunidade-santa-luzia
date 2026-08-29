@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import zlib
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -85,8 +86,6 @@ def audit_home() -> None:
     expected = ["Centro Litúrgico", "Escala do Dia", "Biblioteca", "Liturgia Diária"]
     for title in expected:
         require(block.count(f'"{title}"') == 1, f"Card {title!r} ausente ou duplicado")
-    # Cada chamada precisa carregar um ícone Material próprio; aceita argumentos
-    # posicionais ou nomeados para não acoplar o gate ao estilo de formatação Kotlin.
     for index, call in enumerate(calls, start=1):
         require("Icons." in call, f"Card {index} da Home não declara ícone Material")
     require("Liturgia Diária" in block, "Card Liturgia Diária ausente")
@@ -189,7 +188,7 @@ def audit_iliturgia_packages() -> None:
             try:
                 with gzip.open(path, "rt", encoding="utf-8") as stream:
                     package = json.load(stream)
-            except (OSError, EOFError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            except (OSError, EOFError, zlib.error, json.JSONDecodeError, UnicodeDecodeError) as exc:
                 errors.append(f"Pacote iLiturgia corrompido ou inválido: {file_name}: {exc}")
                 continue
 
