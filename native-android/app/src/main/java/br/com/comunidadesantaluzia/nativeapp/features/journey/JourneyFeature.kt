@@ -177,13 +177,13 @@ internal suspend fun loadConstancy(container: AppContainer): ConstancyState =
 
 private enum class JourneyTab { Quiz, Jewels, Ranking, Standalone }
 
-private fun NativeQuiz.isLiturgical(): Boolean {
-    val normalized = origin.lowercase()
-    return normalized.contains("liturg") || normalized.contains("automatic") || normalized.contains("diario")
-}
+private fun NativeQuiz.isLiturgical(): Boolean = origin.equals("liturgia", ignoreCase = true)
 
 @Composable
-internal fun JourneyScreen(container: AppContainer) {
+internal fun JourneyScreen(
+    container: AppContainer,
+    onOpenLiturgy: () -> Unit,
+) {
     var tab by remember { mutableStateOf(JourneyTab.Quiz) }
     var quizzes by remember { mutableStateOf(QuizzesState()) }
     var constancy by remember { mutableStateOf(ConstancyState()) }
@@ -223,13 +223,7 @@ internal fun JourneyScreen(container: AppContainer) {
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
-                JourneyTab.Quiz -> QuizList(
-                    container = container,
-                    state = quizzes.copy(quizzes = quizzes.quizzes.filter { it.isLiturgical() }),
-                    emptyMessage = "O Quiz da Liturgia ainda não está disponível.",
-                    onReload = { quizzes = it },
-                )
-
+                JourneyTab.Quiz -> LiturgicalQuizPanel(container, onOpenLiturgy)
                 JourneyTab.Jewels -> JewelsGamePanel(container)
                 JourneyTab.Ranking -> RankingScreen(container)
                 JourneyTab.Standalone -> QuizList(
@@ -429,7 +423,13 @@ private fun QuizList(
                 active = null
                 scope.launch {
                     val payload = JSONObject().put("respostas", JSONArray(answers)).toString()
-                    when (val result = container.repository.mutate("POST", "/api/quizzes/${quiz.id}/responder", payload)) {
+                    when (
+                        val result = container.repository.mutateOnlineOnly(
+                            "POST",
+                            "/api/quizzes/${quiz.id}/responder",
+                            payload,
+                        )
+                    ) {
                         is RepositoryResult.Success -> {
                             val json = runCatching { JSONObject(result.value) }.getOrNull()
                             val outcome = json?.optJSONObject("resultado")
@@ -441,15 +441,12 @@ private fun QuizList(
                             onReload(loadQuizzes(container))
                         }
 
-                        is RepositoryResult.Queued -> {
-                            feedback = "Quiz salvo no aparelho e aguardando sincronização."
-                            onReload(loadQuizzes(container))
-                        }
-
                         is RepositoryResult.Failure -> {
                             feedback = result.message
                             onReload(loadQuizzes(container))
                         }
+
+                        is RepositoryResult.Queued -> feedback = "O quiz avulso precisa ser confirmado online."
                     }
                 }
             },
