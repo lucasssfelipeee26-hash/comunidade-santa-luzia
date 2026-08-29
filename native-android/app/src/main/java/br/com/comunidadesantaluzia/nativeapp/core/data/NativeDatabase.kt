@@ -179,6 +179,18 @@ internal class NativeDatabase(context: Context) :
         if (cursor.moveToFirst()) cursor.getString(0) else "unknown"
     }
 
+    fun clearLocalUserData() {
+        writableDatabase.beginTransaction()
+        try {
+            writableDatabase.delete("mutation_queue", null, null)
+            writableDatabase.delete("documents", null, null)
+            writableDatabase.delete("audit_events", null, null)
+            writableDatabase.setTransactionSuccessful()
+        } finally {
+            writableDatabase.endTransaction()
+        }
+    }
+
     fun clearAuditEvents() {
         writableDatabase.delete("audit_events", null, null)
     }
