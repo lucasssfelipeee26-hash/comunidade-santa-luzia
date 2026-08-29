@@ -40,19 +40,13 @@ internal class SyncWorker(
                 )
                 when {
                     response.successful -> container.database.completeMutation(mutation.id)
-                    isAlreadyAppliedJustification(mutation.method, mutation.path, response.status) -> {
-                        // O PUT de justificativa é semanticamente de envio único. Se a primeira
-                        // requisição chegou ao servidor mas a resposta se perdeu, o replay pode
-                        // voltar 409. Nesse endpoint específico isso significa "já aplicado".
+                    isIdempotentReplay(mutation.method, mutation.path, response.status) -> {
                         container.database.completeMutation(mutation.id)
-                        // Reconcilia imediatamente o cache otimista com o servidor. Isso é
-                        // importante porque uma mutação posterior pode encerrar este ciclo por
-                        // autenticação/validação antes do warmEssentialCaches() do final.
                         runCatching { container.repository.warmEssentialCaches() }
                         container.auditor.recordAsync(
                             "info",
                             "sync-idempotent-replay",
-                            "Justificativa offline já estava registrada no servidor",
+                            "Alteração offline já estava registrada no servidor",
                             "{\"path\":${org.json.JSONObject.quote(mutation.path)},\"status\":409}",
                         )
                     }
@@ -104,10 +98,19 @@ internal class SyncWorker(
         return Result.success()
     }
 
-    private fun isAlreadyAppliedJustification(method: String, path: String, status: Int): Boolean =
-        status == 409 &&
-            method.equals("PUT", ignoreCase = true) &&
-            Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)
+    private fun isIdempotentReplay(method: String, path: String, status: Int): Boolean {
+        if (status != 409) return false
+        if (method.equals("PUT", ignoreCase = true) && Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)) {
+            return true
+        }
+        if (method.equals("POST", ignoreCase = true) && path == "/api/quizzes/liturgia/offline") {
+            return true
+        }
+        if (method.equals("POST", ignoreCase = true) && path == "/api/ranking") {
+            return true
+        }
+        return false
+    }
 }
 
 internal object SyncScheduler {
