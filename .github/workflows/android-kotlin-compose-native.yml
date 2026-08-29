@@ -52,6 +52,11 @@ jobs:
           set -euo pipefail
           python3 native-android/scripts/audit_parity.py
 
+      - name: Auditoria Quiz avulso offline-first
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_quiz_offline.py
+
       - name: Auditoria de arquitetura nativa
         run: |
           set -euo pipefail
