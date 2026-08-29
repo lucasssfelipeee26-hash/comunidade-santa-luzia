@@ -41,10 +41,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import br.com.comunidadesantaluzia.nativeapp.BuildConfig
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
@@ -184,7 +183,7 @@ internal fun FormationScreen(container: AppContainer) {
             Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .14f))) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.WifiOff, null, tint = SantaWine)
-                    Text("As formações já sincronizadas continuam disponíveis neste aparelho.", style = MaterialTheme.typography.bodySmall)
+                    Text("As formações e os materiais já baixados continuam disponíveis neste aparelho.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -212,6 +211,7 @@ internal fun FormationScreen(container: AppContainer) {
                 item {
                     if (next == null) Card { Text("Nenhuma próxima formação publicada no momento.", Modifier.padding(20.dp)) }
                     else FormationCard(
+                        container = container,
                         item = next,
                         isFutureSection = true,
                         today = today,
@@ -253,7 +253,9 @@ internal fun FormationScreen(container: AppContainer) {
                     }
                 }
                 if (history.isEmpty()) item { Card { Text("As formações realizadas aparecerão aqui automaticamente depois da data.", Modifier.padding(20.dp)) } }
-                else items(history, key = { it.id }) { formation -> FormationCard(formation, false, today, cuiaba, onPresence = { _, _ -> }) }
+                else items(history, key = { it.id }) { formation ->
+                    FormationCard(container, formation, false, today, cuiaba, onPresence = { _, _ -> })
+                }
             }
         }
     }
@@ -261,6 +263,7 @@ internal fun FormationScreen(container: AppContainer) {
 
 @Composable
 private fun FormationCard(
+    container: AppContainer,
     item: NativeFormation,
     isFutureSection: Boolean,
     today: String,
@@ -269,7 +272,13 @@ private fun FormationCard(
 ) {
     var dialog by remember(item.id) { mutableStateOf<String?>(null) }
     var justification by remember(item.id) { mutableStateOf("") }
-    val uri = LocalUriHandler.current
+    val context = LocalContext.current
+    val materialScope = rememberCoroutineScope()
+    var materialBusy by remember(item.id, item.file?.name) { mutableStateOf(false) }
+    var materialMessage by remember(item.id, item.file?.name) { mutableStateOf("") }
+    var localMaterial by remember(item.id, item.file?.name, item.file?.size) {
+        mutableStateOf(item.file?.let { FormationMaterialStore.cachedFile(context, item.id, it) })
+    }
     val cancelled = item.status == "cancelada"
     val startReached = remember(item.date, item.time, today) {
         if (item.date != today || item.time.isNullOrBlank()) item.date == today
@@ -315,13 +324,59 @@ private fun FormationCard(
                 if (item.date == today && !startReached && item.time != null) Text("A presença será liberada às ${item.time}.", style = MaterialTheme.typography.bodySmall)
             }
             item.file?.let { file ->
+                val availableOffline = localMaterial?.isFile == true
+                if (availableOffline) {
+                    AssistChip(
+                        onClick = {},
+                        label = { Text("Material disponível offline") },
+                        leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) },
+                    )
+                }
                 OutlinedButton(
-                    onClick = { uri.openUri("${BuildConfig.SYNC_BASE_URL}/api/formacoes/${item.id}/download") },
+                    enabled = !materialBusy,
+                    onClick = {
+                        val cached = FormationMaterialStore.cachedFile(context, item.id, file)
+                        if (cached != null) {
+                            localMaterial = cached
+                            materialMessage = if (FormationMaterialStore.open(context, cached, file.mime)) {
+                                "Material aberto a partir da cópia salva no aparelho."
+                            } else {
+                                "Material salvo, mas nenhum aplicativo instalado consegue abrir este formato."
+                            }
+                        } else {
+                            materialScope.launch {
+                                materialBusy = true
+                                materialMessage = ""
+                                when (val result = FormationMaterialStore.ensureDownloaded(context, container, item.id, file)) {
+                                    is FormationMaterialResult.Success -> {
+                                        localMaterial = result.file
+                                        materialMessage = if (FormationMaterialStore.open(context, result.file, result.mime)) {
+                                            "Material baixado e salvo para uso offline."
+                                        } else {
+                                            "Material salvo para uso offline, mas nenhum aplicativo instalado consegue abrir este formato."
+                                        }
+                                    }
+                                    is FormationMaterialResult.Failure -> materialMessage = result.message
+                                }
+                                materialBusy = false
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(Icons.Rounded.Download, null)
+                    if (materialBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                    else Icon(if (availableOffline) Icons.Rounded.CheckCircle else Icons.Rounded.Download, null)
                     Spacer(Modifier.size(7.dp))
-                    Text("Baixar ${file.name}")
+                    Text(
+                        when {
+                            materialBusy -> "Baixando material…"
+                            availableOffline -> "Abrir ${file.name}"
+                            else -> "Baixar e salvar ${file.name}"
+                        },
+                    )
+                }
+                if (materialMessage.isNotBlank()) {
+                    Text(materialMessage, style = MaterialTheme.typography.labelSmall, color = SantaWine)
                 }
             }
             if (isFutureSection && item.date > today && item.myPresence == null) {
