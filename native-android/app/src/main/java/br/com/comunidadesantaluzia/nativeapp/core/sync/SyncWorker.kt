@@ -106,6 +106,9 @@ internal class SyncWorker(
         if (method.equals("POST", ignoreCase = true) && path == "/api/quizzes/liturgia/offline") {
             return true
         }
+        if (method.equals("POST", ignoreCase = true) && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) {
+            return true
+        }
         if (method.equals("POST", ignoreCase = true) && path == "/api/ranking") {
             return true
         }
