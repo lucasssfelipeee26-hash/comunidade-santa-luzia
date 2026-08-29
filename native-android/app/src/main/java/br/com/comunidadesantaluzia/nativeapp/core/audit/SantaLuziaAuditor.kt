@@ -1,13 +1,16 @@
 package br.com.comunidadesantaluzia.nativeapp.core.audit
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Debug
 import android.os.StrictMode
 import android.view.Choreographer
+import androidx.core.content.FileProvider
 import br.com.comunidadesantaluzia.nativeapp.BuildConfig
 import br.com.comunidadesantaluzia.nativeapp.core.data.NativeDatabase
 import java.io.File
@@ -105,6 +108,7 @@ internal class SantaLuziaAuditor(
         val directory = File(context.filesDir, "diagnosticos").apply { mkdirs() }
         val file = File(directory, "Santa-Luzia-Diagnostico-${System.currentTimeMillis()}.json")
         file.writeText(runSelfAudit().toString(2), Charsets.UTF_8)
+        shareReport(file)
         return file
     }
 
@@ -117,6 +121,35 @@ internal class SantaLuziaAuditor(
         detach()
         executor.shutdownNow()
         previousUncaughtHandler?.let { Thread.setDefaultUncaughtExceptionHandler(it) }
+    }
+
+    private fun shareReport(file: File) {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${BuildConfig.APPLICATION_ID}.files",
+            file,
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "Diagnóstico técnico Santa Luzia")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(send, "Compartilhar diagnóstico Santa Luzia").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(chooser)
+        } catch (_: ActivityNotFoundException) {
+            record("warning", "share-unavailable", "Nenhum aplicativo disponível para compartilhar o diagnóstico")
+        } catch (error: Exception) {
+            record(
+                "warning",
+                "share-failure",
+                "Não foi possível abrir o compartilhamento do diagnóstico",
+                JSONObject().put("type", error.javaClass.name).put("message", error.message.orEmpty().take(500)).toString(),
+            )
+        }
     }
 
     private fun networkState(): JSONObject {
