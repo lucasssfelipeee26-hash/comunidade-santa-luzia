@@ -60,7 +60,7 @@ internal class SyncWorker(
                 )
                 when {
                     response.successful -> container.database.completeMutation(mutation.id)
-                    isIdempotentReplay(mutation.method, mutation.path, response.status) -> {
+                    isIdempotentReplay(mutation.method, mutation.path, response.status, response.body) -> {
                         container.database.completeMutation(mutation.id)
                         runCatching { container.repository.warmEssentialCaches() }
                         container.auditor.recordAsync(
@@ -224,10 +224,18 @@ internal class SyncWorker(
         )
     }
 
-    private fun isIdempotentReplay(method: String, path: String, status: Int): Boolean {
+    private fun isIdempotentReplay(method: String, path: String, status: Int, body: String): Boolean {
         if (status != 409) return false
         if (method.equals("PUT", ignoreCase = true) && Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)) {
+            // Neste endpoint 409 significa exclusivamente que a justificativa deste usuário já existe.
             return true
+        }
+        if (method.equals("PUT", ignoreCase = true) && Regex("^/api/formacoes/[^/]+/minha-presenca$").matches(path)) {
+            // Formação também usa 409 para cancelamento/horário/data. Só removemos da fila
+            // quando o servidor devolve a presença já registrada, provando replay concluído.
+            val json = runCatching { JSONObject(body.ifBlank { "{}" }) }.getOrNull()
+            return json?.optJSONObject("presenca") != null &&
+                json.optString("erro").contains("já foi registrada", ignoreCase = true)
         }
         if (method.equals("POST", ignoreCase = true) && path == "/api/quizzes/liturgia/offline") {
             return true
