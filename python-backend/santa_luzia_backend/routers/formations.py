@@ -8,8 +8,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.datastructures import UploadFile
 
 from ..security import require_moderator, require_user
 from ..store import FORMATIONS_DIR, approved_team, find_user, list_scales, mutate_main, now_ms, read_main, save_notification
