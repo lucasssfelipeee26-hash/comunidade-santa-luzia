@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import json
 import re
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,16 @@ from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from ..archive_service import EMBEDDED_DIR, archive_file, archive_manifest, archive_status, install_tar
+from ..office_service import (
+    common_document,
+    common_for,
+    first_vespers_key,
+    has_first_vespers,
+    hour_from_proper,
+    proper_exceptions,
+    proper_key,
+    temporal_document,
+)
 from ..security import require_moderator
 
 router = APIRouter(tags=["archive"])
@@ -58,16 +69,42 @@ def _load_package(name: str):
 
 def _find_document(documents: list[dict[str, Any]], target: str):
     normalized = _normalize(target)
-    exact = next((doc for doc in documents if _normalize(str(doc.get("path") or "")) == normalized or _normalize(str(doc.get("id") or "")) == normalized), None)
+    exact = next(
+        (
+            doc for doc in documents
+            if _normalize(str(doc.get("path") or "")) == normalized
+            or _normalize(str(doc.get("id") or "")) == normalized
+        ),
+        None,
+    )
     if exact:
         return exact
     target_base = _base(normalized)
-    by_base = [doc for doc in documents if _base(str(doc.get("path") or "")) == target_base or _base(str(doc.get("id") or "")) == target_base]
+    by_base = [
+        doc for doc in documents
+        if _base(str(doc.get("path") or "")) == target_base or _base(str(doc.get("id") or "")) == target_base
+    ]
     if len(by_base) == 1:
         return by_base[0]
     target_loose = _loose(normalized)
-    by_loose = [doc for doc in documents if _loose(str(doc.get("path") or "")) == target_loose or _loose(str(doc.get("id") or "")) == target_loose]
+    by_loose = [
+        doc for doc in documents
+        if _loose(str(doc.get("path") or "")) == target_loose or _loose(str(doc.get("id") or "")) == target_loose
+    ]
     return by_loose[0] if len(by_loose) == 1 else None
+
+
+def _request_date(value: str | None) -> date:
+    if value and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            pass
+    return date.today()
+
+
+def _document_response(document: dict[str, Any]):
+    return response(document, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/api/acervo-liturgico/manifest")
@@ -116,19 +153,54 @@ async def archive_document(request: Request):
             package = _load_package(name)
             if isinstance(package, dict) and isinstance(package.get("documents"), list):
                 documents.extend(doc for doc in package["documents"] if isinstance(doc, dict))
+
+        selected_date = _request_date(request.query_params.get("data"))
+        hour = hour_from_proper(alternatives[0])
+        key = proper_key(alternatives[0])
+
+        # Mesmo contrato do TypeScript: Vésperas consulta primeiro a celebração
+        # do dia seguinte e só usa I Vésperas quando esse documento realmente
+        # existe no conjunto permitido pelo APK.
+        if category == "oficio" and hour == "vesperas":
+            tomorrow_key = first_vespers_key(selected_date + timedelta(days=1))
+            if tomorrow_key and has_first_vespers(tomorrow_key):
+                first_path = f"oficio/proprio/horas/{tomorrow_key}_Ivesperas.htm"
+                found = _find_document(documents, first_path)
+                if found:
+                    return _document_response(found)
+                next_common = common_for(tomorrow_key)
+                if next_common:
+                    found = _find_document(documents, common_document(next_common, "vesperas", True))
+                    if found:
+                        return _document_response(found)
+
         for alternative in alternatives:
             found = _find_document(documents, alternative)
             if found:
-                return response(found, headers={"Cache-Control": "public, max-age=86400"})
-        # Compatibilidade tolerante: quando o caminho específico do Ofício mudou entre versões,
-        # tenta a chave sem pasta antes de declarar ausência. As regras calendáricas detalhadas
-        # continuam sendo resolvidas no cliente nativo a partir do acervo completo local.
-        if category == "oficio":
-            for alternative in alternatives:
-                found = _find_document(documents, _base(alternative))
+                return _document_response(found)
+
+        if category == "oficio" and key:
+            for path in proper_exceptions(key, hour):
+                found = _find_document(documents, path)
                 if found:
-                    return response(found, headers={"Cache-Control": "public, max-age=86400"})
-        return response({"error": "Documento não localizado no acervo interno", "documento": alternatives[0], "alternativas": alternatives}, 404)
+                    return _document_response(found)
+
+        if category == "oficio" and hour and hour not in {"completas", "vigilia"} and key:
+            common = common_for(key)
+            if common:
+                found = _find_document(documents, common_document(common, hour))
+                if found:
+                    return _document_response(found)
+
+        if category == "oficio" and hour:
+            found = _find_document(documents, temporal_document(selected_date, hour))
+            if found:
+                return _document_response(found)
+
+        return response(
+            {"error": "Documento não localizado no acervo interno", "documento": alternatives[0], "alternativas": alternatives},
+            404,
+        )
     except Exception:
         return response({"error": "Falha ao consultar o acervo interno"}, 500)
 
