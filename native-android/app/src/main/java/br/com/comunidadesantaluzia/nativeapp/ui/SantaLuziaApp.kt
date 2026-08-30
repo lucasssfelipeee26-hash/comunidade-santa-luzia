@@ -604,6 +604,7 @@ private fun AccessDeniedScreen() {
 private fun DiagnosticsScreen(container: AppContainer) {
     var report by remember { mutableStateOf(container.auditor.runSelfAudit()) }
     var message by remember { mutableStateOf<String?>(null) }
+    var lastReport by remember { mutableStateOf<java.io.File?>(null) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Auditor Santa Luzia", style = MaterialTheme.typography.headlineMedium, color = SantaWine, fontWeight = FontWeight.Bold) }
         item { Text("Auditoria nativa em Kotlin. Sem GlitchTip/Sentry como dependência do aplicativo.") }
@@ -617,11 +618,38 @@ private fun DiagnosticsScreen(container: AppContainer) {
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { report = container.auditor.runSelfAudit(); message = "Auditoria concluída." }) { Icon(Icons.Rounded.BugReport, null); Text(" Executar") }
-                OutlinedButton(onClick = { val file = container.auditor.exportReport(); message = "Relatório gerado: ${file.name}" }) { Text("Gerar relatório") }
+                Button(onClick = { report = container.auditor.runSelfAudit(); message = "Auditoria concluída." }) {
+                    Icon(Icons.Rounded.BugReport, null)
+                    Text(" Executar")
+                }
+                OutlinedButton(onClick = {
+                    val file = container.auditor.exportReport()
+                    lastReport = file
+                    message = "Relatório gerado: ${file.name}"
+                }) { Text("Gerar relatório") }
             }
         }
-        item { OutlinedButton(onClick = { container.auditor.clearHistory(); report = container.auditor.runSelfAudit(); message = "Histórico técnico limpo." }) { Text("Limpar histórico") } }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = lastReport?.isFile == true,
+                    onClick = {
+                        val file = lastReport
+                        message = if (file != null && container.auditor.shareReport(file)) {
+                            "Compartilhamento aberto."
+                        } else {
+                            "Não foi possível compartilhar este relatório."
+                        }
+                    },
+                ) { Text("Compartilhar") }
+                OutlinedButton(onClick = {
+                    container.auditor.clearHistory()
+                    lastReport = null
+                    report = container.auditor.runSelfAudit()
+                    message = "Histórico técnico limpo."
+                }) { Text("Limpar histórico") }
+            }
+        }
         message?.let { item { Text(it, color = SantaWine) } }
         item { Text("Banco: ${report.optJSONObject("database")?.optString("integrity") ?: "?"}") }
     }
