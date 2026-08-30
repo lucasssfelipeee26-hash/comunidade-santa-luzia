@@ -7,6 +7,18 @@ import { DATA_DIR } from "@/lib/db"
 export const ACERVO_DIR = path.join(DATA_DIR, "acervo-liturgico")
 export const ACERVO_EMBUTIDO_DIR = process.cwd()
 
+type CategoriaManifesto = { id?: unknown; nome?: unknown; total?: unknown; arquivos?: unknown }
+type ManifestoAcervo = {
+  version?: unknown
+  offline?: unknown
+  embedded?: unknown
+  htmlPreservado?: unknown
+  imagensImportadas?: unknown
+  total?: unknown
+  origem?: unknown
+  categorias?: unknown
+}
+
 const MANIFESTO_EMBUTIDO = {
   version: 2,
   offline: true,
@@ -36,35 +48,66 @@ export function nomeArquivoAcervoValido(nome: string) {
   return nome === "manifest.json" || /^[a-z0-9.-]+\.json\.gz$/i.test(nome)
 }
 
+function arquivosDoManifesto(manifesto: ManifestoAcervo): string[] | null {
+  if (!Number(manifesto.total) || !Array.isArray(manifesto.categorias) || manifesto.categorias.length === 0) return null
+  const arquivos = new Set<string>()
+  for (const item of manifesto.categorias as CategoriaManifesto[]) {
+    if (!item || typeof item !== "object" || !Array.isArray(item.arquivos) || item.arquivos.length === 0) return null
+    for (const bruto of item.arquivos) {
+      if (typeof bruto !== "string") return null
+      const nome = path.basename(bruto)
+      if (nome !== bruto || nome === "manifest.json" || !nomeArquivoAcervoValido(nome)) return null
+      arquivos.add(nome)
+    }
+  }
+  return [...arquivos]
+}
+
+function lerManifestoPersistenteValido(): ManifestoAcervo | null {
+  garantirDiretorioAcervo()
+  const arquivo = path.join(ACERVO_DIR, "manifest.json")
+  if (!fs.existsSync(arquivo)) return null
+  try {
+    const manifesto = JSON.parse(fs.readFileSync(arquivo, "utf8")) as ManifestoAcervo
+    const arquivos = arquivosDoManifesto(manifesto)
+    if (!arquivos || arquivos.some((nome) => !fs.existsSync(path.join(ACERVO_DIR, nome)))) return null
+    return manifesto
+  } catch {
+    return null
+  }
+}
+
 export function caminhoArquivoAcervo(nome: string) {
   if (!nomeArquivoAcervoValido(nome)) return null
 
-  // O acervo HTML autorizado está incorporado diretamente ao projeto.
+  // Um pacote instalado e validado pelo moderador substitui o embutido de forma atômica.
+  const persistenteManifesto = lerManifestoPersistenteValido()
+  if (persistenteManifesto) {
+    const persistente = path.resolve(ACERVO_DIR, nome)
+    if (persistente.startsWith(path.resolve(ACERVO_DIR) + path.sep) && fs.existsSync(persistente)) return persistente
+  }
+
+  // Sem pacote persistente válido, o acervo incorporado continua sendo o fallback seguro.
   const embutido = path.resolve(ACERVO_EMBUTIDO_DIR, nome)
   if (nome !== "manifest.json" && embutido.startsWith(path.resolve(ACERVO_EMBUTIDO_DIR) + path.sep) && fs.existsSync(embutido)) {
     return embutido
   }
 
-  // Compatibilidade com instalações antigas no volume persistente.
   const persistente = path.resolve(ACERVO_DIR, nome)
   if (!persistente.startsWith(path.resolve(ACERVO_DIR) + path.sep)) return null
-  return persistente
+  return fs.existsSync(persistente) ? persistente : null
 }
 
 export function lerManifestoAcervo() {
-  // Se os pacotes HTML incorporados existem, eles são sempre a fonte principal.
+  // Instalação administrativa válida tem precedência; o embutido é sempre o fallback.
+  const persistente = lerManifestoPersistenteValido()
+  if (persistente) return persistente
+
   if (fs.existsSync(path.join(ACERVO_EMBUTIDO_DIR, "lecionario.html.json.gz")) && fs.existsSync(path.join(ACERVO_EMBUTIDO_DIR, "oficio-01.html.json.gz"))) {
     return MANIFESTO_EMBUTIDO
   }
 
-  garantirDiretorioAcervo()
-  const arquivo = path.join(ACERVO_DIR, "manifest.json")
-  if (!fs.existsSync(arquivo)) return null
-  try {
-    return JSON.parse(fs.readFileSync(arquivo, "utf8")) as Record<string, unknown>
-  } catch {
-    return null
-  }
+  return null
 }
 
 export function statusAcervo() {
@@ -98,7 +141,7 @@ export function instalarTarAcervo(buffer: Buffer) {
 
       if (tipo === 0 || tipo === 48) {
         const basename = path.basename(nome)
-        if (nomeArquivoAcervoValido(basename) && tamanho >= 0 && offset + tamanho <= buffer.length) {
+        if (nome === basename && nomeArquivoAcervoValido(basename) && tamanho >= 0 && offset + tamanho <= buffer.length) {
           const conteudo = buffer.subarray(offset, offset + tamanho)
           fs.writeFileSync(path.join(temporario, basename), conteudo)
           escritos.push(basename)
@@ -108,12 +151,17 @@ export function instalarTarAcervo(buffer: Buffer) {
     }
 
     if (!escritos.includes("manifest.json")) throw new Error("O pacote não contém manifest.json.")
-    const manifesto = JSON.parse(fs.readFileSync(path.join(temporario, "manifest.json"), "utf8")) as { total?: number; categorias?: unknown[] }
-    if (!Number(manifesto.total) || !Array.isArray(manifesto.categorias)) throw new Error("Manifesto do acervo inválido.")
+    const manifesto = JSON.parse(fs.readFileSync(path.join(temporario, "manifest.json"), "utf8")) as ManifestoAcervo
+    const arquivosEsperados = arquivosDoManifesto(manifesto)
+    if (!arquivosEsperados) throw new Error("Manifesto do acervo inválido.")
+    const faltantes = arquivosEsperados.filter((nome) => !escritos.includes(nome) || !fs.existsSync(path.join(temporario, nome)))
+    if (faltantes.length > 0) throw new Error(`Pacote incompleto. Arquivos ausentes: ${faltantes.slice(0, 4).join(", ")}${faltantes.length > 4 ? "…" : ""}`)
 
-    for (const nome of escritos) {
+    // Copia primeiro os pacotes e o manifesto por último: leitores nunca observam uma versão nova incompleta.
+    for (const nome of escritos.filter((item) => item !== "manifest.json")) {
       fs.copyFileSync(path.join(temporario, nome), path.join(ACERVO_DIR, nome))
     }
+    fs.copyFileSync(path.join(temporario, "manifest.json"), path.join(ACERVO_DIR, "manifest.json"))
 
     return { ...statusAcervo(), arquivos: escritos.length }
   } finally {
