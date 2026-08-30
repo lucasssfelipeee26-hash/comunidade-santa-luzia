@@ -7,8 +7,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.datastructures import UploadFile
 
 from ..archive_service import EMBEDDED_DIR, archive_file, archive_manifest, archive_status, install_tar
 from ..office_service import (
@@ -158,9 +159,6 @@ async def archive_document(request: Request):
         hour = hour_from_proper(alternatives[0])
         key = proper_key(alternatives[0])
 
-        # Mesmo contrato do TypeScript: Vésperas consulta primeiro a celebração
-        # do dia seguinte e só usa I Vésperas quando esse documento realmente
-        # existe no conjunto permitido pelo APK.
         if category == "oficio" and hour == "vesperas":
             tomorrow_key = first_vespers_key(selected_date + timedelta(days=1))
             if tomorrow_key and has_first_vespers(tomorrow_key):
