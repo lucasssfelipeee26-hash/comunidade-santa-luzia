@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -86,6 +85,9 @@ import br.com.comunidadesantaluzia.nativeapp.core.notifications.NotificationNavi
 import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.core.sync.SyncScheduler
 import br.com.comunidadesantaluzia.nativeapp.features.admin.AdminDataScreen
+import br.com.comunidadesantaluzia.nativeapp.features.admin.LiturgyArchiveAdminScreen
+import br.com.comunidadesantaluzia.nativeapp.features.admin.QuizAdminScreen
+import br.com.comunidadesantaluzia.nativeapp.features.admin.ThemeAdminScreen
 import br.com.comunidadesantaluzia.nativeapp.features.delays.DelaysScreen
 import br.com.comunidadesantaluzia.nativeapp.features.formation.FormationScreen
 import br.com.comunidadesantaluzia.nativeapp.features.journey.JourneyScreen
@@ -123,6 +125,9 @@ enum class Route(val value: String) {
     Notifications("notificacoes"),
     Diagnostics("diagnostico"),
     Administration("administracao"),
+    AdminQuizzes("admin-quizzes"),
+    ThemeAdmin("admin-cores"),
+    ArchiveAdmin("admin-acervo"),
 }
 
 private enum class NavMotion { Home, Liturgy, Scale, Library, Formation, Quiz, Login }
@@ -149,6 +154,13 @@ private val authenticatedNavigation = listOf(
     NavItem(Route.Journey, "Quiz", Icons.Rounded.Quiz, NavMotion.Quiz),
 )
 
+private val moderatorRoutes = setOf(
+    Route.Administration,
+    Route.AdminQuizzes,
+    Route.ThemeAdmin,
+    Route.ArchiveAdmin,
+)
+
 private val protectedNotificationRoutes = setOf(
     Route.Area,
     Route.Formation,
@@ -160,17 +172,20 @@ private val protectedNotificationRoutes = setOf(
     Route.Records,
     Route.Notifications,
     Route.Diagnostics,
-    Route.Administration,
-)
+) + moderatorRoutes
 
 private fun notificationRoute(href: String): Route {
     val path = href.substringBefore('?').substringBefore('#').lowercase()
     return when {
-        "/moderador/" in path || "/admin" in path -> Route.Administration
+        "diagnostico" in path -> Route.Diagnostics
+        "/moderador/tema" in path || "/admin/cores" in path -> Route.ThemeAdmin
+        "/moderador/ranking" in path || "/admin/quizzes" in path -> Route.AdminQuizzes
+        "acervo-liturgico" in path -> Route.ArchiveAdmin
+        "/moderador/administracao" in path || "/admin/dados" in path -> Route.Administration
+        "/moderador/" in path || path == "/admin" -> Route.Administration
         "centro-liturgico" in path -> Route.LiturgyCenter
         "biblioteca" in path -> Route.Library
         "formacao" in path -> Route.Formation
-        "ranking" in path -> Route.Ranking
         "atras" in path || "pontual" in path -> Route.Delays
         "perfis" in path -> Route.Profiles
         Regex("(^|/)perfil($|/)").containsMatchIn(path) -> Route.Profile
@@ -178,6 +193,7 @@ private fun notificationRoute(href: String): Route {
         "notific" in path -> Route.Notifications
         "escala" in path -> Route.Scale
         listOf("quiz", "jornada", "missao", "joias", "whatajong", "constancia").any(path::contains) -> Route.Journey
+        "ranking" in path -> Route.Ranking
         "liturgia" in path -> Route.Liturgy
         "area-restrita" in path -> Route.Area
         else -> Route.Home
@@ -205,7 +221,7 @@ internal fun SantaLuziaApp(container: AppContainer) {
         if (!sessionReady) return@LaunchedEffect
 
         var destination = notificationRoute(href)
-        if (destination == Route.Administration && session.loggedIn && session.userType != "moderador") {
+        if (destination in moderatorRoutes && session.loggedIn && session.userType != "moderador") {
             destination = Route.Area
         }
 
@@ -303,6 +319,18 @@ internal fun SantaLuziaApp(container: AppContainer) {
             composable(Route.Diagnostics.value) { DiagnosticsScreen(container) }
             composable(Route.Administration.value) {
                 if (session.userType == "moderador") AdminDataScreen(container)
+                else AccessDeniedScreen()
+            }
+            composable(Route.AdminQuizzes.value) {
+                if (session.userType == "moderador") QuizAdminScreen(container, onBack = { navController.popBackStack() })
+                else AccessDeniedScreen()
+            }
+            composable(Route.ThemeAdmin.value) {
+                if (session.userType == "moderador") ThemeAdminScreen(container, onBack = { navController.popBackStack() })
+                else AccessDeniedScreen()
+            }
+            composable(Route.ArchiveAdmin.value) {
+                if (session.userType == "moderador") LiturgyArchiveAdminScreen(container, onBack = { navController.popBackStack() })
                 else AccessDeniedScreen()
             }
         }
@@ -570,7 +598,6 @@ private fun AreaScreen(
         item { AreaAction("Registros", Icons.Rounded.ReceiptLong) { onNavigate(Route.Records) } }
         item { AreaAction("Notificações", Icons.Rounded.Notifications) { onNavigate(Route.Notifications) } }
         item { AreaAction("Auditor Santa Luzia", Icons.Rounded.BugReport) { onNavigate(Route.Diagnostics) } }
-        if (session.userType == "moderador") item { AreaAction("Administração de dados", Icons.Rounded.AdminPanelSettings) { onNavigate(Route.Administration) } }
     }
     if (confirmLogout) {
         AlertDialog(
