@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Quiz
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
@@ -88,8 +89,13 @@ private fun isOnline(context: Context): Boolean {
 @Composable
 internal fun AdminDataScreen(container: AppContainer) {
     var showQuizAdmin by remember { mutableStateOf(false) }
+    var showThemeAdmin by remember { mutableStateOf(false) }
     if (showQuizAdmin) {
         QuizAdminScreen(container = container, onBack = { showQuizAdmin = false })
+        return
+    }
+    if (showThemeAdmin) {
+        ThemeAdminScreen(container = container, onBack = { showThemeAdmin = false })
         return
     }
 
@@ -143,6 +149,20 @@ internal fun AdminDataScreen(container: AppContainer) {
                         }
                     }
                     Button(onClick = { showQuizAdmin = true }, modifier = Modifier.fillMaxWidth()) { Text("Gerenciar quizzes avulsos") }
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f)), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.Palette, null, tint = SantaWine)
+                        Column {
+                            Text("Cores do Site", color = SantaWine, fontWeight = FontWeight.Bold)
+                            Text("As quatro paletas oficiais da Beta, com prévia local. Salvar altera somente o site público.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    OutlinedButton(onClick = { showThemeAdmin = true }, modifier = Modifier.fillMaxWidth()) { Text("Gerenciar cores do site") }
                 }
             }
         }
