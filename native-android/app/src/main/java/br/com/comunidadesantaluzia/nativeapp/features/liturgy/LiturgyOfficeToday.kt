@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgress
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveDocument
+import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyBiennialResolver
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyCalendarResolver
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyOfficeHour
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgySanctoralResolver
@@ -48,10 +49,11 @@ internal fun OfficeTodayQuickLinks(
     val effectiveDate = remember(today) { today.takeIf { it.year == 2026 } ?: LocalDate.of(2026, 1, 1) }
     val celebration = remember(effectiveDate) { LiturgySanctoralResolver.celebration(effectiveDate) }
     var items by remember(effectiveDate, celebration?.key) { mutableStateOf<List<ResolvedOfficeItem>>(emptyList()) }
+    var biennialDocument by remember(effectiveDate) { mutableStateOf<LiturgyArchiveDocument?>(null) }
 
     LaunchedEffect(effectiveDate, celebration?.key) {
-        items = withContext(Dispatchers.IO) {
-            buildList {
+        withContext(Dispatchers.IO) {
+            items = buildList {
                 add(
                     ResolvedOfficeItem(
                         label = "Invitatório",
@@ -73,6 +75,7 @@ internal fun OfficeTodayQuickLinks(
                     )
                 }
             }
+            biennialDocument = archive.documentByPath("oficio", LiturgyBiennialResolver.document(effectiveDate))
         }
     }
 
@@ -102,9 +105,16 @@ internal fun OfficeTodayQuickLinks(
                     label = { Text(if (item.usesProper) "${item.label} · Próprio" else item.label) },
                 )
             }
+            biennialDocument?.let { document ->
+                AssistChip(
+                    onClick = { onDocument(document) },
+                    leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
+                    label = { Text(LiturgyBiennialResolver.title(effectiveDate)) },
+                )
+            }
         }
         Text(
-            "O Próprio do santo ou da solenidade tem precedência quando existe no acervo; as demais horas usam automaticamente o temporal correto.",
+            "O Próprio do santo ou da solenidade tem precedência quando existe no acervo; as demais horas usam automaticamente o temporal correto. A leitura bienal segue o ciclo par/ímpar da Beta.",
             style = MaterialTheme.typography.labelSmall,
         )
     }
