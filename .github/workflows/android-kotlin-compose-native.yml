@@ -7,7 +7,7 @@ on:
     paths:
       - native-android/**
       - public/offline/**
-      - app/api/ranking/route.ts
+      - app/api/**
       - .github/workflows/android-kotlin-compose-native.yml
   workflow_dispatch:
 
@@ -67,6 +67,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 native-android/scripts/audit_session_queue_safety.py
+
+      - name: Auditoria de isolamento por conta
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_account_isolation.py
 
       - name: Auditoria de materiais e compartilhamento
         run: |
