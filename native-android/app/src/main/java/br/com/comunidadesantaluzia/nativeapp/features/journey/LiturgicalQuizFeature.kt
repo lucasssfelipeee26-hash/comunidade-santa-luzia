@@ -268,7 +268,8 @@ private fun saveOfflineCompletion(container: AppContainer, userId: String, dateI
 }
 
 private fun applyRankingOptimism(container: AppContainer, userId: String, result: LiturgicalQuizCompleted) {
-    val cached = container.database.getDocument("ranking") ?: return
+    val rankingKey = "user:$userId:ranking"
+    val cached = container.database.getDocument(rankingKey) ?: return
     val root = runCatching { JSONObject(cached.payload) }.getOrNull() ?: return
     val array = root.optJSONArray("ranking") ?: return
     val rows = buildList {
@@ -289,7 +290,7 @@ private fun applyRankingOptimism(container: AppContainer, userId: String, result
         next.put(row)
     }
     root.put("ranking", next)
-    container.database.putDocument("ranking", root.toString(), updatedAt = cached.updatedAt)
+    container.database.putDocument(rankingKey, root.toString(), updatedAt = cached.updatedAt)
 }
 
 @Composable
