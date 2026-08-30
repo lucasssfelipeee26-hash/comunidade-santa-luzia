@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import threading
 import time
@@ -21,12 +22,20 @@ def cuiaba_date_iso() -> str:
     return cuiaba_now().date().isoformat()
 
 
-def operational_year(value: Any) -> int | None:
+def integer_number(value: Any) -> int | None:
+    """Equivalente prático a Number(...) + Number.isInteger(...) do TypeScript."""
     try:
-        year = int(value)
-    except (TypeError, ValueError):
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
         return None
-    return year if 2020 <= year <= 2100 else None
+    if not math.isfinite(number) or not number.is_integer():
+        return None
+    return int(number)
+
+
+def operational_year(value: Any) -> int | None:
+    year = integer_number(value)
+    return year if year is not None and 2020 <= year <= 2100 else None
 
 
 def valid_date_iso(value: Any, min_year: int = 2020, max_year: int = 2100) -> bool:
