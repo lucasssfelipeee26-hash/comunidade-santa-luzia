@@ -59,12 +59,12 @@ require("currentSession.userId != ownerUserId" in text["whatajong"], "Whatajong 
 # Quiz avulso: atualização otimista deve usar a API já escopada pela sessão atual.
 require('cachedDocumentForCurrentUser("quizzes")' in text["journey"], "Quiz avulso ainda lê cache global diretamente")
 
-# Administração: caches privilegiados nunca podem ser compartilhados entre moderadores no mesmo aparelho.
-require('val cacheKey = "user:${userId.ifBlank { "unknown" }}:admin-dados"' in text["admin"], "admin-dados ainda usa cache global")
-require('readLocalFirst(cacheKey, "/api/app/admin-dados", authenticated = true)' in text["admin"], "admin-dados não usa a chave isolada")
-require('"user:${userId.ifBlank { "unknown" }}:admin-acervo-liturgico-status"' in text["archive_admin"], "status administrativo do acervo não está isolado por moderador")
-require('readLocalFirst(key, "/api/admin/acervo-liturgico", authenticated = true)' in text["archive_admin"], "status do acervo não usa a chave isolada")
-require('readLocalFirst("admin-dados"' not in text["admin"], "chave global antiga admin-dados reapareceu")
+# Administração: basta exigir leitura autenticada; o repositório central aplica userDocumentKey.
+require('readLocalFirst("admin-dados", "/api/app/admin-dados", authenticated = true)' in text["admin"].replace("\n", " ").replace("    ", " ") or '"admin-dados", "/api/app/admin-dados", authenticated = true' in text["admin"].replace("\n", " "), "admin-dados não passa pela resolução autenticada do repositório")
+require('"admin-acervo-liturgico-status"' in text["archive_admin"], "cache do status administrativo do acervo ausente")
+require('"/api/admin/acervo-liturgico"' in text["archive_admin"] and 'authenticated = true' in text["archive_admin"], "status do acervo não usa leitura autenticada")
+require('"user:${userId' not in text["admin"], "tela administrativa está duplicando manualmente o prefixo de usuário")
+require('"user:${userId' not in text["archive_admin"], "tela do acervo está duplicando manualmente o prefixo de usuário")
 
 if errors:
     print("AUDITORIA DE ISOLAMENTO POR CONTA — FALHOU", file=sys.stderr)
@@ -75,8 +75,8 @@ if errors:
 print("AUDITORIA DE ISOLAMENTO POR CONTA")
 print("✓ fila offline pertence ao usuário que criou a alteração")
 print("✓ fila legada sem dono fica em quarentena")
-print("✓ caches autenticados são resolvidos por userId")
+print("✓ caches autenticados são resolvidos centralmente por userId")
 print("✓ notificações são lidas e deduplicadas por conta")
 print("✓ Joias da Luz e Whatajong isolam progresso e envio por conta")
-print("✓ caches administrativos são separados por moderador")
+print("✓ caches administrativos usam a resolução autenticada central")
 print("✓ política de fila é deny-by-default")
