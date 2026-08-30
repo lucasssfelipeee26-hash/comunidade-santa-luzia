@@ -245,8 +245,19 @@ def audit_auditor() -> None:
     db = read(KOTLIN / "core" / "data" / "NativeDatabase.kt")
     for marker in ["StrictMode", "Choreographer", "frame-jank", "uncaught-exception", "integrityCheck", "exportReport", "clearHistory"]:
         require(marker in auditor, f"Auditor nativo sem requisito: {marker}")
-    for marker in ["signature TEXT PRIMARY KEY", "occurrences", "ON CONFLICT(signature)", "occurrences = audit_events.occurrences + 1"]:
-        require(marker in db, f"Deduplicação do Auditor ausente: {marker}")
+    # A deduplicação precisa funcionar também no SQLite do Android 10. Não aceite
+    # o UPSERT moderno `ON CONFLICT ... DO UPDATE`, que não é portátil para a API 29.
+    for marker in [
+        "signature TEXT PRIMARY KEY",
+        "occurrences",
+        "compileStatement",
+        "occurrences = occurrences + 1",
+        "executeUpdateDelete",
+        "insertOrThrow(\"audit_events\"",
+    ]:
+        require(marker in db, f"Deduplicação portátil do Auditor ausente: {marker}")
+    require("ON CONFLICT(signature) DO UPDATE" not in db, "Auditor voltou a usar UPSERT incompatível com Android 10")
+    require("runCatching { record(level, type, message, detail) }" in auditor, "Falha assíncrona do Auditor ainda pode derrubar o app")
     for forbidden in ["GlitchTip", "Sentry", "sentry", "glitchtip"]:
         require(forbidden not in auditor, f"Dependência externa de auditoria ainda presente: {forbidden}")
 
