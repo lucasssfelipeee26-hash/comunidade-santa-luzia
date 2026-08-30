@@ -13,6 +13,8 @@ paths = {
     "jewels": NATIVE / "features/journey/JewelsGameFeature.kt",
     "whatajong": NATIVE / "features/journey/WhatajongFeature.kt",
     "journey": NATIVE / "features/journey/JourneyFeature.kt",
+    "admin": NATIVE / "features/admin/AdminDataFeature.kt",
+    "archive_admin": NATIVE / "features/admin/LiturgyArchiveAdminFeature.kt",
 }
 
 missing = [str(path.relative_to(ROOT)) for path in paths.values() if not path.is_file()]
@@ -57,6 +59,13 @@ require("currentSession.userId != ownerUserId" in text["whatajong"], "Whatajong 
 # Quiz avulso: atualização otimista deve usar a API já escopada pela sessão atual.
 require('cachedDocumentForCurrentUser("quizzes")' in text["journey"], "Quiz avulso ainda lê cache global diretamente")
 
+# Administração: caches privilegiados nunca podem ser compartilhados entre moderadores no mesmo aparelho.
+require('val cacheKey = "user:${userId.ifBlank { "unknown" }}:admin-dados"' in text["admin"], "admin-dados ainda usa cache global")
+require('readLocalFirst(cacheKey, "/api/app/admin-dados", authenticated = true)' in text["admin"], "admin-dados não usa a chave isolada")
+require('"user:${userId.ifBlank { "unknown" }}:admin-acervo-liturgico-status"' in text["archive_admin"], "status administrativo do acervo não está isolado por moderador")
+require('readLocalFirst(key, "/api/admin/acervo-liturgico", authenticated = true)' in text["archive_admin"], "status do acervo não usa a chave isolada")
+require('readLocalFirst("admin-dados"' not in text["admin"], "chave global antiga admin-dados reapareceu")
+
 if errors:
     print("AUDITORIA DE ISOLAMENTO POR CONTA — FALHOU", file=sys.stderr)
     for error in errors:
@@ -69,4 +78,5 @@ print("✓ fila legada sem dono fica em quarentena")
 print("✓ caches autenticados são resolvidos por userId")
 print("✓ notificações são lidas e deduplicadas por conta")
 print("✓ Joias da Luz e Whatajong isolam progresso e envio por conta")
+print("✓ caches administrativos são separados por moderador")
 print("✓ política de fila é deny-by-default")
