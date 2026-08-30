@@ -20,7 +20,7 @@ class LiturgyArchiveMenusTest {
     @Test
     fun `ports preface and prayer inventories`() {
         assertEquals(23, LiturgyArchiveMenus.properPrefaces.size)
-        assertEquals(59, LiturgyArchiveMenus.temporalPrefaces.size)
+        assertEquals(62, LiturgyArchiveMenus.temporalPrefaces.size)
         assertEquals(29, LiturgyArchiveMenus.prayers.size)
         assertTrue(LiturgyArchiveMenus.properPrefaces.any { it.title == "Nossa Senhora Aparecida" })
         assertTrue(LiturgyArchiveMenus.temporalPrefaces.any { it.title == "Advento I-A" })
