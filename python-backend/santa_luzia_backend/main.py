@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from .data_protection import protect_database
+from .legacy_migrations import migrate_legacy_users
 from .routers import (
     app_admin,
     archive,
@@ -20,6 +21,10 @@ from .routers import (
     scales,
     settings,
 )
+
+# Mantém o mesmo comportamento de inicialização do backend TypeScript: corrige
+# usuários legados antes que a primeira requisição possa consultar a base.
+migrate_legacy_users()
 
 app = FastAPI(
     title="Comunidade Santa Luzia — Backend Python",
