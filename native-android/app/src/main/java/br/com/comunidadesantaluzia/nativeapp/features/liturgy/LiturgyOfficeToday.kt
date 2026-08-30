@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgress
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveDocument
+import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveMenus
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyBiennialResolver
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyCalendarResolver
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyOfficeHour
@@ -44,6 +45,7 @@ private data class ResolvedOfficeItem(
 internal fun OfficeTodayQuickLinks(
     archive: OfflineLiturgyArchiveRepository,
     onDocument: (LiturgyArchiveDocument) -> Unit,
+    onMenu: (LiturgyFixedMenu) -> Unit,
 ) {
     val today = remember { LiturgicalReadingProgress.todayCuiaba() }
     val effectiveDate = remember(today) { today.takeIf { it.year == 2026 } ?: LocalDate.of(2026, 1, 1) }
@@ -112,6 +114,11 @@ internal fun OfficeTodayQuickLinks(
                     label = { Text(LiturgyBiennialResolver.title(effectiveDate)) },
                 )
             }
+            AssistChip(
+                onClick = { onMenu(LiturgyFixedMenu("Vigília", LiturgyArchiveMenus.vigil(effectiveDate))) },
+                leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
+                label = { Text("Vigília") },
+            )
         }
         Text(
             "O Próprio do santo ou da solenidade tem precedência quando existe no acervo; as demais horas usam automaticamente o temporal correto. A leitura bienal segue o ciclo par/ímpar da Beta.",
