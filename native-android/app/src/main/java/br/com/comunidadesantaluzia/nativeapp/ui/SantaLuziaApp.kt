@@ -55,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +82,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgress
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyDay
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyReading
+import br.com.comunidadesantaluzia.nativeapp.core.notifications.NotificationNavigationBus
 import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.core.sync.SyncScheduler
 import br.com.comunidadesantaluzia.nativeapp.features.admin.AdminDataScreen
@@ -99,6 +101,7 @@ import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaCream
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -146,14 +149,74 @@ private val authenticatedNavigation = listOf(
     NavItem(Route.Journey, "Quiz", Icons.Rounded.Quiz, NavMotion.Quiz),
 )
 
+private val protectedNotificationRoutes = setOf(
+    Route.Area,
+    Route.Formation,
+    Route.Journey,
+    Route.Ranking,
+    Route.Profiles,
+    Route.Profile,
+    Route.Delays,
+    Route.Records,
+    Route.Notifications,
+    Route.Diagnostics,
+    Route.Administration,
+)
+
+private fun notificationRoute(href: String): Route {
+    val path = href.substringBefore('?').substringBefore('#').lowercase()
+    return when {
+        "/moderador/" in path || "/admin" in path -> Route.Administration
+        "centro-liturgico" in path -> Route.LiturgyCenter
+        "biblioteca" in path -> Route.Library
+        "formacao" in path -> Route.Formation
+        "ranking" in path -> Route.Ranking
+        "atras" in path || "pontual" in path -> Route.Delays
+        "perfis" in path -> Route.Profiles
+        Regex("(^|/)perfil($|/)").containsMatchIn(path) -> Route.Profile
+        "registro" in path || "presenca" in path -> Route.Records
+        "notific" in path -> Route.Notifications
+        "escala" in path -> Route.Scale
+        listOf("quiz", "jornada", "missao", "joias", "whatajong", "constancia").any(path::contains) -> Route.Journey
+        "liturgia" in path -> Route.Liturgy
+        "area-restrita" in path -> Route.Area
+        else -> Route.Home
+    }
+}
+
 @Composable
 internal fun SantaLuziaApp(container: AppContainer) {
     val navController = rememberNavController()
     val session by container.sessionStore.session.collectAsStateWithLifecycle(initialValue = NativeSession())
+    val notificationHref by NotificationNavigationBus.href.collectAsStateWithLifecycle()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val hideBottom = currentRoute == Route.Login.value
     var afterLoginRoute by remember { mutableStateOf<Route?>(null) }
+    var sessionReady by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        container.sessionStore.session.first()
+        sessionReady = true
+    }
+
+    LaunchedEffect(notificationHref, sessionReady, session.loggedIn, session.userType) {
+        val href = notificationHref ?: return@LaunchedEffect
+        if (!sessionReady) return@LaunchedEffect
+
+        var destination = notificationRoute(href)
+        if (destination == Route.Administration && session.loggedIn && session.userType != "moderador") {
+            destination = Route.Area
+        }
+
+        if (destination in protectedNotificationRoutes && !session.loggedIn) {
+            afterLoginRoute = destination
+            navController.navigate(Route.Login.value) { launchSingleTop = true }
+        } else {
+            navController.navigate(destination.value) { launchSingleTop = true }
+        }
+        NotificationNavigationBus.consume(href)
+    }
 
     Scaffold(
         containerColor = SantaCream,
