@@ -29,7 +29,10 @@ require('container.sessionStore.session.first()' in app and 'sessionReady = true
 require('protectedNotificationRoutes' in app and '!session.loggedIn' in app, "Rotas privadas de notificação não exigem sessão")
 require('afterLoginRoute = destination' in app, "Destino privado não é preservado até o login")
 require('NotificationNavigationBus.consume(href)' in app, "Destino processado não é consumido")
-require('destination == Route.Administration && session.loggedIn && session.userType != "moderador"' in app, "Deep-link administrativo não protege papel de moderador")
+require('private val moderatorRoutes = setOf(' in app, "Conjunto central de rotas de moderador ausente")
+require('destination in moderatorRoutes && session.loggedIn && session.userType != "moderador"' in app, "Deep-links administrativos não protegem o papel de moderador")
+for route in ('Route.Administration', 'Route.AdminQuizzes', 'Route.ThemeAdmin', 'Route.ArchiveAdmin'):
+    require(route in app, f"Rota administrativa protegida ausente: {route}")
 
 expected_routes = {
     '"escala" in path -> Route.Scale': "Escala",
@@ -42,6 +45,9 @@ expected_routes = {
     '"biblioteca" in path -> Route.Library': "Biblioteca",
     '"centro-liturgico" in path -> Route.LiturgyCenter': "Centro Litúrgico",
     '"liturgia" in path -> Route.Liturgy': "Liturgia",
+    '"/moderador/tema" in path || "/admin/cores" in path -> Route.ThemeAdmin': "Cores do Site",
+    '"/moderador/ranking" in path || "/admin/quizzes" in path -> Route.AdminQuizzes': "Quizzes administrativos",
+    '"acervo-liturgico" in path -> Route.ArchiveAdmin': "Acervo Litúrgico administrativo",
 }
 for token, label in expected_routes.items():
     require(token in app, f"Mapeamento de deep-link ausente: {label}")
@@ -57,5 +63,5 @@ print("✓ cold start, warm start e central interna")
 print("✓ somente caminhos internos")
 print("✓ sessão restaurada antes da navegação")
 print("✓ rotas privadas redirecionam ao login")
-print("✓ administração exige moderador")
+print("✓ todas as rotas administrativas exigem moderador")
 print("✓ destinos legados principais mapeados para telas nativas")
