@@ -101,6 +101,17 @@ internal class OfflineLiturgyArchiveRepository(private val context: Context) {
         }
     }
 
+    fun documentByPath(categoryId: String, path: String): LiturgyArchiveDocument? {
+        val target = normalizePath(path)
+        if (target.isBlank()) return null
+        val documents = documents(categoryId)
+        return documents.firstOrNull { it.normalizedPath() == target }
+            ?: documents.firstOrNull { document ->
+                val candidate = document.normalizedPath()
+                candidate.endsWith("/$target") || target.endsWith("/$candidate")
+            }
+    }
+
     fun clearCategory(categoryId: String) {
         categoryCache.remove(categoryId)
     }
@@ -131,8 +142,11 @@ internal class OfflineLiturgyArchiveRepository(private val context: Context) {
         }
     }
 
-    private fun LiturgyArchiveDocument.normalizedPath(): String = path
+    private fun LiturgyArchiveDocument.normalizedPath(): String = normalizePath(path)
+
+    private fun normalizePath(value: String): String = value
         .replace('\\', '/')
+        .trim()
         .trimStart('/')
         .lowercase()
 
