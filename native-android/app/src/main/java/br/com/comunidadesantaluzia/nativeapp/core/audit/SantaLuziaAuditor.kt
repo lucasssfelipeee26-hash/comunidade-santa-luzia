@@ -31,9 +31,11 @@ internal class SantaLuziaAuditor(
     private var previousUncaughtHandler: Thread.UncaughtExceptionHandler? = null
 
     fun install() {
+        // Proteções que não fazem I/O ficam ativas imediatamente. A criação/abertura do
+        // SQLite não pode atrasar o primeiro frame, especialmente no Android 10.
         installCrashCapture()
         installStrictModeCapture()
-        record("info", "auditor-start", "Auditor Santa Luzia nativo inicializado")
+        recordAsync("info", "auditor-start", "Auditor Santa Luzia nativo inicializado")
     }
 
     fun attach(activity: Activity) {
@@ -174,8 +176,15 @@ internal class SantaLuziaAuditor(
         if (previousUncaughtHandler != null) return
         previousUncaughtHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            // Nunca deixe a gravação do diagnóstico impedir o crash handler anterior.
             runCatching {
-                record(
+                val signature = signatureFor(
+                    "error",
+                    "uncaught-exception",
+                    "${throwable.javaClass.simpleName}: ${throwable.message.orEmpty()}".take(600),
+                )
+                database.upsertAuditEvent(
+                    signature = signature,
                     level = "error",
                     type = "uncaught-exception",
                     message = "${throwable.javaClass.simpleName}: ${throwable.message.orEmpty()}".take(600),
