@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from .routers import auth, profiles
+from .routers import auth, formations, games, profiles, quizzes, ranking, scales
 
 app = FastAPI(
     title="Comunidade Santa Luzia — Backend Python",
@@ -27,5 +27,13 @@ async def health():
     return {"ok": True, "backend": "python", "service": "santa-luzia"}
 
 
-app.include_router(auth.router)
-app.include_router(profiles.router)
+for router in (
+    auth.router,
+    profiles.router,
+    scales.router,
+    formations.router,
+    ranking.router,
+    games.router,
+    quizzes.router,
+):
+    app.include_router(router)
