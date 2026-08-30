@@ -9,20 +9,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import br.com.comunidadesantaluzia.nativeapp.core.notifications.NotificationNavigationBus
-import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
-import br.com.comunidadesantaluzia.nativeapp.ui.RestrictedMenuButton
-import br.com.comunidadesantaluzia.nativeapp.ui.SantaLuziaApp
+import br.com.comunidadesantaluzia.nativeapp.ui.ReferenceSantaLuziaApp
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaLuziaTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val app: SantaLuziaApplication get() = application as SantaLuziaApplication
@@ -38,26 +30,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         app.container.auditor.attach(this)
-        NotificationNavigationBus.publish(intent?.getStringExtra("notificationHref"))
+        publishIntentAfterOptionalDebugSession(intent)
         requestNotificationPermissionIfNeeded()
         setContent {
             SantaLuziaTheme {
-                val session by app.container.sessionStore.session.collectAsStateWithLifecycle(initialValue = NativeSession())
-                Box(Modifier.fillMaxSize()) {
-                    SantaLuziaApp(app.container)
-                    if (session.loggedIn) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 18.dp, end = 12.dp),
-                        ) {
-                            RestrictedMenuButton(
-                                session = session,
-                                onNavigateHref = NotificationNavigationBus::publish,
-                            )
-                        }
-                    }
-                }
+                ReferenceSantaLuziaApp(app.container)
             }
         }
     }
@@ -65,7 +42,27 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        NotificationNavigationBus.publish(intent.getStringExtra("notificationHref"))
+        publishIntentAfterOptionalDebugSession(intent)
+    }
+
+    private fun publishIntentAfterOptionalDebugSession(intent: Intent?) {
+        val notificationHref = intent?.getStringExtra("notificationHref")
+        val debugRole = intent?.getStringExtra("debugRole")
+        if (BuildConfig.DEBUG && !debugRole.isNullOrBlank()) {
+            lifecycleScope.launch {
+                val moderator = debugRole.equals("moderator", ignoreCase = true) || debugRole.equals("moderador", ignoreCase = true)
+                app.container.sessionStore.saveAuthenticatedSession(
+                    userId = intent?.getStringExtra("debugId") ?: if (moderator) "debug-moderator" else "debug-member",
+                    userName = intent?.getStringExtra("debugName") ?: if (moderator) "Moderador de Teste" else "Membro de Teste",
+                    userType = if (moderator) "moderador" else "membro",
+                    function = intent?.getStringExtra("debugFunction") ?: if (moderator) "Moderador" else "Coroinha",
+                    sessionCookie = null,
+                )
+                NotificationNavigationBus.publish(notificationHref ?: if (moderator) "/area-restrita/moderador" else "/area-restrita/membro")
+            }
+        } else {
+            NotificationNavigationBus.publish(notificationHref)
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {
