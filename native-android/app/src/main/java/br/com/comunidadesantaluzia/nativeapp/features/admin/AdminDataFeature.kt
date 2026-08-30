@@ -52,6 +52,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -67,17 +68,21 @@ data class AdminDataState(
     val error: String? = null,
 )
 
-internal suspend fun loadAdminData(container: AppContainer): AdminDataState = when (val result = container.repository.readLocalFirst("admin-dados", "/api/app/admin-dados", authenticated = true)) {
-    is RepositoryResult.Success -> runCatching {
-        val root = JSONObject(result.value)
-        val membersArray = root.optJSONArray("cadastros") ?: JSONArray()
-        val rankingArray = root.optJSONArray("ranking") ?: JSONArray()
-        val members = buildList { repeat(membersArray.length()) { index -> val i = membersArray.optJSONObject(index) ?: return@repeat; add(AdminMember(i.optString("id"), i.optString("nome"), i.optString("usuario"), i.optString("email"), i.optString("funcao"), i.optString("status"))) } }
-        val ranking = buildList { repeat(rankingArray.length()) { index -> val i = rankingArray.optJSONObject(index) ?: return@repeat; add(AdminRankingLine(i.optString("usuarioId"), i.optString("nome"), i.optInt("pontos"), i.optInt("posicao"))) } }
-        AdminDataState(root.optInt("ano"), members, ranking, loading = false, fromCache = result.fromCache)
-    }.getOrElse { AdminDataState(loading = false, error = "Os dados administrativos salvos estão em formato inválido.") }
-    is RepositoryResult.Failure -> AdminDataState(loading = false, error = result.message)
-    is RepositoryResult.Queued -> AdminDataState(loading = false, error = "A leitura administrativa não deve entrar em fila.")
+internal suspend fun loadAdminData(container: AppContainer): AdminDataState {
+    val userId = container.sessionStore.session.first().userId.orEmpty()
+    val cacheKey = "user:${userId.ifBlank { "unknown" }}:admin-dados"
+    return when (val result = container.repository.readLocalFirst(cacheKey, "/api/app/admin-dados", authenticated = true)) {
+        is RepositoryResult.Success -> runCatching {
+            val root = JSONObject(result.value)
+            val membersArray = root.optJSONArray("cadastros") ?: JSONArray()
+            val rankingArray = root.optJSONArray("ranking") ?: JSONArray()
+            val members = buildList { repeat(membersArray.length()) { index -> val i = membersArray.optJSONObject(index) ?: return@repeat; add(AdminMember(i.optString("id"), i.optString("nome"), i.optString("usuario"), i.optString("email"), i.optString("funcao"), i.optString("status"))) } }
+            val ranking = buildList { repeat(rankingArray.length()) { index -> val i = rankingArray.optJSONObject(index) ?: return@repeat; add(AdminRankingLine(i.optString("usuarioId"), i.optString("nome"), i.optInt("pontos"), i.optInt("posicao"))) } }
+            AdminDataState(root.optInt("ano"), members, ranking, loading = false, fromCache = result.fromCache)
+        }.getOrElse { AdminDataState(loading = false, error = "Os dados administrativos salvos estão em formato inválido.") }
+        is RepositoryResult.Failure -> AdminDataState(loading = false, error = result.message)
+        is RepositoryResult.Queued -> AdminDataState(loading = false, error = "A leitura administrativa não deve entrar em fila.")
+    }
 }
 
 private fun isOnline(context: Context): Boolean {
