@@ -129,7 +129,16 @@ internal fun LiturgyCenterScreen(container: AppContainer) {
                         }
                     }
                 }
-                CenterSection.Missal -> ArchiveCategoryContent(archive, "missal", "Missal e ritos", selectedDocument) { selectedDocument = it }
+                CenterSection.Missal -> {
+                    Column(Modifier.fillMaxSize()) {
+                        if (selectedDocument == null) {
+                            MissalTodayQuickLink(archive) { selectedDocument = it }
+                        }
+                        Box(Modifier.weight(1f)) {
+                            ArchiveCategoryContent(archive, "missal", "Missal e ritos", selectedDocument) { selectedDocument = it }
+                        }
+                    }
+                }
                 CenterSection.Liturgy -> {
                     CategoryGroupContent(
                         archive = archive,
