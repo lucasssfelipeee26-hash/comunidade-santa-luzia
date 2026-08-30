@@ -52,69 +52,43 @@ jobs:
           gradle-version: "9.5.0"
 
       - name: Auditoria da referência Windows Beta 19
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_reference_fidelity.py
+        run: python3 native-android/scripts/audit_reference_fidelity.py
 
       - name: Auditoria Python de paridade Beta 18
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_parity.py
+        run: python3 native-android/scripts/audit_parity.py
 
       - name: Auditoria Quiz avulso offline-first
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_quiz_offline.py
+        run: python3 native-android/scripts/audit_quiz_offline.py
 
       - name: Auditoria de atrasos e privacidade
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_delays_privacy.py
+        run: python3 native-android/scripts/audit_delays_privacy.py
 
       - name: Auditoria de sessão e fila offline
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_session_queue_safety.py
+        run: python3 native-android/scripts/audit_session_queue_safety.py
 
       - name: Auditoria de isolamento por conta
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_account_isolation.py
+        run: python3 native-android/scripts/audit_account_isolation.py
 
       - name: Auditoria de navegação por notificação
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_notification_navigation.py
+        run: python3 native-android/scripts/audit_notification_navigation.py
 
       - name: Auditoria de publicação offline de escala
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_scale_offline_publication.py
+        run: python3 native-android/scripts/audit_scale_offline_publication.py
 
       - name: Auditoria de publicação de formação
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_formation_offline_publication.py
+        run: python3 native-android/scripts/audit_formation_offline_publication.py
 
       - name: Auditoria de cores do site
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_theme_admin.py
+        run: python3 native-android/scripts/audit_theme_admin.py
 
       - name: Auditoria administrativa do acervo litúrgico
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_liturgy_archive_admin.py
+        run: python3 native-android/scripts/audit_liturgy_archive_admin.py
 
       - name: Auditoria do menu restrito
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_restricted_menu.py
+        run: python3 native-android/scripts/audit_restricted_menu.py
 
       - name: Auditoria de materiais e compartilhamento
-        run: |
-          set -euo pipefail
-          python3 native-android/scripts/audit_native_offline_assets.py
+        run: python3 native-android/scripts/audit_native_offline_assets.py
 
       - name: Auditoria de arquitetura nativa
         run: |
@@ -145,8 +119,7 @@ jobs:
 
       - name: Compilar e testar Kotlin
         working-directory: native-android
-        run: |
-          gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
 
       - name: Auditar APK nativo
         run: |
@@ -175,92 +148,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: |
-            set -eu
-            APK=dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
-            PKG=br.com.comunidadesantaluzia.nativebeta
-            ACT=br.com.comunidadesantaluzia.nativeapp.MainActivity
-            adb install -r "$APK" > dist/android10-install.txt 2>&1
-            adb logcat -c
-
-            adb shell pm clear "$PKG" >/dev/null || true
-            adb shell am start -W -n "$PKG/$ACT" > dist/android10-public-start.txt 2>&1
-            sleep 4
-            adb shell uiautomator dump /sdcard/public.xml >/dev/null
-            adb pull /sdcard/public.xml dist/android10-public.xml >/dev/null
-            grep -q 'COMUNIDADE SANTA LUZIA' dist/android10-public.xml
-            grep -q 'Servir a Deus' dist/android10-public.xml
-            grep -q 'Centro Litúrgico' dist/android10-public.xml
-            grep -q 'Escala do Dia' dist/android10-public.xml
-            adb exec-out screencap -p > dist/android10-public.png
-
-            python3 - <<'PY'
-            import re, xml.etree.ElementTree as E
-            root=E.parse('dist/android10-public.xml').getroot()
-            node=next((n for n in root.iter('node') if 'ÁREA RESTRITA' in n.attrib.get('text','')),None)
-            if node is None: raise SystemExit('Área Restrita não encontrada')
-            nums=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
-            if len(nums)!=4: raise SystemExit('Bounds Área Restrita inválidos')
-            print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2,file=open('/tmp/tap-login','w'))
-            PY
-            set -- $(cat /tmp/tap-login); adb shell input tap "$1" "$2"
-            sleep 2
-            adb shell uiautomator dump /sdcard/login.xml >/dev/null
-            adb pull /sdcard/login.xml dist/android10-login.xml >/dev/null
-            grep -q 'Bem-vindo ao Santa Luzia' dist/android10-login.xml
-            grep -q 'Continuar como visitante' dist/android10-login.xml
-            grep -q 'Usuário ou e-mail' dist/android10-login.xml
-            adb exec-out screencap -p > dist/android10-login.png
-
-            adb shell pm clear "$PKG" >/dev/null
-            adb shell am start -W -n "$PKG/$ACT" --es debugRole member --es debugName 'Membro de Teste' --es debugFunction Coroinha --es notificationHref /area-restrita/membro > dist/android10-member-start.txt 2>&1
-            sleep 5
-            adb shell uiautomator dump /sdcard/member.xml >/dev/null
-            adb pull /sdcard/member.xml dist/android10-member.xml >/dev/null
-            grep -q 'Área Restrita' dist/android10-member.xml
-            grep -q 'Meu próximo compromisso' dist/android10-member.xml
-            grep -q 'Formação' dist/android10-member.xml
-            grep -q 'Jornada' dist/android10-member.xml
-            grep -q 'Atrasos' dist/android10-member.xml
-            grep -q 'Justificar uma ausência' dist/android10-member.xml
-            adb exec-out screencap -p > dist/android10-member.png
-
-            adb shell pm clear "$PKG" >/dev/null
-            adb shell am start -W -n "$PKG/$ACT" --es debugRole moderator --es debugName 'Moderador de Teste' --es debugFunction Moderador --es notificationHref /area-restrita/moderador > dist/android10-moderator-start.txt 2>&1
-            sleep 5
-            adb shell uiautomator dump /sdcard/moderator.xml >/dev/null
-            adb pull /sdcard/moderator.xml dist/android10-moderator.xml >/dev/null
-            grep -q 'Área Restrita' dist/android10-moderator.xml
-            grep -q 'Moderador' dist/android10-moderator.xml
-            grep -q 'Acólitos' dist/android10-moderator.xml
-            grep -q 'Coroinhas' dist/android10-moderator.xml
-            grep -q 'Atrasos' dist/android10-moderator.xml
-            grep -q 'Presenças' dist/android10-moderator.xml
-            adb exec-out screencap -p > dist/android10-moderator.png
-            python3 - <<'PY'
-            import re, xml.etree.ElementTree as E
-            root=E.parse('dist/android10-moderator.xml').getroot()
-            node=next((n for n in root.iter('node') if n.attrib.get('content-desc')=='Abrir navegação da Área Restrita'),None)
-            if node is None: raise SystemExit('Botão de menu não encontrado')
-            nums=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
-            if len(nums)!=4: raise SystemExit('Bounds do menu inválidos')
-            print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2,file=open('/tmp/tap-menu','w'))
-            PY
-            set -- $(cat /tmp/tap-menu); adb shell input tap "$1" "$2"
-            sleep 1
-            adb shell uiautomator dump /sdcard/menu.xml >/dev/null
-            adb pull /sdcard/menu.xml dist/android10-moderator-menu.xml >/dev/null
-            grep -q 'Dados' dist/android10-moderator-menu.xml
-            grep -q 'Acervo' dist/android10-moderator-menu.xml
-            grep -q 'Auditor' dist/android10-moderator-menu.xml
-            grep -q 'Escala pública' dist/android10-moderator-menu.xml
-            adb exec-out screencap -p > dist/android10-moderator-menu.png
-
-            adb shell pidof "$PKG" > dist/android10-pid.txt
-            adb logcat -d -t 2400 > dist/android10-logcat.txt
-            test -s dist/android10-pid.txt
-            ! grep -q 'FATAL EXCEPTION' dist/android10-logcat.txt
-            printf 'REFERENCE_PUBLIC_OK\nREFERENCE_LOGIN_OK\nREFERENCE_MEMBER_OK\nREFERENCE_MODERATOR_OK\nREFERENCE_MENU_OK\n' > dist/android10-smoke-report.txt
+          script: bash native-android/scripts/android10_reference_smoke.sh
 
       - name: Guardar Beta nativa Kotlin/Python
         if: always()
