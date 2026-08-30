@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..ranking_notifications import notify_ranking_changes, ranking_snapshot
 from ..ranking_service import calculate_ranking
 from ..security import require_user
 from ..store import approved_team, find_user, list_scales, mutate_main, now_ms, ranking_config, read_main
-from ..utils import cuiaba_now, operational_year, rate_allowed, request_ip, subtract_minutes, valid_date_iso, valid_time_24h
+from ..utils import cuiaba_now, integer_number, operational_year, rate_allowed, request_ip, subtract_minutes, valid_date_iso, valid_time_24h
 
 router = APIRouter(tags=["ranking"])
 CATEGORIES = {"companheirismo", "acolhimento", "espirito_servico", "disponibilidade"}
@@ -182,29 +182,27 @@ async def ranking_action(request: Request):
     if action == "ajustar_pontos":
         if user.get("tipo") != "moderador": return response({"erro": "Apenas moderadores."}, 403)
         target_id = str(body.get("usuarioId") or "")
-        try: points = int(body.get("pontos"))
-        except (TypeError, ValueError): points = 999999
+        points = integer_number(body.get("pontos"))
         reason = str(body.get("motivo") or "").strip()
         year = operational_year(body.get("ano"))
-        if not _approved_member(store, target_id) or points < -100 or points > 100 or not 3 <= len(reason) <= 300 or year is None:
+        if not _approved_member(store, target_id) or points is None or points < -100 or points > 100 or not 3 <= len(reason) <= 300 or year is None:
             return response({"erro": "Dados inválidos para o ajuste."}, 400)
-        before = ranking_snapshot(year, store)
         def save(data: dict[str, Any]):
             row = {"id": f"ajuste-{now_ms()}", "usuario_id": target_id, "pontos": points, "motivo": reason, "ano": year, "criado_por": user["id"], "criado_em": now_ms()}
             data["ranking_ajustes"].append(row); return row
-        row = mutate_main(save)
-        notify_ranking_changes(year, before, target_id, f"ajuste:{row['id']}")
-        return response({"ok": True, "ajuste": row})
+        return response({"ok": True, "ajuste": mutate_main(save)})
 
     if action == "salvar_config":
         if user.get("tipo") != "moderador": return response({"erro": "Apenas moderadores."}, 403)
         year = operational_year(body.get("ano"))
         try:
             weights = [float(body.get(key)) for key in ("peso_formacao", "peso_liturgia", "peso_pontualidade", "peso_reconhecimento")]
-            minutes = int(body.get("minutos_antecedencia"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return response({"erro": "Os pesos devem totalizar 100 e a antecedência deve ficar entre 10 e 120 minutos."}, 400)
-        if year is None or any(weight < 0 or weight > 100 for weight in weights) or round(sum(weights)) != 100 or minutes < 10 or minutes > 120:
+        minutes = integer_number(body.get("minutos_antecedencia"))
+        total = sum(weights)
+        rounded_total = math.floor(total + 0.5) if math.isfinite(total) else -1
+        if year is None or minutes is None or any(not math.isfinite(weight) or weight < 0 or weight > 100 for weight in weights) or rounded_total != 100 or minutes < 10 or minutes > 120:
             return response({"erro": "Os pesos devem totalizar 100 e a antecedência deve ficar entre 10 e 120 minutos."}, 400)
         def save(data: dict[str, Any]):
             row = {"ano": year, "peso_formacao": weights[0], "peso_liturgia": weights[1], "peso_pontualidade": weights[2], "peso_reconhecimento": weights[3], "minutos_antecedencia": minutes, "atualizado_em": now_ms()}
