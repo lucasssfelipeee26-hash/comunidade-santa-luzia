@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 from datetime import date, timedelta
 from typing import Literal
-
-from .liturgy_service import local_liturgy
 
 Hour = Literal["leituras", "laudes", "terca", "sexta", "nona", "vesperas", "completas", "vigilia"]
 
@@ -42,44 +39,28 @@ COMMON_BY_KEY = {
     "apresentacaons": "nossasenhora", "santamariamaior": "nossasenhora",
 }
 
-# Alias de títulos usados nos snapshots offline. A resolução pela celebração do
-# dia evita reimplementar uma segunda tabela sanctoral divergente do conteúdo
-# que o próprio aplicativo já empacota.
-FIRST_VESPERS_TITLE_KEYS = [
-    ("nossa senhora aparecida", "nsaparecida"),
-    ("anunciacao do senhor", "anunciacao"),
-    ("apresentacao do senhor", "apresentacao"),
-    ("ascensao do senhor", "ascensaodosenhor"),
-    ("assuncao", "assuncao"),
-    ("corpo e sangue de cristo", "corpuschristi"),
-    ("corpus christi", "corpuschristi"),
-    ("cristo rei", "cristoreidouniverso"),
-    ("rei do universo", "cristoreidouniverso"),
-    ("epifania", "epifania"),
-    ("exaltacao da santa cruz", "exaltacao"),
-    ("fieis defuntos", "fieisdefuntos"),
-    ("imaculada conceicao", "imaculada"),
-    ("natividade do senhor", "natal"),
-    ("natal do senhor", "natal"),
-    ("pascoa", "pascoa"),
-    ("sao pedro e sao paulo", "pedroepaulo"),
-    ("pentecostes", "pentecostes"),
-    ("domingo de ramos", "ramos"),
-    ("sagrada familia", "sagradafamilia"),
-    ("santa maria mae de deus", "santamaria"),
-    ("santissima trindade", "santissimatrindade"),
-    ("natividade de sao joao batista", "saojoao"),
-    ("sao jose esposo", "saojose"),
-    ("sagrado coracao de jesus", "scj"),
-    ("todos os santos", "todosossantos"),
-    ("transfiguracao do senhor", "transfiguracao"),
-]
-
-
-def _plain(value: str) -> str:
-    text = unicodedata.normalize("NFD", value.lower())
-    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
-    return re.sub(r"\s+", " ", text).strip()
+# Subconjunto da tabela fixa do iliturgia-sanctoral.ts que pode influenciar
+# a resolução de I Vésperas. O grau é necessário para reproduzir exatamente a
+# precedência do TypeScript quando uma celebração fixa cai no domingo.
+FIXED_VESPERS_CANDIDATES: dict[tuple[int, int], tuple[str, str]] = {
+    (1, 1): ("santamaria", "solenidade"),
+    (2, 2): ("apresentacao", "festa"),
+    (3, 19): ("saojose", "solenidade"),
+    (3, 25): ("anunciacao", "solenidade"),
+    # O TypeScript usa a chave "natividade" em 24/06, enquanto o conjunto de
+    # arquivos de I Vésperas contém "saojoao". Mantemos essa diferença de chave
+    # para não mascarar uma divergência preexistente do servidor original.
+    (6, 24): ("natividade", "solenidade"),
+    (6, 29): ("pedroepaulo", "solenidade"),
+    (8, 6): ("transfiguracao", "festa"),
+    (8, 15): ("assuncao", "solenidade"),
+    (9, 14): ("exaltacao", "festa"),
+    (10, 12): ("nsaparecida", "solenidade"),
+    (11, 1): ("todosossantos", "solenidade"),
+    (11, 2): ("fieisdefuntos", "solenidade"),
+    (12, 8): ("imaculada", "solenidade"),
+    (12, 25): ("natal", "solenidade"),
+}
 
 
 def easter(year: int) -> date:
@@ -217,19 +198,32 @@ def common_document(common: str, hour: Hour, first_vespers: bool = False) -> str
     return f"oficio/outros/comum_{common}_{hour}.htm"
 
 
-def first_vespers_key(day: date) -> str:
-    liturgy = local_liturgy(day.isoformat())
-    title = _plain(str(liturgy.get("liturgia") or "")) if liturgy else ""
-    for fragment, key in FIRST_VESPERS_TITLE_KEYS:
-        if fragment in title:
-            return key
-    # Fallback para dias móveis caso um pacote de conteúdo não exista.
+def _sunday_between(year: int, month: int, start_day: int, end_day: int) -> date:
+    for number in range(start_day, end_day + 1):
+        candidate = date(year, month, number)
+        if candidate.weekday() == 6:
+            return candidate
+    return date(year, month, start_day)
+
+
+def _movable_celebration_key(day: date) -> str:
+    """Reproduz a ordem de celebracaoMovel() do TypeScript."""
     p = easter(day.year)
+    epiphany = _sunday_between(day.year, 1, 2, 8)
+    baptism = epiphany + timedelta(days=1 if epiphany.day in {7, 8} else 7)
     movable = {
+        epiphany: "epifania",
+        baptism: "batismo",
+        p - timedelta(days=46): "cinzas",
         p - timedelta(days=7): "ramos",
+        p - timedelta(days=3): "ceiadosenhor",
+        p - timedelta(days=2): "paixaodosenhor",
+        p - timedelta(days=1): "sabadosanto",
         p: "pascoa",
+        p + timedelta(days=7): "divinamisericordia",
         p + timedelta(days=42): "ascensaodosenhor",
         p + timedelta(days=49): "pentecostes",
+        p + timedelta(days=50): "maedaigreja",
         p + timedelta(days=56): "santissimatrindade",
         p + timedelta(days=60): "corpuschristi",
         p + timedelta(days=68): "scj",
@@ -237,7 +231,39 @@ def first_vespers_key(day: date) -> str:
     }
     if day in movable:
         return movable[day]
+    if day.month == 12 and 26 <= day.day <= 31 and day.weekday() == 6:
+        return "sagradafamilia"
     return ""
+
+
+def first_vespers_key(day: date) -> str:
+    """Chave de celebracaoDoDia() relevante para a regra de I Vésperas.
+
+    O route.ts original não consulta o título da Liturgia mensal aqui: ele chama
+    celebracaoDoDia(amanha(data)). Esta implementação preserva a mesma ordem:
+    celebrações móveis vencem primeiro; depois aplica-se a celebração fixa e a
+    precedência do domingo. Isso é importante em calendários onde o conteúdo
+    mensal transfere uma solenidade para outro dia, mas o servidor antigo ainda
+    usa a tabela sanctoral fixa.
+    """
+    movable = _movable_celebration_key(day)
+    if movable:
+        return movable
+
+    fixed = FIXED_VESPERS_CANDIDATES.get((day.month, day.day))
+    is_sunday = day.weekday() == 6
+    if not is_sunday:
+        return fixed[0] if fixed else ""
+    if not fixed:
+        return ""
+
+    # Em Advento, Quaresma e Páscoa o domingo sempre vence a fixa. Fora desses
+    # tempos, apenas uma solenidade fixa vence o domingo; festas não vencem.
+    season = liturgical_season(day)
+    if season in {"advento", "quaresma", "pascoa"}:
+        return ""
+    key, grade = fixed
+    return key if grade == "solenidade" else ""
 
 
 def has_first_vespers(key: str) -> bool:
