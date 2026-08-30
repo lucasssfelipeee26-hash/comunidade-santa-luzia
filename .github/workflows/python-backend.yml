@@ -40,30 +40,52 @@ jobs:
         run: python -m pip install -r python-backend/requirements.txt
 
       - name: Compilar módulos Python
-        run: python -m compileall -q python-backend/santa_luzia_backend
+        run: python -m compileall -q python-backend/santa_luzia_backend python-backend/scripts
 
-      - name: Importar FastAPI e auditar rotas migradas
+      - name: Auditar paridade endpoint a endpoint
+        run: python python-backend/scripts/audit_endpoint_parity.py
+
+      - name: Smoke test FastAPI
         run: |
           python - <<'PY'
+          from fastapi.testclient import TestClient
           from santa_luzia_backend.main import app
-          methods = {(method, route.path) for route in app.routes for method in getattr(route, "methods", set())}
-          required = {
-              ("POST", "/api/auth/login"),
-              ("GET", "/api/auth/me"),
-              ("GET", "/api/perfis"),
-              ("GET", "/api/escalas"),
-              ("POST", "/api/escalas"),
-              ("GET", "/api/formacoes"),
-              ("PUT", "/api/formacoes/{formation_id}/minha-presenca"),
-              ("GET", "/api/ranking"),
-              ("POST", "/api/ranking"),
-              ("GET", "/api/jogo/caminho-da-luz/resultado"),
-              ("POST", "/api/jogo/whatajong/resultado"),
-              ("GET", "/api/quizzes"),
-              ("POST", "/api/quizzes/liturgia/offline"),
-          }
-          missing = sorted(required - methods)
-          if missing:
-              raise SystemExit(f"Rotas migradas ausentes: {missing}")
-          print(f"FastAPI importado: {len(methods)} combinações método/rota.")
+
+          client = TestClient(app)
+          health = client.get('/health')
+          assert health.status_code == 200, health.text
+          assert health.json().get('backend') == 'python'
+
+          scales = client.get('/api/escalas')
+          assert scales.status_code == 200, scales.text
+          assert isinstance(scales.json().get('escalas'), list)
+
+          library = client.get('/api/biblioteca')
+          assert library.status_code == 200, library.text
+          assert isinstance(library.json().get('livros'), list)
+
+          theme = client.get('/api/configuracao/tema')
+          assert theme.status_code == 200, theme.text
+          assert theme.json().get('tema')
+
+          status = client.get('/api/app/status')
+          assert status.status_code == 200, status.text
+          assert status.json().get('appRelease') == '0.11.0'
+
+          print('Smoke FastAPI: OK')
+          PY
+
+      - name: Auditar proteção do banco
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from santa_luzia_backend.data_protection import protect_database
+          from santa_luzia_backend.store import DATA_DIR, mutate_main
+
+          mutate_main(lambda store: store.setdefault('ci_probe', []).append('ok'))
+          health = protect_database()
+          assert health['status'] == 'ok', health
+          assert health['backupCount'] >= 1, health
+          assert (Path(DATA_DIR) / 'database-health.json').exists()
+          print('Proteção do banco: OK')
           PY
