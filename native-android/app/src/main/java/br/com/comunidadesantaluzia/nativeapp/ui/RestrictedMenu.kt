@@ -62,19 +62,20 @@ private val memberMenuItems = listOf(
     RestrictedMenuItem(Route.Journey, "Jornada", Icons.Rounded.Quiz),
 )
 
-// Espelha os destinos do ModeradorMenu da Beta 18. Presenças e Registro têm
-// rotas distintas mesmo quando compartilham componentes internos no nativo.
+// Espelha os 11 atalhos do ModeradorMenu da Beta 18. Onde a tela nativa ainda
+// concentra duas ferramentas no mesmo destino, o rótulo continua separado para
+// preservar a organização aprovada sem inventar uma rota quebrada.
 private val moderatorMenuItems = listOf(
     RestrictedMenuItem(Route.Profiles, "Perfis", Icons.Rounded.Groups),
     RestrictedMenuItem(Route.Delays, "Atrasos", Icons.Rounded.Schedule),
     RestrictedMenuItem(Route.Journey, "Jornada", Icons.Rounded.Quiz),
     RestrictedMenuItem(Route.Scale, "Escalas", Icons.Rounded.CalendarMonth),
     RestrictedMenuItem(Route.Formation, "Formação", Icons.Rounded.School),
-    RestrictedMenuItem(Route.Presences, "Presenças", Icons.Rounded.VerifiedUser),
+    RestrictedMenuItem(Route.Records, "Presenças", Icons.Rounded.VerifiedUser),
     RestrictedMenuItem(Route.Records, "Registro", Icons.Rounded.ReceiptLong),
-    RestrictedMenuItem(Route.AdminQuizzes, "Quizzes", Icons.Rounded.Quiz),
+    RestrictedMenuItem(Route.Administration, "Quizzes", Icons.Rounded.Quiz),
     RestrictedMenuItem(Route.Administration, "Dados", Icons.Rounded.AdminPanelSettings),
-    RestrictedMenuItem(Route.ThemeAdmin, "Cores", Icons.Rounded.Palette),
+    RestrictedMenuItem(Route.Administration, "Cores", Icons.Rounded.Palette),
     RestrictedMenuItem(Route.Diagnostics, "Diagnóstico", Icons.Rounded.BugReport),
 )
 
@@ -158,10 +159,7 @@ private fun RestrictedMenuDialog(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(7.dp),
                             ) {
-                                Box(
-                                    Modifier.size(42.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
+                                Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
                                     Surface(
                                         shape = RoundedCornerShape(15.dp),
                                         color = if (selected) SantaWine else MaterialTheme.colorScheme.surface,
