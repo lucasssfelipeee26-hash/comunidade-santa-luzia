@@ -50,7 +50,6 @@ import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -74,25 +73,27 @@ private data class SelectedTar(
     val size: Long?,
 )
 
-private suspend fun loadArchiveStatus(container: AppContainer): ArchiveStatus {
-    val userId = container.sessionStore.session.first().userId.orEmpty()
-    val key = "user:${userId.ifBlank { "unknown" }}:admin-acervo-liturgico-status"
-    return when (val result = container.repository.readLocalFirst(key, "/api/admin/acervo-liturgico", authenticated = true)) {
-        is RepositoryResult.Success -> runCatching {
-            val root = JSONObject(result.value)
-            ArchiveStatus(
-                installed = root.optBoolean("instalado", false),
-                total = root.optInt("total", 0),
-                categories = root.optInt("categorias", 0),
-                version = root.optInt("versao", 0),
-                files = root.optInt("arquivos", 0),
-                loading = false,
-                fromCache = result.fromCache,
-            )
-        }.getOrElse { ArchiveStatus(loading = false, error = "O status salvo do acervo está em formato inválido.") }
-        is RepositoryResult.Failure -> ArchiveStatus(loading = false, error = result.message)
-        is RepositoryResult.Queued -> ArchiveStatus(loading = false, error = "A leitura do acervo não deve entrar em fila.")
-    }
+private suspend fun loadArchiveStatus(container: AppContainer): ArchiveStatus = when (
+    val result = container.repository.readLocalFirst(
+        "admin-acervo-liturgico-status",
+        "/api/admin/acervo-liturgico",
+        authenticated = true,
+    )
+) {
+    is RepositoryResult.Success -> runCatching {
+        val root = JSONObject(result.value)
+        ArchiveStatus(
+            installed = root.optBoolean("instalado", false),
+            total = root.optInt("total", 0),
+            categories = root.optInt("categorias", 0),
+            version = root.optInt("versao", 0),
+            files = root.optInt("arquivos", 0),
+            loading = false,
+            fromCache = result.fromCache,
+        )
+    }.getOrElse { ArchiveStatus(loading = false, error = "O status salvo do acervo está em formato inválido.") }
+    is RepositoryResult.Failure -> ArchiveStatus(loading = false, error = result.message)
+    is RepositoryResult.Queued -> ArchiveStatus(loading = false, error = "A leitura do acervo não deve entrar em fila.")
 }
 
 @Composable
