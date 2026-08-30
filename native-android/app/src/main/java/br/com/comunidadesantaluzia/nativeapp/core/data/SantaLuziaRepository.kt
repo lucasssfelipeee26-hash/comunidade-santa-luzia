@@ -104,25 +104,32 @@ internal class SantaLuziaRepository(
         path: String,
         authenticated: Boolean = false,
     ): RepositoryResult<String> = withContext(Dispatchers.IO) {
+        val resolvedCacheKey = resolveCacheKey(cacheKey, authenticated)
+            ?: return@withContext RepositoryResult.Failure("Não há uma conta local válida para acessar este conteúdo salvo.")
         try {
             val response = http.request("GET", path, authenticated = authenticated)
             if (response.successful && response.body.isNotBlank()) {
-                database.putDocument(cacheKey, response.body)
+                database.putDocument(resolvedCacheKey, response.body)
                 RepositoryResult.Success(response.body, fromCache = false)
             } else {
-                database.getDocument(cacheKey)?.let {
+                database.getDocument(resolvedCacheKey)?.let {
                     RepositoryResult.Success(it.payload, fromCache = true)
-                } ?: RepositoryResult.Failure("Servidor respondeu ${response.status} e ainda não há dados salvos neste aparelho.", response.status)
+                } ?: RepositoryResult.Failure("Servidor respondeu ${response.status} e ainda não há dados salvos neste aparelho para esta conta.", response.status)
             }
         } catch (_: IOException) {
-            database.getDocument(cacheKey)?.let {
+            database.getDocument(resolvedCacheKey)?.let {
                 RepositoryResult.Success(it.payload, fromCache = true)
-            } ?: RepositoryResult.Failure("Sem internet e sem cópia local disponível para esta área.")
+            } ?: RepositoryResult.Failure("Sem internet e sem cópia local disponível para esta conta nesta área.")
         } catch (error: Exception) {
-            database.getDocument(cacheKey)?.let {
+            database.getDocument(resolvedCacheKey)?.let {
                 RepositoryResult.Success(it.payload, fromCache = true)
             } ?: RepositoryResult.Failure(error.message ?: "Não foi possível carregar os dados.")
         }
+    }
+
+    suspend fun cachedDocumentForCurrentUser(cacheKey: String): CachedDocument? = withContext(Dispatchers.IO) {
+        val resolved = resolveCacheKey(cacheKey, authenticated = true) ?: return@withContext null
+        database.getDocument(resolved)
     }
 
     suspend fun mutate(
@@ -203,9 +210,10 @@ internal class SantaLuziaRepository(
     ): RepositoryResult<String> = withContext(Dispatchers.IO) {
         val mayQueue = canQueueOffline(method, path, payload)
         val preserveOnAuthFailure = mayQueue && shouldPreserveOnAuthFailure(method, path, payload)
+        val optimisticResolvedKey = optimisticCacheKey?.let { resolveCacheKey(it, authenticated = true) }
         fun commitOptimisticCache() {
-            if (optimisticCacheKey != null && optimisticPayload != null) {
-                database.putDocument(optimisticCacheKey, optimisticPayload)
+            if (optimisticResolvedKey != null && optimisticPayload != null) {
+                database.putDocument(optimisticResolvedKey, optimisticPayload)
             }
         }
 
@@ -252,6 +260,13 @@ internal class SantaLuziaRepository(
         }
     }
 
+    private suspend fun resolveCacheKey(cacheKey: String, authenticated: Boolean): String? {
+        if (!authenticated) return cacheKey
+        val session = sessionStore.session.first()
+        val ownerUserId = session.userId?.takeIf { session.loggedIn && it.isNotBlank() } ?: return null
+        return NativeDatabase.userDocumentKey(ownerUserId, cacheKey)
+    }
+
     private suspend fun enqueueForCurrentUser(method: String, path: String, payload: String?): String? {
         val session = sessionStore.session.first()
         val ownerUserId = session.userId?.takeIf { session.loggedIn && it.isNotBlank() } ?: return null
@@ -291,13 +306,10 @@ internal class SantaLuziaRepository(
             return situation == "presente" || (situation == "justificada" && justification.length in 3..500)
         }
 
-        // Perfil é uma sobrescrita determinística dos campos. Repetir o mesmo PATCH
-        // mantém o mesmo estado; a fila por usuário também preserva a ordem local.
         if (verb == "PATCH" && path == "/api/perfil") {
             return body != null && body.length() > 0
         }
 
-        // Marcar uma notificação (ou todas) como lida é monotônico e repetível.
         if (verb == "POST" && path == "/api/notificacoes") {
             return when (body?.optString("action")) {
                 "todas" -> true
@@ -306,30 +318,24 @@ internal class SantaLuziaRepository(
             }
         }
 
-        // Constância é deduplicada pelo servidor por usuário+data.
         if (verb == "POST" && path == "/api/constancia-luz") {
             return Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(body?.optString("data").orEmpty())
         }
 
-        // Whatajong usa progresso monotônico: reenviar uma rodada já contabilizada
-        // retorna sucesso com zero pontos adicionais.
         if (verb == "POST" && path == "/api/jogo/whatajong/resultado") {
             val completedRound = body?.optInt("completedRound", 0) ?: 0
             val score = body?.optLong("score", -1L) ?: -1L
             return completedRound in 1..24 && score in 0L..50_000_000L
         }
 
-        // O quiz litúrgico cronometrado usa token efêmero e nunca entra na fila genérica.
         if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
 
-        // Quizzes avulsos baixados carregam clientRequestId e são deduplicados pelo servidor.
         if (verb == "POST" && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) {
             val requestId = body?.optString("clientRequestId").orEmpty()
             val answers = body?.optJSONArray("respostas")
             return requestId.isNotBlank() && answers != null && answers.length() > 0
         }
 
-        // Replay offline da Liturgia também é explicitamente idempotente.
         if (verb == "POST" && path == "/api/quizzes/liturgia/offline") {
             val dateIso = body?.optString("dataIso").orEmpty()
             val requestId = body?.optString("clientRequestId").orEmpty()
@@ -339,7 +345,6 @@ internal class SantaLuziaRepository(
                 answers != null && answers.length() > 0
         }
 
-        // No ranking, somente o relato de atraso possui clientRequestId próprio.
         if (verb == "POST" && path == "/api/ranking") {
             return body?.optString("action") == "reportar_atraso" &&
                 body.optString("clientRequestId").isNotBlank()
