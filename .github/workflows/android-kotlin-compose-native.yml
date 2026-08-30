@@ -8,6 +8,7 @@ on:
       - native-android/**
       - public/offline/**
       - app/api/**
+      - lib/acervo-liturgico-storage.ts
       - .github/workflows/android-kotlin-compose-native.yml
   workflow_dispatch:
 
