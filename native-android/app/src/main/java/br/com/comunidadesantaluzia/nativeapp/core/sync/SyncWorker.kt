@@ -28,13 +28,23 @@ internal class SyncWorker(
         val container = app.container
         val dispatcher = NativeNotificationDispatcher(applicationContext, container.database)
 
-        when (validateAuthenticatedSession(container)) {
+        val active = when (val validation = validateAuthenticatedSession(container)) {
             SessionValidation.LoggedOut -> return Result.success()
             SessionValidation.Retry -> return Result.retry()
-            is SessionValidation.Active -> Unit
+            is SessionValidation.Active -> validation
         }
 
-        val pending = container.database.pendingMutations(limit = 100)
+        val quarantined = container.database.quarantinedMutationCount()
+        if (quarantined > 0) {
+            container.auditor.recordAsync(
+                "warning",
+                "sync-quarantined-legacy-queue",
+                "Alterações offline antigas foram preservadas sem associação automática a outra conta",
+                JSONObject().put("count", quarantined).toString(),
+            )
+        }
+
+        val pending = container.database.pendingMutationsForOwner(active.userId, limit = 100)
         if (pending.isEmpty()) {
             runCatching { container.repository.warmEssentialCaches() }
             runCatching { dispatcher.deliverUnreadFromCache() }
