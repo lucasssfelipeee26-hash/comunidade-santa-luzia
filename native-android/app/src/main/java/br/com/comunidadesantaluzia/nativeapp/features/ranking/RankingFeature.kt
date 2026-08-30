@@ -2,6 +2,7 @@ package br.com.comunidadesantaluzia.nativeapp.features.ranking
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,17 +34,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.media.loadProfileBitmap
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import org.json.JSONObject
@@ -244,14 +250,14 @@ private fun PodiumCard(line: RankingLine, modifier: Modifier, champion: Boolean,
             Box(
                 modifier = Modifier
                     .size(if (champion) 62.dp else 52.dp)
-                    .clip(CircleShape)
-                    .background(SantaWine.copy(alpha = .1f))
                     .graphicsLayer {
                         rotationY = turn.value
                         cameraDistance = 18f * density
                     },
                 contentAlignment = Alignment.Center,
-            ) { Text(initials(line.name), color = SantaWine, fontWeight = FontWeight.Black) }
+            ) {
+                RankingAvatar(line = line, modifier = Modifier.fillMaxSize())
+            }
             Text(line.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
             Text("${line.position}º", color = SantaWine, fontWeight = FontWeight.Black)
             Text("${line.points} pts", style = MaterialTheme.typography.labelSmall)
@@ -271,10 +277,7 @@ private fun RankingRow(line: RankingLine, highlighted: Boolean) {
                 Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(SantaWine.copy(alpha = .08f)),
                 contentAlignment = Alignment.Center,
             ) { Text("${line.position}º", color = SantaWine, fontWeight = FontWeight.Black) }
-            Box(
-                Modifier.size(42.dp).clip(CircleShape).background(SantaWine.copy(alpha = .1f)),
-                contentAlignment = Alignment.Center,
-            ) { Text(initials(line.name), color = SantaWine, fontWeight = FontWeight.Bold) }
+            RankingAvatar(line = line, modifier = Modifier.size(42.dp))
             Column(Modifier.weight(1f)) {
                 Text(line.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(line.role ?: "Participante", style = MaterialTheme.typography.bodySmall)
@@ -286,6 +289,29 @@ private fun RankingRow(line: RankingLine, highlighted: Boolean) {
                 }
                 Text("${line.successRate}%", style = MaterialTheme.typography.labelSmall)
             }
+        }
+    }
+}
+
+@Composable
+private fun RankingAvatar(line: RankingLine, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, line.photo) {
+        value = loadProfileBitmap(context.applicationContext, line.photo)
+    }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!,
+            contentDescription = "Foto de ${line.name}",
+            modifier = modifier.clip(CircleShape),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        Box(
+            modifier = modifier.clip(CircleShape).background(SantaWine.copy(alpha = .1f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(initials(line.name), color = SantaWine, fontWeight = FontWeight.Bold)
         }
     }
 }
