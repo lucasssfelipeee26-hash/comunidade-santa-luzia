@@ -128,7 +128,13 @@ def _extract_ts_array(path: Path, marker: str):
     start_marker = text.find(marker)
     if start_marker < 0:
         return []
-    start = text.find("[", start_marker)
+    # O símbolo pode ter anotação de tipo contendo [] antes do valor, por exemplo:
+    # `export const livrosBiblioteca: LivroBiblioteca[] = [...]`.
+    # Portanto, só buscamos o início do array depois do operador de atribuição.
+    assignment = text.find("=", start_marker + len(marker))
+    if assignment < 0:
+        return []
+    start = text.find("[", assignment + 1)
     if start < 0:
         return []
     depth = 0
