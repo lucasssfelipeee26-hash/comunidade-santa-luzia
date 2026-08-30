@@ -4,6 +4,15 @@ plugins {
 }
 
 val generatedOfflineAssetsDir = layout.buildDirectory.dir("generated/offlineAssets").get().asFile
+val syncBaseUrl = providers.environmentVariable("SANTA_LUZIA_SYNC_BASE_URL")
+    .orElse(providers.gradleProperty("SANTA_LUZIA_SYNC_BASE_URL"))
+    .orElse("https://comunidade-santa-luzia-production.up.railway.app")
+    .get()
+    .trim()
+    .trimEnd('/')
+require(syncBaseUrl.startsWith("https://")) { "SANTA_LUZIA_SYNC_BASE_URL deve usar HTTPS." }
+val syncBaseUrlLiteral = "\"${syncBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
 val beta18LiturgyPackages = listOf(
     "catequeses.html.json.gz",
     "comentarios.html.json.gz",
@@ -56,7 +65,7 @@ android {
         buildConfigField(
             "String",
             "SYNC_BASE_URL",
-            "\"https://comunidade-santa-luzia-production.up.railway.app\"",
+            syncBaseUrlLiteral,
         )
     }
 
