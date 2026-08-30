@@ -6,6 +6,7 @@
   },
   "native": {
     "version": "3.0.0-native-alpha.1",
+    "versionCode": 30001,
     "applicationId": "br.com.comunidadesantaluzia.nativebeta",
     "releaseAllowed": false
   },
@@ -18,6 +19,7 @@
     {"id":"liturgy.2026offline","label":"Liturgia diária 2026 empacotada e lida offline","status":"implemented"},
     {"id":"storage.sqlite","label":"SQLite local-first com WAL/integrity check","status":"implemented"},
     {"id":"sync.queue","label":"Fila persistente de mutações e replay WorkManager","status":"implemented"},
+    {"id":"sync.configurableBackend","label":"URL do sincronizador configurável por ambiente com HTTPS obrigatório","status":"implemented"},
     {"id":"session.local","label":"Sessão local persistente após primeiro login","status":"implemented"},
     {"id":"auditor.native","label":"Auditor Santa Luzia nativo com deduplicação","status":"implemented"},
     {"id":"auth.login","label":"Login nativo","status":"implemented"},
@@ -38,7 +40,8 @@
     {"id":"admin.members","label":"Status/promoção de membros","status":"implemented"},
     {"id":"notifications.full","label":"Notificações locais e sincronizadas","status":"implemented"},
     {"id":"auditor.share","label":"Gerar e compartilhar relatório nativo","status":"implemented"},
-    {"id":"backend.python","label":"Backend Python com paridade endpoint a endpoint","status":"pending"},
+    {"id":"backend.python","label":"Backend Python com paridade 67/67 e auditorias semânticas/negócio/multipart","status":"implemented"},
+    {"id":"backend.pythonDeploy","label":"Deploy Python paralelo homologado com volume persistente e rollback testado","status":"pending"},
     {"id":"physical.validation","label":"Auditoria final em aparelho físico","status":"pending"}
   ]
 }
