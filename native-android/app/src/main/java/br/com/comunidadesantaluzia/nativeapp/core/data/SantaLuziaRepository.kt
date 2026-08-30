@@ -275,52 +275,77 @@ internal class SantaLuziaRepository(
 
     private fun canQueueOffline(method: String, path: String, payload: String?): Boolean {
         val verb = method.uppercase()
+        val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull()
 
-        // O quiz litúrgico cronometrado usa token efêmero e precisa ser confirmado na hora.
+        // Allowlist: toda mutação nova começa como ONLINE-ONLY. Uma rota só entra
+        // nesta lista depois de provar replay seguro/idempotente no contrato do servidor.
+
+        if (verb == "PUT" && Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)) {
+            val justification = body?.optString("justificativa").orEmpty().trim()
+            return justification.length in 3..500
+        }
+
+        if (verb == "PUT" && Regex("^/api/formacoes/[^/]+/minha-presenca$").matches(path)) {
+            val situation = body?.optString("situacao").orEmpty()
+            val justification = body?.optString("justificativa").orEmpty().trim()
+            return situation == "presente" || (situation == "justificada" && justification.length in 3..500)
+        }
+
+        // Perfil é uma sobrescrita determinística dos campos. Repetir o mesmo PATCH
+        // mantém o mesmo estado; a fila por usuário também preserva a ordem local.
+        if (verb == "PATCH" && path == "/api/perfil") {
+            return body != null && body.length() > 0
+        }
+
+        // Marcar uma notificação (ou todas) como lida é monotônico e repetível.
+        if (verb == "POST" && path == "/api/notificacoes") {
+            return when (body?.optString("action")) {
+                "todas" -> true
+                "lida" -> body.optString("id").isNotBlank()
+                else -> false
+            }
+        }
+
+        // Constância é deduplicada pelo servidor por usuário+data.
+        if (verb == "POST" && path == "/api/constancia-luz") {
+            return Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(body?.optString("data").orEmpty())
+        }
+
+        // Whatajong usa progresso monotônico: reenviar uma rodada já contabilizada
+        // retorna sucesso com zero pontos adicionais.
+        if (verb == "POST" && path == "/api/jogo/whatajong/resultado") {
+            val completedRound = body?.optInt("completedRound", 0) ?: 0
+            val score = body?.optLong("score", -1L) ?: -1L
+            return completedRound in 1..24 && score in 0L..50_000_000L
+        }
+
+        // O quiz litúrgico cronometrado usa token efêmero e nunca entra na fila genérica.
         if (verb == "POST" && path == "/api/quizzes/liturgia/responder") return false
 
-        // Quizzes avulsos já baixados podem ser respondidos offline. A resposta leva um
-        // identificador único e fica na fila até existir conexão para o servidor validá-la.
+        // Quizzes avulsos baixados carregam clientRequestId e são deduplicados pelo servidor.
         if (verb == "POST" && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) {
-            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull() ?: return false
-            val requestId = body.optString("clientRequestId")
-            val answers = body.optJSONArray("respostas")
+            val requestId = body?.optString("clientRequestId").orEmpty()
+            val answers = body?.optJSONArray("respostas")
             return requestId.isNotBlank() && answers != null && answers.length() > 0
         }
 
-        // O replay offline da Liturgia é uma operação distinta e idempotente. O servidor
-        // reconstrói o mesmo quiz pela data, valida as respostas e deduplica por quiz/usuário.
+        // Replay offline da Liturgia também é explicitamente idempotente.
         if (verb == "POST" && path == "/api/quizzes/liturgia/offline") {
-            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull() ?: return false
-            val dateIso = body.optString("dataIso")
-            val requestId = body.optString("clientRequestId")
-            val answers = body.optJSONArray("respostas")
+            val dateIso = body?.optString("dataIso").orEmpty()
+            val requestId = body?.optString("clientRequestId").orEmpty()
+            val answers = body?.optJSONArray("respostas")
             return Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(dateIso) &&
                 requestId.isNotBlank() &&
                 answers != null && answers.length() > 0
         }
 
+        // No ranking, somente o relato de atraso possui clientRequestId próprio.
         if (verb == "POST" && path == "/api/ranking") {
-            val body = runCatching { JSONObject(payload ?: "{}") }.getOrNull()
-            return when (body?.optString("action")) {
-                "reportar_atraso" -> body.optString("clientRequestId").isNotBlank()
-                "reconhecer", "reagir", "moderar_atraso", "ajustar_pontos", "salvar_config" -> false
-                else -> false
-            }
+            return body?.optString("action") == "reportar_atraso" &&
+                body.optString("clientRequestId").isNotBlank()
         }
 
-        if (path == "/api/escalas" && verb == "POST") return false
-        if (Regex("^/api/escalas/[^/]+$").matches(path) && verb in setOf("PATCH", "DELETE")) return false
-        if (path == "/api/formacoes" && verb == "POST") return false
-        if (Regex("^/api/formacoes/[^/]+$").matches(path) && verb in setOf("PATCH", "DELETE")) return false
-        if (Regex("^/api/formacoes/[^/]+/presencas$").matches(path) && verb == "PUT") return false
-
-        if (Regex("^/api/membros/[^/]+/registros$").matches(path) && verb == "POST") return false
-        if (Regex("^/api/membros/[^/]+/registros/[^/]+$").matches(path) && verb == "DELETE") return false
-
-        if (path == "/api/app/admin-dados" && verb != "GET") return false
-
-        return true
+        return false
     }
 
     suspend fun warmEssentialCaches() {
