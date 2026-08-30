@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -137,6 +138,7 @@ private fun RestrictedMenuDialog(
                 }
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp),
                     verticalArrangement = Arrangement.spacedBy(9.dp),
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
@@ -181,6 +183,6 @@ private fun RestrictedMenuDialog(
                     )
                 }
             }
-        )
+        }
     }
 }
