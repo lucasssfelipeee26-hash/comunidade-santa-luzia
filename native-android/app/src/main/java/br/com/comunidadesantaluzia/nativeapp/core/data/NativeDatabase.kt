@@ -287,5 +287,11 @@ internal class NativeDatabase(context: Context) :
     companion object {
         const val DATABASE_NAME = "santa-luzia-native.db"
         const val DATABASE_VERSION = 2
+
+        fun userDocumentKey(userId: String, cacheKey: String): String {
+            require(userId.isNotBlank()) { "Cache autenticado precisa de proprietário." }
+            require(cacheKey.isNotBlank()) { "Chave de cache não pode ser vazia." }
+            return "user:${userId.trim()}:$cacheKey"
+        }
     }
 }
