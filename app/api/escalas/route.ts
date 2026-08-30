@@ -1,25 +1,69 @@
+import { createHash } from "node:crypto"
 import { NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { buscarJustificativaEscala, listarEscalas, salvarEscala, buscarUsuario, listarMembrosAprovados, type EscalaPessoa } from "@/lib/db"
+import { buscarJustificativaEscala, listarEscalas, salvarEscala, buscarUsuario, listarMembrosAprovados, type EscalaPessoa, type EscalaRow } from "@/lib/db"
 import { funcaoEscalaValida } from "@/lib/escala-funcoes"
 import { notificarUsuarios } from "@/lib/notificacoes"
 import { dataCivilIsoValida, horario24hValido } from "@/lib/validation"
 
 export const dynamic = "force-dynamic"
 
+type EscalaIdempotente = EscalaRow & {
+  client_request_id?: string | null
+  client_request_fingerprint?: string | null
+  criado_por?: string | null
+}
+
 function normalizarCelebrante(valor: string) {
   const nome = valor.trim().replace(/\s+/g, " ")
   return /^(padre|pe\.?|frei|dom)\s/i.test(nome) ? nome.replace(/^pe\.?\s+/i, "Padre ") : `Padre ${nome}`
 }
 
+function escalaPublica(escala: EscalaIdempotente) {
+  const { client_request_id: _requestId, client_request_fingerprint: _fingerprint, criado_por: _criadoPor, ...publica } = escala
+  return publica
+}
+
+function fingerprintEscala(valor: {
+  data: string
+  horario: string
+  celebrante: string
+  observacoes: string
+  celebracaoLiturgica: string
+  tempoLiturgico: string
+  corLiturgica: string
+  cicloDominical: string
+  dataLiturgica: string
+  pessoas: EscalaPessoa[]
+}) {
+  const canonico = {
+    data: valor.data,
+    horario: valor.horario,
+    celebrante: valor.celebrante,
+    observacoes: valor.observacoes,
+    celebracaoLiturgica: valor.celebracaoLiturgica,
+    tempoLiturgico: valor.tempoLiturgico,
+    corLiturgica: valor.corLiturgica,
+    cicloDominical: valor.cicloDominical,
+    dataLiturgica: valor.dataLiturgica,
+    pessoas: valor.pessoas
+      .map((pessoa) => ({ id: pessoa.id || "", categoria: pessoa.categoria, funcao: pessoa.funcao }))
+      .sort((a, b) => `${a.id}|${a.funcao}`.localeCompare(`${b.id}|${b.funcao}`)),
+  }
+  return createHash("sha256").update(JSON.stringify(canonico)).digest("hex")
+}
+
 export async function GET(request: Request) {
   const sessao = await lerSessao()
   const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
-  const escalas = listarEscalas().map((escala) => ({
-    ...escala,
-    celebrante: windowsBeta && escala.celebrante ? normalizarCelebrante(escala.celebrante) : escala.celebrante,
-    minha_justificativa: sessao ? buscarJustificativaEscala(escala.id, sessao.sub) ?? null : null,
-  }))
+  const escalas = (listarEscalas() as EscalaIdempotente[]).map((escalaInterna) => {
+    const escala = escalaPublica(escalaInterna)
+    return {
+      ...escala,
+      celebrante: windowsBeta && escala.celebrante ? normalizarCelebrante(escala.celebrante) : escala.celebrante,
+      minha_justificativa: sessao ? buscarJustificativaEscala(escala.id, sessao.sub) ?? null : null,
+    }
+  })
   return NextResponse.json(
     { ok: true, escalas, usuarioId: sessao?.sub ?? null, tipoUsuario: sessao?.tipo ?? null },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
@@ -47,7 +91,13 @@ export async function POST(req: Request) {
     cicloDominical?: string
     dataLiturgica?: string
     pessoas?: Array<{ id?: string; categoria?: string; funcao?: string }>
+    clientRequestId?: unknown
   } | null
+
+  const clientRequestId = String(body?.clientRequestId ?? "").trim()
+  if (clientRequestId && !/^[A-Za-z0-9._:-]{8,120}$/.test(clientRequestId)) {
+    return NextResponse.json({ ok: false, erro: "Identificador da publicação inválido." }, { status: 400 })
+  }
 
   const data = String(body?.data ?? "").trim()
   const horario = String(body?.horario ?? "").trim()
@@ -120,7 +170,40 @@ export async function POST(req: Request) {
     pessoas.push({ id: usuario.id, nome: usuario.nome, funcao, categoria })
   }
 
-  const escala = salvarEscala({
+  const fingerprint = fingerprintEscala({
+    data,
+    horario,
+    celebrante,
+    observacoes,
+    celebracaoLiturgica,
+    tempoLiturgico,
+    corLiturgica,
+    cicloDominical,
+    dataLiturgica,
+    pessoas,
+  })
+
+  if (clientRequestId) {
+    const existente = (listarEscalas() as EscalaIdempotente[]).find((escala) =>
+      escala.criado_por === sessao.sub && escala.client_request_id === clientRequestId
+    )
+    if (existente) {
+      if (existente.client_request_fingerprint !== fingerprint) {
+        return NextResponse.json(
+          { ok: false, erro: "Este identificador de publicação já foi usado com outro conteúdo." },
+          { status: 409 },
+        )
+      }
+      return NextResponse.json({
+        ok: true,
+        duplicado: true,
+        clientRequestId,
+        escala: escalaPublica(existente),
+      })
+    }
+  }
+
+  const dadosEscala = {
     data,
     horario,
     celebrante,
@@ -131,7 +214,13 @@ export async function POST(req: Request) {
     cor_liturgica: corLiturgica || null,
     ciclo_dominical: cicloDominical || null,
     data_liturgica: dataLiturgica || null,
-  })
+    ...(clientRequestId ? {
+      client_request_id: clientRequestId,
+      client_request_fingerprint: fingerprint,
+      criado_por: sessao.sub,
+    } : {}),
+  }
+  const escala = salvarEscala(dadosEscala as Parameters<typeof salvarEscala>[0]) as EscalaIdempotente
 
   const equipe = listarMembrosAprovados()
   const escalados = new Set(pessoas.map((p) => p.id).filter((id): id is string => Boolean(id)))
@@ -156,5 +245,5 @@ export async function POST(req: Request) {
     })
   }
 
-  return NextResponse.json({ ok: true, escala })
+  return NextResponse.json({ ok: true, clientRequestId: clientRequestId || null, escala: escalaPublica(escala) })
 }
