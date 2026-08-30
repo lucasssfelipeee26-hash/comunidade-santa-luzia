@@ -46,7 +46,7 @@ def _justification(store: dict[str, Any], scale_id: str, user_id: str):
     return next((row for row in store["escala_justificativas"] if str(row.get("escala_id")) == scale_id and str(row.get("usuario_id")) == user_id), None)
 
 
-def _people_from_body(store: dict[str, Any], raw_people: Any):
+def _people_from_body(store: dict[str, Any], raw_people: Any, *, strict_update: bool = False):
     people = []
     ids: set[str] = set()
     functions: set[str] = set()
@@ -60,13 +60,18 @@ def _people_from_body(store: dict[str, Any], raw_people: Any):
         if not user or user.get("status") != "aprovado" or user.get("funcao") not in {"Acólito", "Coroinha"}:
             continue
         category = "acolito" if user.get("funcao") == "Acólito" else "coroinha"
-        if str(item.get("categoria") or "") != category:
-            return None, f"{user.get('nome')} está cadastrado como {str(user.get('funcao')).lower()} e só pode ser incluído em {'Acólitos' if category == 'acolito' else 'Coroinhas'}."
         function = str(item.get("funcao") or "").strip()
-        if function not in SCALE_FUNCTIONS:
+        category_matches = str(item.get("categoria") or "") == category
+        function_valid = function in SCALE_FUNCTIONS
+        if strict_update and (not category_matches or not function_valid):
+            return None, f"Dados inválidos na escala de {user.get('nome')}."
+        if not category_matches:
+            return None, f"{user.get('nome')} está cadastrado como {str(user.get('funcao')).lower()} e só pode ser incluído em {'Acólitos' if category == 'acolito' else 'Coroinhas'}."
+        if not function_valid:
             continue
         if function in functions:
-            return None, f"A função {function} foi atribuída a mais de uma pessoa."
+            suffix = "foi repetida" if strict_update else "foi atribuída a mais de uma pessoa"
+            return None, f"A função {function} {suffix}."
         ids.add(user_id)
         functions.add(function)
         people.append({"id": user_id, "nome": user.get("nome"), "funcao": function, "categoria": category})
@@ -190,8 +195,8 @@ async def update_scale(scale_id: str, request: Request):
     if len(priest) < 8 or len(priest) > 120: return response({"ok": False, "erro": "Informe o sacerdote celebrante."}, 400)
     if len(notes) > 1200 or any(len(v) > 180 for v in (celebration, season, color, cycle)): return response({"ok": False, "erro": "Há informações maiores que o permitido."}, 400)
     if liturgy_date and not valid_date_iso(liturgy_date): return response({"ok": False, "erro": "Data litúrgica inválida."}, 400)
-    people, people_error = _people_from_body(store, body.get("pessoas"))
-    if people_error: return response({"ok": False, "erro": people_error.replace("foi atribuída a mais de uma pessoa", "foi repetida")}, 400)
+    people, people_error = _people_from_body(store, body.get("pessoas"), strict_update=True)
+    if people_error: return response({"ok": False, "erro": people_error}, 400)
     def update(data: dict[str, Any]):
         row = next((s for s in data["escalas"] if isinstance(s, dict) and str(s.get("id")) == scale_id), None)
         if not row: return None
