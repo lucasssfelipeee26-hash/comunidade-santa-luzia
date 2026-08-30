@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -44,8 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
@@ -53,6 +54,7 @@ import java.time.ZoneId
 import java.util.UUID
 import kotlin.math.max
 import kotlin.random.Random
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -142,8 +144,6 @@ private fun isFree(tile: WhatajongTile, tiles: List<WhatajongTile>): Boolean {
     val alive = tiles.filterNot { it.removed }
     val left = alive.any { it.row == tile.row && it.column == tile.column - 1 }
     val right = alive.any { it.row == tile.row && it.column == tile.column + 1 }
-    // O tabuleiro compacto mantém a regra essencial do mahjong solitaire: uma peça
-    // só pode sair quando pelo menos um dos lados está livre.
     return !left || !right
 }
 
@@ -157,18 +157,24 @@ private fun availablePair(tiles: List<WhatajongTile>): Pair<String, String>? {
 
 private fun prefs(context: Context) = context.getSharedPreferences("santa_luzia_whatajong", Context.MODE_PRIVATE)
 private fun localDate() = LocalDate.now(whatajongZone).toString()
+private fun whatajongKey(ownerUserId: String, suffix: String) = "$suffix:user:$ownerUserId"
 
-private fun readLocalRound(context: Context): Int {
+private fun readLocalRound(context: Context, ownerUserId: String): Int {
     val p = prefs(context)
-    return if (p.getString("date", "") == localDate()) p.getInt("round", 0) else 0
+    val dateKey = whatajongKey(ownerUserId, "date")
+    val roundKey = whatajongKey(ownerUserId, "round")
+    return if (p.getString(dateKey, "") == localDate()) p.getInt(roundKey, 0) else 0
 }
 
-private fun saveLocalRound(context: Context, round: Int) {
-    prefs(context).edit().putString("date", localDate()).putInt("round", round.coerceIn(0, WHATAJONG_TOTAL_ROUNDS)).apply()
+private fun saveLocalRound(context: Context, ownerUserId: String, round: Int) {
+    prefs(context).edit()
+        .putString(whatajongKey(ownerUserId, "date"), localDate())
+        .putInt(whatajongKey(ownerUserId, "round"), round.coerceIn(0, WHATAJONG_TOTAL_ROUNDS))
+        .apply()
 }
 
-private suspend fun loadWhatajongServer(container: AppContainer): WhatajongServerState =
-    when (val result = container.repository.readLocalFirst("whatajong-resultado", "/api/jogo/whatajong/resultado", authenticated = true)) {
+private suspend fun loadWhatajongServer(container: AppContainer, ownerUserId: String): WhatajongServerState =
+    when (val result = container.repository.readLocalFirst("whatajong-resultado:$ownerUserId", "/api/jogo/whatajong/resultado", authenticated = true)) {
         is RepositoryResult.Success -> runCatching {
             val json = JSONObject(result.value)
             WhatajongServerState(
@@ -182,16 +188,25 @@ private suspend fun loadWhatajongServer(container: AppContainer): WhatajongServe
 
 @Composable
 internal fun WhatajongPanel(container: AppContainer) {
+    val session by container.sessionStore.session.collectAsStateWithLifecycle(initialValue = NativeSession())
+    val ownerUserId = session.userId?.trim()?.takeIf { session.loggedIn && it.isNotBlank() }
+    if (ownerUserId == null) {
+        Card(shape = RoundedCornerShape(20.dp)) {
+            Text("Entre na sua conta para salvar e sincronizar a jornada Whatajong.", Modifier.padding(18.dp))
+        }
+        return
+    }
+
     val context = container.appContext
     val scope = rememberCoroutineScope()
-    var server by remember { mutableStateOf(WhatajongServerState()) }
-    var round by remember { mutableIntStateOf(max(1, readLocalRound(context) + 1)) }
-    var score by remember { mutableIntStateOf(0) }
-    var coins by remember { mutableIntStateOf(3) }
-    var shuffleSeed by remember { mutableIntStateOf(0) }
-    var feedback by remember { mutableStateOf("Toque em duas peças iguais que estejam livres nas laterais.") }
-    var hintPair by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val tiles = remember { mutableStateListOf<WhatajongTile>() }
+    var server by remember(ownerUserId) { mutableStateOf(WhatajongServerState()) }
+    var round by remember(ownerUserId) { mutableIntStateOf(max(1, readLocalRound(context, ownerUserId) + 1)) }
+    var score by remember(ownerUserId) { mutableIntStateOf(0) }
+    var coins by remember(ownerUserId) { mutableIntStateOf(3) }
+    var shuffleSeed by remember(ownerUserId) { mutableIntStateOf(0) }
+    var feedback by remember(ownerUserId) { mutableStateOf("Toque em duas peças iguais que estejam livres nas laterais.") }
+    var hintPair by remember(ownerUserId) { mutableStateOf<Pair<String, String>?>(null) }
+    val tiles = remember(ownerUserId) { mutableStateListOf<WhatajongTile>() }
 
     fun resetBoard(targetRound: Int, newSeed: Int = shuffleSeed) {
         tiles.clear()
@@ -199,19 +214,24 @@ internal fun WhatajongPanel(container: AppContainer) {
         hintPair = null
     }
 
-    LaunchedEffect(Unit) {
-        server = loadWhatajongServer(container)
-        val local = readLocalRound(context)
+    LaunchedEffect(ownerUserId) {
+        server = loadWhatajongServer(container, ownerUserId)
+        val local = readLocalRound(context, ownerUserId)
         val completed = max(local, server.round).coerceAtMost(WHATAJONG_TOTAL_ROUNDS)
-        if (completed > local) saveLocalRound(context, completed)
+        if (completed > local) saveLocalRound(context, ownerUserId, completed)
         round = (completed + 1).coerceAtMost(WHATAJONG_TOTAL_ROUNDS)
         resetBoard(round)
     }
 
     fun completeRound(completedRound: Int) {
-        saveLocalRound(context, completedRound)
+        saveLocalRound(context, ownerUserId, completedRound)
         val difficulty = difficultyFor(completedRound)
         scope.launch {
+            val currentSession = container.sessionStore.session.first()
+            if (!currentSession.loggedIn || currentSession.userId != ownerUserId) {
+                feedback = "Rodada mantida somente na conta que a concluiu. Entre novamente nessa conta para sincronizar."
+                return@launch
+            }
             val payload = JSONObject()
                 .put("score", score)
                 .put("completedRound", completedRound)
@@ -374,7 +394,7 @@ internal fun WhatajongPanel(container: AppContainer) {
                 Text("Dragões rendem moedas. Use as moedas para reorganizar o tabuleiro quando não houver pares livres.", style = MaterialTheme.typography.bodySmall)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(17.dp), tint = SantaWine)
-                    Text("As 24 rodadas funcionam sem internet; resultados ficam na fila persistente e sincronizam em ordem.", style = MaterialTheme.typography.labelSmall)
+                    Text("As 24 rodadas funcionam sem internet; resultados ficam na fila persistente da sua conta e sincronizam em ordem.", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
