@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgress
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveDocument
+import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveMenus
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyReading
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.OfflineLiturgyArchiveRepository
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
@@ -79,6 +80,7 @@ internal fun LiturgyCenterScreen(container: AppContainer) {
     var section by remember { mutableStateOf(CenterSection.Today) }
     var categoryId by remember { mutableStateOf("oficio") }
     var selectedDocument by remember { mutableStateOf<LiturgyArchiveDocument?>(null) }
+    var fixedMenu by remember { mutableStateOf<LiturgyFixedMenu?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -96,6 +98,7 @@ internal fun LiturgyCenterScreen(container: AppContainer) {
                         onClick = {
                             section = item
                             selectedDocument = null
+                            fixedMenu = null
                             categoryId = when (item) {
                                 CenterSection.Office -> "oficio"
                                 CenterSection.Liturgy -> "evangelho"
@@ -111,53 +114,77 @@ internal fun LiturgyCenterScreen(container: AppContainer) {
         }
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (section) {
-                CenterSection.Today -> {
-                    if (selectedDocument != null) {
-                        ArchiveDocumentReader(selectedDocument, onBack = { selectedDocument = null })
-                    } else {
-                        TodayCenterContent(container, archive) { selectedDocument = it }
-                    }
-                }
-                CenterSection.Office -> {
-                    Column(Modifier.fillMaxSize()) {
-                        if (selectedDocument == null) {
-                            OfficeTodayQuickLinks(archive) { selectedDocument = it }
-                        }
-                        Box(Modifier.weight(1f)) {
-                            ArchiveCategoryContent(archive, "oficio", "Liturgia das Horas / Ofício", selectedDocument) { selectedDocument = it }
-                        }
-                    }
-                }
-                CenterSection.Missal -> {
-                    Column(Modifier.fillMaxSize()) {
-                        if (selectedDocument == null) {
-                            MissalTodayQuickLink(archive) { selectedDocument = it }
-                        }
-                        Box(Modifier.weight(1f)) {
-                            ArchiveCategoryContent(archive, "missal", "Missal e ritos", selectedDocument) { selectedDocument = it }
-                        }
-                    }
-                }
-                CenterSection.Liturgy -> {
-                    CategoryGroupContent(
+            val openMenu = fixedMenu
+            if (openMenu != null) {
+                if (selectedDocument != null) {
+                    ArchiveDocumentReader(selectedDocument, onBack = { selectedDocument = null })
+                } else {
+                    FixedArchiveMenuContent(
                         archive = archive,
-                        categories = liturgyCategories,
-                        selectedCategory = categoryId,
-                        onCategory = { categoryId = it; selectedDocument = null },
-                        selectedDocument = selectedDocument,
+                        menu = openMenu,
+                        onBack = { fixedMenu = null },
                         onDocument = { selectedDocument = it },
                     )
                 }
-                CenterSection.More -> {
-                    CategoryGroupContent(
-                        archive = archive,
-                        categories = moreCategories,
-                        selectedCategory = categoryId,
-                        onCategory = { categoryId = it; selectedDocument = null },
-                        selectedDocument = selectedDocument,
-                        onDocument = { selectedDocument = it },
-                    )
+            } else {
+                when (section) {
+                    CenterSection.Today -> {
+                        if (selectedDocument != null) {
+                            ArchiveDocumentReader(selectedDocument, onBack = { selectedDocument = null })
+                        } else {
+                            TodayCenterContent(container, archive) { selectedDocument = it }
+                        }
+                    }
+                    CenterSection.Office -> {
+                        Column(Modifier.fillMaxSize()) {
+                            if (selectedDocument == null) {
+                                OfficeTodayQuickLinks(
+                                    archive = archive,
+                                    onDocument = { selectedDocument = it },
+                                    onMenu = { fixedMenu = it },
+                                )
+                            }
+                            Box(Modifier.weight(1f)) {
+                                ArchiveCategoryContent(archive, "oficio", "Liturgia das Horas / Ofício", selectedDocument) { selectedDocument = it }
+                            }
+                        }
+                    }
+                    CenterSection.Missal -> {
+                        Column(Modifier.fillMaxSize()) {
+                            if (selectedDocument == null) {
+                                MissalTodayQuickLink(
+                                    archive = archive,
+                                    onDocument = { selectedDocument = it },
+                                    onMenu = { fixedMenu = it },
+                                )
+                            }
+                            Box(Modifier.weight(1f)) {
+                                ArchiveCategoryContent(archive, "missal", "Missal e ritos", selectedDocument) { selectedDocument = it }
+                            }
+                        }
+                    }
+                    CenterSection.Liturgy -> {
+                        CategoryGroupContent(
+                            archive = archive,
+                            categories = liturgyCategories,
+                            selectedCategory = categoryId,
+                            onCategory = { categoryId = it; selectedDocument = null },
+                            selectedDocument = selectedDocument,
+                            onDocument = { selectedDocument = it },
+                        )
+                    }
+                    CenterSection.More -> {
+                        CategoryGroupContent(
+                            archive = archive,
+                            categories = moreCategories,
+                            selectedCategory = categoryId,
+                            onCategory = { categoryId = it; selectedDocument = null },
+                            selectedDocument = selectedDocument,
+                            onDocument = { selectedDocument = it },
+                            extraMenus = listOf(LiturgyFixedMenu("Orações", LiturgyArchiveMenus.prayers)),
+                            onMenu = { fixedMenu = it },
+                        )
+                    }
                 }
             }
         }
@@ -173,6 +200,8 @@ private fun CategoryGroupContent(
     onCategory: (String) -> Unit,
     selectedDocument: LiturgyArchiveDocument?,
     onDocument: (LiturgyArchiveDocument?) -> Unit,
+    extraMenus: List<LiturgyFixedMenu> = emptyList(),
+    onMenu: (LiturgyFixedMenu) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         FlowRow(
@@ -182,6 +211,9 @@ private fun CategoryGroupContent(
         ) {
             categories.forEach { category ->
                 FilterChip(selected = selectedCategory == category.id, onClick = { onCategory(category.id) }, label = { Text(category.label) })
+            }
+            extraMenus.forEach { menu ->
+                AssistChip(onClick = { onMenu(menu) }, label = { Text(menu.title) })
             }
         }
         val label = categories.firstOrNull { it.id == selectedCategory }?.label.orEmpty()
