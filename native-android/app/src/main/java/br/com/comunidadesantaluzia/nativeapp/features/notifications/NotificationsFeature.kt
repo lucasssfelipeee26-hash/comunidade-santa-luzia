@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
+import br.com.comunidadesantaluzia.nativeapp.core.notifications.NotificationNavigationBus
 import br.com.comunidadesantaluzia.nativeapp.core.sync.SyncScheduler
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
@@ -106,7 +107,7 @@ private fun NotificationsState.toCacheJson(): String = JSONObject().apply {
 @Composable
 internal fun NotificationsScreen(
     container: AppContainer,
-    onOpenHref: (String) -> Unit = {},
+    onOpenHref: (String) -> Unit = NotificationNavigationBus::publish,
 ) {
     var state by remember { mutableStateOf(NotificationsState()) }
     var feedback by remember { mutableStateOf("") }
