@@ -37,9 +37,10 @@ internal class NativeNotificationDispatcher(
         )
     }
 
-    fun deliverUnreadFromCache(maxPerPass: Int = 8) {
+    fun deliverUnreadFromCache(ownerUserId: String, maxPerPass: Int = 8) {
+        if (ownerUserId.isBlank()) return
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val cached = database.getDocument("notificacoes") ?: return
+        val cached = database.getDocument(NativeDatabase.userDocumentKey(ownerUserId, "notificacoes")) ?: return
         val root = runCatching { JSONObject(cached.payload) }.getOrNull() ?: return
         val array = root.optJSONArray("notificacoes") ?: JSONArray()
         val unseen = buildList {
@@ -47,7 +48,7 @@ internal class NativeNotificationDispatcher(
                 val item = array.optJSONObject(index) ?: return@repeat
                 if (!item.isNull("lida_em") && item.optLong("lida_em") > 0) return@repeat
                 val id = item.optString("id")
-                if (id.isBlank() || prefs.getBoolean("shown:$id", false)) return@repeat
+                if (id.isBlank() || prefs.getBoolean("shown:$ownerUserId:$id", false)) return@repeat
                 add(item)
             }
         }.sortedBy { it.optLong("criado_em") }.takeLast(maxPerPass)
@@ -64,7 +65,7 @@ internal class NativeNotificationDispatcher(
             }
             val pendingIntent = PendingIntent.getActivity(
                 context,
-                id.hashCode(),
+                "$ownerUserId:$id".hashCode(),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -77,8 +78,8 @@ internal class NativeNotificationDispatcher(
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
                 .build()
-            NotificationManagerCompat.from(context).notify(id.hashCode(), notification)
-            prefs.edit().putBoolean("shown:$id", true).apply()
+            NotificationManagerCompat.from(context).notify("$ownerUserId:$id".hashCode(), notification)
+            prefs.edit().putBoolean("shown:$ownerUserId:$id", true).apply()
         }
     }
 
