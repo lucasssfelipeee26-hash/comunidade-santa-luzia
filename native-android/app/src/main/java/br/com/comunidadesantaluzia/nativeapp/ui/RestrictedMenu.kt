@@ -50,42 +50,39 @@ import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 
 private data class RestrictedMenuItem(
-    val route: Route,
+    val href: String,
     val label: String,
     val icon: ImageVector,
 )
 
 private val memberMenuItems = listOf(
-    RestrictedMenuItem(Route.Profile, "Meu perfil", Icons.Rounded.AccountCircle),
-    RestrictedMenuItem(Route.Profiles, "Perfis", Icons.Rounded.Groups),
-    RestrictedMenuItem(Route.Delays, "Atrasos", Icons.Rounded.Schedule),
-    RestrictedMenuItem(Route.Journey, "Jornada", Icons.Rounded.Quiz),
+    RestrictedMenuItem("/area-restrita/perfil", "Meu perfil", Icons.Rounded.AccountCircle),
+    RestrictedMenuItem("/area-restrita/perfis", "Perfis", Icons.Rounded.Groups),
+    RestrictedMenuItem("/area-restrita/atrasos", "Atrasos", Icons.Rounded.Schedule),
+    RestrictedMenuItem("/area-restrita/jornada", "Jornada", Icons.Rounded.Quiz),
 )
 
-// Espelha os 11 atalhos do ModeradorMenu da Beta 18. Onde a tela nativa ainda
-// concentra duas ferramentas no mesmo destino, o rótulo continua separado para
-// preservar a organização aprovada sem inventar uma rota quebrada.
+// Os 11 atalhos seguem a organização do ModeradorMenu da Beta 18.
 private val moderatorMenuItems = listOf(
-    RestrictedMenuItem(Route.Profiles, "Perfis", Icons.Rounded.Groups),
-    RestrictedMenuItem(Route.Delays, "Atrasos", Icons.Rounded.Schedule),
-    RestrictedMenuItem(Route.Journey, "Jornada", Icons.Rounded.Quiz),
-    RestrictedMenuItem(Route.Scale, "Escalas", Icons.Rounded.CalendarMonth),
-    RestrictedMenuItem(Route.Formation, "Formação", Icons.Rounded.School),
-    RestrictedMenuItem(Route.Records, "Presenças", Icons.Rounded.VerifiedUser),
-    RestrictedMenuItem(Route.Records, "Registro", Icons.Rounded.ReceiptLong),
-    RestrictedMenuItem(Route.Administration, "Quizzes", Icons.Rounded.Quiz),
-    RestrictedMenuItem(Route.Administration, "Dados", Icons.Rounded.AdminPanelSettings),
-    RestrictedMenuItem(Route.Administration, "Cores", Icons.Rounded.Palette),
-    RestrictedMenuItem(Route.Diagnostics, "Diagnóstico", Icons.Rounded.BugReport),
+    RestrictedMenuItem("/area-restrita/perfis", "Perfis", Icons.Rounded.Groups),
+    RestrictedMenuItem("/area-restrita/atrasos", "Atrasos", Icons.Rounded.Schedule),
+    RestrictedMenuItem("/area-restrita/jornada", "Jornada", Icons.Rounded.Quiz),
+    RestrictedMenuItem("/escala", "Escalas", Icons.Rounded.CalendarMonth),
+    RestrictedMenuItem("/formacao", "Formação", Icons.Rounded.School),
+    RestrictedMenuItem("/area-restrita/presencas", "Presenças", Icons.Rounded.VerifiedUser),
+    RestrictedMenuItem("/area-restrita/registro", "Registro", Icons.Rounded.ReceiptLong),
+    RestrictedMenuItem("/admin/quizzes", "Quizzes", Icons.Rounded.Quiz),
+    RestrictedMenuItem("/admin/dados", "Dados", Icons.Rounded.AdminPanelSettings),
+    RestrictedMenuItem("/admin/cores", "Cores", Icons.Rounded.Palette),
+    RestrictedMenuItem("/area-restrita/diagnostico", "Diagnóstico", Icons.Rounded.BugReport),
 )
 
 @Composable
 internal fun RestrictedMenuButton(
     session: NativeSession,
-    currentRoute: String?,
-    onNavigate: (Route) -> Unit,
+    onNavigateHref: (String) -> Unit,
 ) {
-    if (!session.loggedIn || currentRoute == Route.Login.value) return
+    if (!session.loggedIn) return
     var open by remember { mutableStateOf(false) }
 
     Surface(
@@ -102,11 +99,10 @@ internal fun RestrictedMenuButton(
     if (open) {
         RestrictedMenuDialog(
             moderator = session.userType == "moderador",
-            currentRoute = currentRoute,
             onDismiss = { open = false },
-            onNavigate = { route ->
+            onNavigate = { href ->
                 open = false
-                onNavigate(route)
+                onNavigateHref(href)
             },
         )
     }
@@ -115,9 +111,8 @@ internal fun RestrictedMenuButton(
 @Composable
 private fun RestrictedMenuDialog(
     moderator: Boolean,
-    currentRoute: String?,
     onDismiss: () -> Unit,
-    onNavigate: (Route) -> Unit,
+    onNavigate: (String) -> Unit,
 ) {
     val items = if (moderator) moderatorMenuItems else memberMenuItems
     Dialog(
@@ -145,14 +140,11 @@ private fun RestrictedMenuDialog(
                     verticalArrangement = Arrangement.spacedBy(9.dp),
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
-                    items(items, key = { "${it.route.value}:${it.label}" }) { item ->
-                        val selected = currentRoute == item.route.value
+                    items(items, key = { "${it.href}:${it.label}" }) { item ->
                         Card(
-                            onClick = { onNavigate(item.route) },
+                            onClick = { onNavigate(item.href) },
                             shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (selected) SantaWine.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
-                            ),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)),
                         ) {
                             Column(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 11.dp),
@@ -162,16 +154,11 @@ private fun RestrictedMenuDialog(
                                 Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
                                     Surface(
                                         shape = RoundedCornerShape(15.dp),
-                                        color = if (selected) SantaWine else MaterialTheme.colorScheme.surface,
+                                        color = MaterialTheme.colorScheme.surface,
                                         shadowElevation = 2.dp,
                                     ) {
                                         Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                item.icon,
-                                                contentDescription = null,
-                                                tint = if (selected) MaterialTheme.colorScheme.onPrimary else SantaWine,
-                                                modifier = Modifier.size(21.dp),
-                                            )
+                                            Icon(item.icon, contentDescription = null, tint = SantaWine, modifier = Modifier.size(21.dp))
                                         }
                                     }
                                 }
@@ -179,7 +166,7 @@ private fun RestrictedMenuDialog(
                                     item.label,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (selected) SantaWine else MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 2,
                                 )
                             }
@@ -194,6 +181,6 @@ private fun RestrictedMenuDialog(
                     )
                 }
             }
-        }
+        )
     }
 }
