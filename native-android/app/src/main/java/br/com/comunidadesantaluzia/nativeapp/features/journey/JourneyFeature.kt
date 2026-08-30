@@ -150,8 +150,8 @@ private enum class JourneyTab { Quiz, Jewels, Ranking, Standalone }
 private enum class StandaloneTab { Whatajong, Quizzes }
 private fun NativeQuiz.isLiturgical(): Boolean = origin.contains("liturg", ignoreCase = true) || origin.contains("automatic", ignoreCase = true)
 
-private fun optimisticStandaloneQuizPayload(container: AppContainer, quizId: String): String? = runCatching {
-    val cached = container.database.getDocument("quizzes")?.payload ?: return@runCatching null
+private suspend fun optimisticStandaloneQuizPayload(container: AppContainer, quizId: String): String? = runCatching {
+    val cached = container.repository.cachedDocumentForCurrentUser("quizzes")?.payload ?: return@runCatching null
     val root = JSONObject(cached)
     val array = root.optJSONArray("quizzes") ?: return@runCatching null
     repeat(array.length()) { index ->
