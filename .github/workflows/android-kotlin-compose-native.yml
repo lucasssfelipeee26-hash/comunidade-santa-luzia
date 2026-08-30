@@ -6,6 +6,7 @@ on:
       - work/android-kotlin-compose-native
     paths:
       - native-android/**
+      - public/images/**
       - public/offline/**
       - app/api/**
       - lib/acervo-liturgico-storage.ts
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   native-kotlin:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
@@ -49,6 +50,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.5.0"
+
+      - name: Auditoria da referência Windows Beta 19
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_reference_fidelity.py
 
       - name: Auditoria Python de paridade Beta 18
         run: |
@@ -115,7 +121,10 @@ jobs:
           set -euo pipefail
           test -f native-android/MIGRATION-CONTRACT.md
           test -f native-android/PARITY-MATRIX.json
+          test -f native-android/REFERENCE-HISTORY.md
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/MainActivity.kt
+          test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/ReferenceSantaLuziaApp.kt
+          test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/ReferenceRestrictedArea.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/data/NativeDatabase.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/audit/SantaLuziaAuditor.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/core/liturgy/OfflineLiturgyRepository.kt
@@ -123,6 +132,7 @@ jobs:
           grep -Fq 'compose-bom:2026.06.00' native-android/app/build.gradle.kts
           grep -Fq 'android.builtInKotlin=true' native-android/gradle.properties
           grep -Fq 'compose = true' native-android/app/build.gradle.kts
+          grep -Fq 'ReferenceSantaLuziaApp(app.container)' native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/MainActivity.kt
           if grep -R -nE 'android\.webkit\.WebView|JavascriptInterface|loadUrl\("file:///android_asset' native-android/app/src; then
             echo 'ERRO: WebView/ponte JavaScript encontrada no aplicativo Kotlin nativo.' >&2
             exit 1
@@ -131,13 +141,6 @@ jobs:
             echo 'ERRO: interface web encontrada dentro do aplicativo nativo.' >&2
             exit 1
           fi
-          HOME_FILE=native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/SantaLuziaApp.kt
-          grep -Fq 'Centro Litúrgico' "$HOME_FILE"
-          grep -Fq 'Escala do Dia' "$HOME_FILE"
-          grep -Fq 'Biblioteca' "$HOME_FILE"
-          grep -Fq 'Liturgia Diária' "$HOME_FILE"
-          CARD_COUNT="$(grep -c '^                    HomeCard(' "$HOME_FILE")"
-          test "$CARD_COUNT" -eq 4
           test "$(find public/offline/liturgia-completa -maxdepth 1 -name '2026-*.json' | wc -l)" -eq 12
 
       - name: Compilar e testar Kotlin
@@ -154,21 +157,121 @@ jobs:
           unzip -l "$APK" > "$RUNNER_TEMP/native-files.txt"
           grep -Fq 'assets/liturgia-completa/2026-01.json' "$RUNNER_TEMP/native-files.txt"
           grep -Fq 'assets/liturgia-completa/2026-12.json' "$RUNNER_TEMP/native-files.txt"
+          grep -Fq 'assets/reference/hero-adoracao.jpg' "$RUNNER_TEMP/native-files.txt"
+          grep -Fq 'assets/reference/santa-luzia-logo.jpg' "$RUNNER_TEMP/native-files.txt"
           grep -Fq 'res/xml/file_paths.xml' "$RUNNER_TEMP/native-files.txt"
           if grep -Eq 'assets/(index\.html|.*\.js|.*\.css)$' "$RUNNER_TEMP/native-files.txt"; then
             echo 'ERRO: pacote nativo contém interface WebView.' >&2
             exit 1
           fi
           mkdir -p dist
-          cp "$APK" dist/Santa-Luzia-Native-Kotlin-alpha1.apk
-          sha256sum dist/Santa-Luzia-Native-Kotlin-alpha1.apk | tee dist/SHA256-NATIVE.txt
+          cp "$APK" dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
+          sha256sum dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk | tee dist/SHA256-NATIVE.txt
 
-      - name: Guardar alpha nativa
+      - name: Android 10 — validar Home, Login, Membro e Moderador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            APK=dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
+            PKG=br.com.comunidadesantaluzia.nativebeta
+            ACT=br.com.comunidadesantaluzia.nativeapp.MainActivity
+            adb install -r "$APK" > dist/android10-install.txt 2>&1
+            adb logcat -c
+
+            adb shell pm clear "$PKG" >/dev/null || true
+            adb shell am start -W -n "$PKG/$ACT" > dist/android10-public-start.txt 2>&1
+            sleep 4
+            adb shell uiautomator dump /sdcard/public.xml >/dev/null
+            adb pull /sdcard/public.xml dist/android10-public.xml >/dev/null
+            grep -q 'COMUNIDADE SANTA LUZIA' dist/android10-public.xml
+            grep -q 'Servir a Deus' dist/android10-public.xml
+            grep -q 'Centro Litúrgico' dist/android10-public.xml
+            grep -q 'Escala do Dia' dist/android10-public.xml
+            adb exec-out screencap -p > dist/android10-public.png
+
+            python3 - <<'PY'
+            import re, xml.etree.ElementTree as E
+            root=E.parse('dist/android10-public.xml').getroot()
+            node=next((n for n in root.iter('node') if 'ÁREA RESTRITA' in n.attrib.get('text','')),None)
+            if node is None: raise SystemExit('Área Restrita não encontrada')
+            nums=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
+            if len(nums)!=4: raise SystemExit('Bounds Área Restrita inválidos')
+            print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2,file=open('/tmp/tap-login','w'))
+            PY
+            set -- $(cat /tmp/tap-login); adb shell input tap "$1" "$2"
+            sleep 2
+            adb shell uiautomator dump /sdcard/login.xml >/dev/null
+            adb pull /sdcard/login.xml dist/android10-login.xml >/dev/null
+            grep -q 'Bem-vindo ao Santa Luzia' dist/android10-login.xml
+            grep -q 'Continuar como visitante' dist/android10-login.xml
+            grep -q 'Usuário ou e-mail' dist/android10-login.xml
+            adb exec-out screencap -p > dist/android10-login.png
+
+            adb shell pm clear "$PKG" >/dev/null
+            adb shell am start -W -n "$PKG/$ACT" --es debugRole member --es debugName 'Membro de Teste' --es debugFunction Coroinha --es notificationHref /area-restrita/membro > dist/android10-member-start.txt 2>&1
+            sleep 5
+            adb shell uiautomator dump /sdcard/member.xml >/dev/null
+            adb pull /sdcard/member.xml dist/android10-member.xml >/dev/null
+            grep -q 'Área Restrita' dist/android10-member.xml
+            grep -q 'Meu próximo compromisso' dist/android10-member.xml
+            grep -q 'Formação' dist/android10-member.xml
+            grep -q 'Jornada' dist/android10-member.xml
+            grep -q 'Atrasos' dist/android10-member.xml
+            grep -q 'Justificar uma ausência' dist/android10-member.xml
+            adb exec-out screencap -p > dist/android10-member.png
+
+            adb shell pm clear "$PKG" >/dev/null
+            adb shell am start -W -n "$PKG/$ACT" --es debugRole moderator --es debugName 'Moderador de Teste' --es debugFunction Moderador --es notificationHref /area-restrita/moderador > dist/android10-moderator-start.txt 2>&1
+            sleep 5
+            adb shell uiautomator dump /sdcard/moderator.xml >/dev/null
+            adb pull /sdcard/moderator.xml dist/android10-moderator.xml >/dev/null
+            grep -q 'Área Restrita' dist/android10-moderator.xml
+            grep -q 'Moderador' dist/android10-moderator.xml
+            grep -q 'Acólitos' dist/android10-moderator.xml
+            grep -q 'Coroinhas' dist/android10-moderator.xml
+            grep -q 'Atrasos' dist/android10-moderator.xml
+            grep -q 'Presenças' dist/android10-moderator.xml
+            adb exec-out screencap -p > dist/android10-moderator.png
+            python3 - <<'PY'
+            import re, xml.etree.ElementTree as E
+            root=E.parse('dist/android10-moderator.xml').getroot()
+            node=next((n for n in root.iter('node') if n.attrib.get('content-desc')=='Abrir navegação da Área Restrita'),None)
+            if node is None: raise SystemExit('Botão de menu não encontrado')
+            nums=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
+            if len(nums)!=4: raise SystemExit('Bounds do menu inválidos')
+            print((nums[0]+nums[2])//2,(nums[1]+nums[3])//2,file=open('/tmp/tap-menu','w'))
+            PY
+            set -- $(cat /tmp/tap-menu); adb shell input tap "$1" "$2"
+            sleep 1
+            adb shell uiautomator dump /sdcard/menu.xml >/dev/null
+            adb pull /sdcard/menu.xml dist/android10-moderator-menu.xml >/dev/null
+            grep -q 'Dados' dist/android10-moderator-menu.xml
+            grep -q 'Acervo' dist/android10-moderator-menu.xml
+            grep -q 'Auditor' dist/android10-moderator-menu.xml
+            grep -q 'Escala pública' dist/android10-moderator-menu.xml
+            adb exec-out screencap -p > dist/android10-moderator-menu.png
+
+            adb shell pidof "$PKG" > dist/android10-pid.txt
+            adb logcat -d -t 2400 > dist/android10-logcat.txt
+            test -s dist/android10-pid.txt
+            ! grep -q 'FATAL EXCEPTION' dist/android10-logcat.txt
+            printf 'REFERENCE_PUBLIC_OK\nREFERENCE_LOGIN_OK\nREFERENCE_MEMBER_OK\nREFERENCE_MODERATOR_OK\nREFERENCE_MENU_OK\n' > dist/android10-smoke-report.txt
+
+      - name: Guardar Beta nativa Kotlin/Python
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-native-kotlin-alpha1
+          name: santa-luzia-native-kotlin-python-beta19-r1
           path: |
-            dist/Santa-Luzia-Native-Kotlin-alpha1.apk
+            dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
             dist/SHA256-NATIVE.txt
+            dist/android10-*.txt
+            dist/android10-*.xml
+            dist/android10-*.png
           retention-days: 14
-          if-no-files-found: error
+          if-no-files-found: warn
