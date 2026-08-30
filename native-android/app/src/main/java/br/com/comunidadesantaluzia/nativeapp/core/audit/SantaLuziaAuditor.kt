@@ -65,7 +65,9 @@ internal class SantaLuziaAuditor(
     }
 
     fun recordAsync(level: String, type: String, message: String, detail: String? = null) {
-        executor.execute { record(level, type, message, detail) }
+        // O Auditor é diagnóstico: uma falha ao persistir telemetria nunca pode
+        // derrubar o aplicativo que ele deveria observar.
+        executor.execute { runCatching { record(level, type, message, detail) } }
     }
 
     fun runSelfAudit(): JSONObject {
