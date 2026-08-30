@@ -8,6 +8,7 @@ NATIVE = ROOT / "native-android" / "app" / "src" / "main" / "java" / "br" / "com
 activity = (NATIVE / "MainActivity.kt").read_text(encoding="utf-8")
 dispatcher = (NATIVE / "core" / "notifications" / "NativeNotificationDispatcher.kt").read_text(encoding="utf-8")
 bus = (NATIVE / "core" / "notifications" / "NotificationNavigationBus.kt").read_text(encoding="utf-8")
+center = (NATIVE / "features" / "notifications" / "NotificationsFeature.kt").read_text(encoding="utf-8")
 app = (NATIVE / "ui" / "SantaLuziaApp.kt").read_text(encoding="utf-8")
 
 errors: list[str] = []
@@ -20,6 +21,8 @@ require('putExtra("notificationHref"' in dispatcher, "Notificação do sistema n
 require('NotificationNavigationBus.publish(intent?.getStringExtra("notificationHref"))' in activity, "Cold start não publica o destino da notificação")
 require('override fun onNewIntent(intent: Intent)' in activity, "App já aberto não trata novo Intent de notificação")
 require('NotificationNavigationBus.publish(intent.getStringExtra("notificationHref"))' in activity, "Warm start não publica o destino da notificação")
+require('onOpenHref: (String) -> Unit = NotificationNavigationBus::publish' in center, "Central interna não usa o mesmo roteamento das notificações do sistema")
+require('notification.href?.let(onOpenHref)' in center, "Toque na notificação interna não abre seu destino")
 require('it.startsWith("/") && it.length <= 500' in bus, "Barramento aceita destino externo ou sem limite")
 require('NotificationNavigationBus.href.collectAsStateWithLifecycle()' in app, "Compose não observa o destino pendente")
 require('container.sessionStore.session.first()' in app and 'sessionReady = true' in app, "Deep-link não espera restauração da sessão")
@@ -50,7 +53,7 @@ if errors:
     raise SystemExit(1)
 
 print("AUDITORIA DE NAVEGAÇÃO POR NOTIFICAÇÃO")
-print("✓ cold start e warm start")
+print("✓ cold start, warm start e central interna")
 print("✓ somente caminhos internos")
 print("✓ sessão restaurada antes da navegação")
 print("✓ rotas privadas redirecionam ao login")
