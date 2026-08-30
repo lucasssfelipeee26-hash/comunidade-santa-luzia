@@ -104,7 +104,10 @@ private fun NotificationsState.toCacheJson(): String = JSONObject().apply {
 }.toString()
 
 @Composable
-internal fun NotificationsScreen(container: AppContainer) {
+internal fun NotificationsScreen(
+    container: AppContainer,
+    onOpenHref: (String) -> Unit = {},
+) {
     var state by remember { mutableStateOf(NotificationsState()) }
     var feedback by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -160,6 +163,7 @@ internal fun NotificationsScreen(container: AppContainer) {
             state.notifications.isEmpty() -> item { Card { Text("Nenhuma notificação no momento.", Modifier.padding(20.dp)) } }
             else -> items(state.notifications, key = { it.id }) { notification ->
                 NotificationCard(notification) {
+                    notification.href?.let(onOpenHref)
                     if (notification.readAt != null) return@NotificationCard
                     val optimistic = state.copy(
                         notifications = state.notifications.map { if (it.id == notification.id) it.copy(readAt = System.currentTimeMillis()) else it },
@@ -196,9 +200,9 @@ internal fun NotificationsScreen(container: AppContainer) {
 }
 
 @Composable
-private fun NotificationCard(notification: NativeNotification, onRead: () -> Unit) {
+private fun NotificationCard(notification: NativeNotification, onOpen: () -> Unit) {
     Card(
-        onClick = onRead,
+        onClick = onOpen,
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = if (notification.readAt == null) SantaGold.copy(alpha = .14f) else MaterialTheme.colorScheme.surface),
     ) {
