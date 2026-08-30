@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgress
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveDocument
-import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyDay
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyReading
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.OfflineLiturgyArchiveRepository
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
@@ -114,7 +113,16 @@ internal fun LiturgyCenterScreen(container: AppContainer) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (section) {
                 CenterSection.Today -> TodayCenterContent(container)
-                CenterSection.Office -> ArchiveCategoryContent(archive, "oficio", "Liturgia das Horas / Ofício", selectedDocument) { selectedDocument = it }
+                CenterSection.Office -> {
+                    Column(Modifier.fillMaxSize()) {
+                        if (selectedDocument == null) {
+                            OfficeTodayQuickLinks(archive) { selectedDocument = it }
+                        }
+                        Box(Modifier.weight(1f)) {
+                            ArchiveCategoryContent(archive, "oficio", "Liturgia das Horas / Ofício", selectedDocument) { selectedDocument = it }
+                        }
+                    }
+                }
                 CenterSection.Missal -> ArchiveCategoryContent(archive, "missal", "Missal e ritos", selectedDocument) { selectedDocument = it }
                 CenterSection.Liturgy -> {
                     CategoryGroupContent(
