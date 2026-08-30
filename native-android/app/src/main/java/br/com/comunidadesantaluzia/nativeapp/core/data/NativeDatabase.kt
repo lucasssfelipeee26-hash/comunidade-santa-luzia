@@ -240,25 +240,47 @@ internal class NativeDatabase(context: Context) :
         detail: String?,
         at: Long = System.currentTimeMillis(),
     ) {
-        writableDatabase.beginTransaction()
+        val db = writableDatabase
+        db.beginTransaction()
         try {
-            writableDatabase.execSQL(
+            // Android 10 pode trazer uma versão do SQLite anterior ao UPSERT
+            // "ON CONFLICT ... DO UPDATE". Use UPDATE + INSERT dentro da mesma
+            // transação para manter a mesma semântica em todas as versões suportadas.
+            val update = db.compileStatement(
                 """
-                INSERT INTO audit_events(signature, level, type, message, detail, occurrences, first_at, last_at)
-                VALUES(?, ?, ?, ?, ?, 1, ?, ?)
-                ON CONFLICT(signature) DO UPDATE SET
-                  level = excluded.level,
-                  type = excluded.type,
-                  message = excluded.message,
-                  detail = excluded.detail,
-                  occurrences = audit_events.occurrences + 1,
-                  last_at = excluded.last_at
+                UPDATE audit_events
+                SET level = ?,
+                    type = ?,
+                    message = ?,
+                    detail = ?,
+                    occurrences = occurrences + 1,
+                    last_at = ?
+                WHERE signature = ?
                 """.trimIndent(),
-                arrayOf<Any?>(signature, level, type, message.take(600), detail?.take(4000), at, at),
             )
-            writableDatabase.setTransactionSuccessful()
+            update.bindString(1, level)
+            update.bindString(2, type)
+            update.bindString(3, message.take(600))
+            if (detail == null) update.bindNull(4) else update.bindString(4, detail.take(4000))
+            update.bindLong(5, at)
+            update.bindString(6, signature)
+
+            if (update.executeUpdateDelete() == 0) {
+                val values = ContentValues().apply {
+                    put("signature", signature)
+                    put("level", level)
+                    put("type", type)
+                    put("message", message.take(600))
+                    put("detail", detail?.take(4000))
+                    put("occurrences", 1)
+                    put("first_at", at)
+                    put("last_at", at)
+                }
+                db.insertOrThrow("audit_events", null, values)
+            }
+            db.setTransactionSuccessful()
         } finally {
-            writableDatabase.endTransaction()
+            db.endTransaction()
         }
     }
 
