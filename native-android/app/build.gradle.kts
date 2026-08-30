@@ -47,6 +47,12 @@ val prepareOfflineAssets = tasks.register<Sync>("prepareOfflineAssets") {
         rename { fileName -> if (fileName.endsWith(".gz")) "$fileName.bin" else fileName }
         into("iliturgia")
     }
+    // Arte oficial usada pela Windows Beta 19. Ela é empacotada como asset para
+    // manter o mesmo banner/logo sem duplicar ou substituir a imagem por ícone.
+    from(rootProject.file("../public/images")) {
+        include("hero-adoracao.jpg", "santa-luzia-logo.jpg")
+        into("reference")
+    }
     into(generatedOfflineAssetsDir)
 }
 
@@ -58,8 +64,8 @@ android {
         applicationId = "br.com.comunidadesantaluzia.nativebeta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 30001
-        versionName = "3.0.0-native-alpha.1"
+        versionCode = 30019
+        versionName = "3.0.0-native-beta.19-r1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField(
@@ -110,7 +116,6 @@ dependencies {
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
-    // Linha estável compatível com compileSdk 36 no ambiente de CI atual.
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.ui:ui")
