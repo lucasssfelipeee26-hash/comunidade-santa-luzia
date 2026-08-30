@@ -47,7 +47,7 @@ internal class SyncWorker(
         val pending = container.database.pendingMutationsForOwner(active.userId, limit = 100)
         if (pending.isEmpty()) {
             runCatching { container.repository.warmEssentialCaches() }
-            runCatching { dispatcher.deliverUnreadFromCache() }
+            runCatching { dispatcher.deliverUnreadFromCache(active.userId) }
             return Result.success()
         }
 
@@ -85,8 +85,6 @@ internal class SyncWorker(
                         }
                     }
                     response.status == 403 -> {
-                        // 403 pode significar apenas que esta ação exige outro papel/permissão.
-                        // Nunca encerramos a conta inteira por causa de uma operação isolada.
                         container.database.failMutation(mutation.id, "HTTP 403: ação sem autorização")
                         container.auditor.recordAsync(
                             "warning",
@@ -105,7 +103,6 @@ internal class SyncWorker(
                             "Servidor rejeitou alteração offline",
                             "{\"path\":${JSONObject.quote(mutation.path)},\"status\":${response.status}}",
                         )
-                        // Mantemos o item para revisão; não descartamos silenciosamente dados locais.
                         runCatching { container.repository.warmEssentialCaches() }
                         return Result.success()
                     }
@@ -130,7 +127,7 @@ internal class SyncWorker(
         }
 
         runCatching { container.repository.warmEssentialCaches() }
-        runCatching { dispatcher.deliverUnreadFromCache() }
+        runCatching { dispatcher.deliverUnreadFromCache(active.userId) }
         return Result.success()
     }
 
@@ -159,7 +156,6 @@ internal class SyncWorker(
             return SessionValidation.LoggedOut
         }
         if (!response.successful) {
-            // 403/5xx/429 e falhas transitórias não provam que a sessão foi revogada.
             return SessionValidation.Retry
         }
 
@@ -183,8 +179,7 @@ internal class SyncWorker(
         val serverUserId = user?.optString("id").orEmpty().trim()
         val serverUserName = user?.optString("nome").orEmpty().trim()
         val serverUserType = user?.optString("tipo").orEmpty().trim()
-        val serverFunction = user?.optString("funcao")
-            ?.takeIf { it.isNotBlank() && it != "null" }
+        val serverFunction = user?.optString("funcao")?.takeIf { it.isNotBlank() && it != "null" }
         val serverStatus = user?.optString("status").orEmpty().trim().lowercase()
 
         if (serverUserId.isBlank() || serverUserId != local.userId) {
@@ -195,12 +190,8 @@ internal class SyncWorker(
             revokeLocalSession(container, "member-status-$serverStatus", local.userId)
             return SessionValidation.LoggedOut
         }
-        if (serverUserName.isBlank() || serverUserType.isBlank()) {
-            return SessionValidation.Retry
-        }
+        if (serverUserName.isBlank() || serverUserType.isBlank()) return SessionValidation.Retry
 
-        // O GET /auth/me é a fonte autoritativa para mudança de nome, função e papel.
-        // O cookie pode ter sido renovado pelo NativeHttpClient durante esta própria chamada.
         val refreshedCookie = container.sessionStore.session.first().sessionCookie
         container.sessionStore.saveAuthenticatedSession(
             userId = serverUserId,
@@ -213,8 +204,6 @@ internal class SyncWorker(
     }
 
     private suspend fun revokeLocalSession(container: AppContainer, reason: String, userId: String?) {
-        // Limpa apenas autenticação. Cache e mutation_queue permanecem no SQLite para
-        // não destruir trabalho feito offline antes de uma sessão expirar/revogar.
         container.sessionStore.clear()
         container.auditor.recordAsync(
             "warning",
@@ -226,26 +215,14 @@ internal class SyncWorker(
 
     private fun isIdempotentReplay(method: String, path: String, status: Int, body: String): Boolean {
         if (status != 409) return false
-        if (method.equals("PUT", ignoreCase = true) && Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)) {
-            // Neste endpoint 409 significa exclusivamente que a justificativa deste usuário já existe.
-            return true
-        }
+        if (method.equals("PUT", ignoreCase = true) && Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)) return true
         if (method.equals("PUT", ignoreCase = true) && Regex("^/api/formacoes/[^/]+/minha-presenca$").matches(path)) {
-            // Formação também usa 409 para cancelamento/horário/data. Só removemos da fila
-            // quando o servidor devolve a presença já registrada, provando replay concluído.
             val json = runCatching { JSONObject(body.ifBlank { "{}" }) }.getOrNull()
-            return json?.optJSONObject("presenca") != null &&
-                json.optString("erro").contains("já foi registrada", ignoreCase = true)
+            return json?.optJSONObject("presenca") != null && json.optString("erro").contains("já foi registrada", ignoreCase = true)
         }
-        if (method.equals("POST", ignoreCase = true) && path == "/api/quizzes/liturgia/offline") {
-            return true
-        }
-        if (method.equals("POST", ignoreCase = true) && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) {
-            return true
-        }
-        if (method.equals("POST", ignoreCase = true) && path == "/api/ranking") {
-            return true
-        }
+        if (method.equals("POST", ignoreCase = true) && path == "/api/quizzes/liturgia/offline") return true
+        if (method.equals("POST", ignoreCase = true) && Regex("^/api/quizzes/[^/]+/responder$").matches(path)) return true
+        if (method.equals("POST", ignoreCase = true) && path == "/api/ranking") return true
         return false
     }
 
