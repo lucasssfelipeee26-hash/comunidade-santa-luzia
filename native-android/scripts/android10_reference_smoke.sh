@@ -131,7 +131,14 @@ grep -q 'Auditor' dist/android10-moderator-menu.xml
 grep -q 'Escala pública' dist/android10-moderator-menu.xml
 adb exec-out screencap -p > dist/android10-moderator-menu.png
 
-test -s dist/android10-pid.txt || adb shell pidof "$PKG" > dist/android10-pid.txt
-! grep -q 'FATAL EXCEPTION' dist/android10-logcat.txt || true
+# O gate final só passa se o processo continuar vivo e nenhum crash fatal tiver
+# aparecido durante qualquer uma das telas acima.
+adb shell pidof "$PKG" > dist/android10-pid.txt
+adb logcat -d -t 4000 > dist/android10-logcat.txt
+test -s dist/android10-pid.txt
+if grep -q 'FATAL EXCEPTION' dist/android10-logcat.txt; then
+    echo 'FATAL EXCEPTION detectada durante o smoke Android 10.' >&2
+    exit 1
+fi
 
-printf 'REFERENCE_PUBLIC_OK\nREFERENCE_LOGIN_OK\nREFERENCE_MEMBER_OK\nREFERENCE_MODERATOR_OK\nREFERENCE_MENU_OK\n' > dist/android10-smoke-report.txt
+printf 'REFERENCE_PUBLIC_OK\nREFERENCE_LOGIN_OK\nREFERENCE_MEMBER_OK\nREFERENCE_MODERATOR_OK\nREFERENCE_MENU_OK\nCRASH_FREE_OK\n' > dist/android10-smoke-report.txt
