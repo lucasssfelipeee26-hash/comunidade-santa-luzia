@@ -23,9 +23,9 @@ assert 'RestrictedMenuButton(' in activity_text
 assert 'NotificationNavigationBus::publish' in activity_text
 assert 'if (session.loggedIn)' in activity_text
 assert 'AreaAction("Administração de dados"' not in app_text
-assert 'Route.AdminQuizzes("admin-quizzes")' in app_text
-assert 'Route.ThemeAdmin("admin-cores")' in app_text
-assert 'Route.ArchiveAdmin("admin-acervo")' in app_text
+assert 'AdminQuizzes("admin-quizzes")' in app_text
+assert 'ThemeAdmin("admin-cores")' in app_text
+assert 'ArchiveAdmin("admin-acervo")' in app_text
 assert '"diagnostico" in path -> Route.Diagnostics' in app_text
 assert '"/moderador/tema" in path || "/admin/cores" in path -> Route.ThemeAdmin' in app_text
 assert '"/moderador/ranking" in path || "/admin/quizzes" in path -> Route.AdminQuizzes' in app_text
