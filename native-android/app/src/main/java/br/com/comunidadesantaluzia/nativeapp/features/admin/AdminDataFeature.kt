@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Database
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Quiz
@@ -90,12 +91,17 @@ private fun isOnline(context: Context): Boolean {
 internal fun AdminDataScreen(container: AppContainer) {
     var showQuizAdmin by remember { mutableStateOf(false) }
     var showThemeAdmin by remember { mutableStateOf(false) }
+    var showArchiveAdmin by remember { mutableStateOf(false) }
     if (showQuizAdmin) {
         QuizAdminScreen(container = container, onBack = { showQuizAdmin = false })
         return
     }
     if (showThemeAdmin) {
         ThemeAdminScreen(container = container, onBack = { showThemeAdmin = false })
+        return
+    }
+    if (showArchiveAdmin) {
+        LiturgyArchiveAdminScreen(container = container, onBack = { showArchiveAdmin = false })
         return
     }
 
@@ -163,6 +169,20 @@ internal fun AdminDataScreen(container: AppContainer) {
                         }
                     }
                     OutlinedButton(onClick = { showThemeAdmin = true }, modifier = Modifier.fillMaxWidth()) { Text("Gerenciar cores do site") }
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .13f)), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.Database, null, tint = SantaWine)
+                        Column {
+                            Text("Acervo Litúrgico Offline", color = SantaWine, fontWeight = FontWeight.Bold)
+                            Text("Instalar ou atualizar o pacote autorizado .tar no servidor. Upload exige internet e não entra na fila offline.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    OutlinedButton(onClick = { showArchiveAdmin = true }, modifier = Modifier.fillMaxWidth()) { Text("Gerenciar acervo litúrgico") }
                 }
             }
         }
