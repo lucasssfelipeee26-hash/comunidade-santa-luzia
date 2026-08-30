@@ -63,6 +63,11 @@ jobs:
           set -euo pipefail
           python3 native-android/scripts/audit_delays_privacy.py
 
+      - name: Auditoria de sessão e fila offline
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_session_queue_safety.py
+
       - name: Auditoria de materiais e compartilhamento
         run: |
           set -euo pipefail
