@@ -9,8 +9,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.comunidadesantaluzia.nativeapp.core.notifications.NotificationNavigationBus
+import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
+import br.com.comunidadesantaluzia.nativeapp.ui.RestrictedMenuButton
 import br.com.comunidadesantaluzia.nativeapp.ui.SantaLuziaApp
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaLuziaTheme
 
@@ -32,7 +42,22 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         setContent {
             SantaLuziaTheme {
-                SantaLuziaApp(app.container)
+                val session by app.container.sessionStore.session.collectAsStateWithLifecycle(initialValue = NativeSession())
+                Box(Modifier.fillMaxSize()) {
+                    SantaLuziaApp(app.container)
+                    if (session.loggedIn) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 18.dp, end = 12.dp),
+                        ) {
+                            RestrictedMenuButton(
+                                session = session,
+                                onNavigateHref = NotificationNavigationBus::publish,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
