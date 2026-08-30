@@ -43,7 +43,7 @@ internal data class LiturgyArchiveDocument(
  * Lê o mesmo acervo iLiturgia compactado usado pela Beta 18, sem WebView.
  *
  * A Beta 18 compartilha gerais.html.json.gz entre três categorias lógicas:
- * - 469 documentos em evangelho/* pertencem a Evangelhos/Lectio Divina;
+ * - 469 documentos sob evangelho/ pertencem a Evangelhos/Lectio Divina;
  * - IGLH.htm e bienal.htm completam o Ofício (3.750 + 2 = 3.752);
  * - os quatro documentos raiz restantes pertencem a Documentos gerais.
  *
