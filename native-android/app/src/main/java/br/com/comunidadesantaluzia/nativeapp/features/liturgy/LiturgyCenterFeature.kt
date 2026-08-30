@@ -112,7 +112,13 @@ internal fun LiturgyCenterScreen(container: AppContainer) {
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (section) {
-                CenterSection.Today -> TodayCenterContent(container)
+                CenterSection.Today -> {
+                    if (selectedDocument != null) {
+                        ArchiveDocumentReader(selectedDocument, onBack = { selectedDocument = null })
+                    } else {
+                        TodayCenterContent(container, archive) { selectedDocument = it }
+                    }
+                }
                 CenterSection.Office -> {
                     Column(Modifier.fillMaxSize()) {
                         if (selectedDocument == null) {
@@ -287,7 +293,11 @@ private fun ArchiveDocumentReader(document: LiturgyArchiveDocument, onBack: () -
 }
 
 @Composable
-private fun TodayCenterContent(container: AppContainer) {
+private fun TodayCenterContent(
+    container: AppContainer,
+    archive: OfflineLiturgyArchiveRepository,
+    onDocument: (LiturgyArchiveDocument) -> Unit,
+) {
     val today = remember { LiturgicalReadingProgress.todayCuiaba() }
     val effectiveDate = remember(today) { today.takeIf { it.year == 2026 } ?: LocalDate.of(2026, 1, 1) }
     val day = remember(effectiveDate) { container.liturgy.day(effectiveDate) }
@@ -313,6 +323,7 @@ private fun TodayCenterContent(container: AppContainer) {
         if (day == null) {
             item { Card { Text("A liturgia deste dia não foi localizada no pacote offline.", Modifier.padding(17.dp)) } }
         } else {
+            item { TodayArchiveQuickLinks(archive, effectiveDate, day, onDocument) }
             readingItems("Primeira Leitura", day.firstReading)
             readingItems("Salmo", day.psalm)
             readingItems("Segunda Leitura", day.secondReading)
