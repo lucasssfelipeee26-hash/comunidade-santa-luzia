@@ -45,6 +45,9 @@ jobs:
       - name: Auditar paridade endpoint a endpoint
         run: python python-backend/scripts/audit_endpoint_parity.py
 
+      - name: Auditar paridade semântica crítica
+        run: python python-backend/scripts/audit_semantic_parity.py
+
       - name: Smoke test FastAPI
         run: |
           python - <<'PY'
