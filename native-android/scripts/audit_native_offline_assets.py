@@ -21,7 +21,6 @@ def require(condition: bool, message: str) -> None:
         errors.append(message)
 
 
-# Material de Formação: download autenticado, gravação atômica e abertura offline.
 require("downloadToFile" in http, "Cliente HTTP não possui download autenticado de arquivo")
 require(".part" in http and "renameTo" in http, "Download de material não usa gravação temporária/atômica")
 require("Content-Length" in http and "Download incompleto" in http, "Download não valida integridade básica pelo tamanho")
@@ -31,11 +30,11 @@ require("Material disponível offline" in formation, "Tela não informa disponib
 require("FileProvider.getUriForFile" in material_store, "Material local não usa URI segura para abrir")
 require('path="formation-materials/"' in paths, "FileProvider não restringe o acesso aos materiais de Formação")
 
-# Compartilhamento do Auditor: arquivo técnico privado, nunca file:// público.
-require("shareReport(file)" in auditor, "Exportação do Auditor não abre compartilhamento nativo")
+require("fun exportReport(): File" in auditor, "Auditor não gera relatório local")
+require("fun shareReport(file: File): Boolean" in auditor, "Auditor não possui compartilhamento explícito")
 require("FileProvider.getUriForFile" in auditor, "Auditor não compartilha por FileProvider")
 require("FLAG_GRANT_READ_URI_PERMISSION" in auditor, "Compartilhamento do Auditor não concede acesso temporário seguro")
-require('path="diagnosticos/"' in paths, "FileProvider não expõe apenas a pasta privada de diagnósticos")
+require('path="diagnosticos/"' in paths, "FileProvider não restringe a pasta de diagnósticos")
 require("android:exported=\"false\"" in manifest and "FileProvider" in manifest, "FileProvider não está privado no manifesto")
 
 if errors:
@@ -46,6 +45,4 @@ if errors:
 
 print("AUDITORIA OFFLINE/ARQUIVOS NATIVOS")
 print("✓ materiais de Formação: download autenticado e cache offline")
-print("✓ download: temporário, validado e promovido atomicamente")
-print("✓ abertura local: FileProvider privado")
-print("✓ diagnóstico: compartilhamento seguro por content URI")
+print("✓ diagnóstico: geração e compartilhamento seguro separados")
