@@ -15,6 +15,7 @@ internal data class CachedDocument(
 
 internal data class PendingMutation(
     val id: String,
+    val ownerUserId: String?,
     val method: String,
     val path: String,
     val payload: String?,
@@ -48,6 +49,7 @@ internal class NativeDatabase(context: Context) :
             """
             CREATE TABLE mutation_queue (
               id TEXT PRIMARY KEY NOT NULL,
+              owner_user_id TEXT NOT NULL,
               method TEXT NOT NULL,
               path TEXT NOT NULL,
               payload TEXT,
@@ -58,6 +60,26 @@ internal class NativeDatabase(context: Context) :
             """.trimIndent(),
         )
         db.execSQL("CREATE INDEX mutation_queue_created_idx ON mutation_queue(created_at)")
+        db.execSQL("CREATE INDEX mutation_queue_owner_created_idx ON mutation_queue(owner_user_id, created_at)")
+        createAuditEventsTable(db)
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        var version = oldVersion
+        if (version == 1) {
+            // v1 não vinculava a fila offline a uma conta. Preservamos as linhas antigas,
+            // mas elas ficam em quarentena (owner_user_id NULL) e nunca são reproduzidas
+            // automaticamente sob uma conta diferente.
+            db.execSQL("ALTER TABLE mutation_queue ADD COLUMN owner_user_id TEXT")
+            db.execSQL("CREATE INDEX IF NOT EXISTS mutation_queue_owner_created_idx ON mutation_queue(owner_user_id, created_at)")
+            version = 2
+        }
+        check(version == newVersion) {
+            "Migração SQLite ausente: $oldVersion -> $newVersion (parou em $version)"
+        }
+    }
+
+    private fun createAuditEventsTable(db: SQLiteDatabase) {
         db.execSQL(
             """
             CREATE TABLE audit_events (
@@ -72,14 +94,6 @@ internal class NativeDatabase(context: Context) :
             )
             """.trimIndent(),
         )
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // A migração nativa nunca usa destructiveMigration. Cada mudança de schema
-        // deverá ter um passo explícito antes de alterar DATABASE_VERSION.
-        check(oldVersion == newVersion) {
-            "Migração SQLite ausente: $oldVersion -> $newVersion"
-        }
     }
 
     fun putDocument(key: String, payload: String, etag: String? = null, updatedAt: Long = System.currentTimeMillis()) {
@@ -119,10 +133,12 @@ internal class NativeDatabase(context: Context) :
         }
     }
 
-    fun enqueue(method: String, path: String, payload: String?): String {
+    fun enqueue(ownerUserId: String, method: String, path: String, payload: String?): String {
+        require(ownerUserId.isNotBlank()) { "Uma alteração offline precisa ter um usuário proprietário." }
         val id = UUID.randomUUID().toString()
         val values = ContentValues().apply {
             put("id", id)
+            put("owner_user_id", ownerUserId)
             put("method", method.uppercase())
             put("path", path)
             put("payload", payload)
@@ -133,13 +149,26 @@ internal class NativeDatabase(context: Context) :
         return id
     }
 
-    fun pendingMutations(limit: Int = 100): List<PendingMutation> {
+    fun pendingMutationsForOwner(ownerUserId: String, limit: Int = 100): List<PendingMutation> {
+        if (ownerUserId.isBlank()) return emptyList()
+        return queryPendingMutations(
+            selection = "owner_user_id = ?",
+            selectionArgs = arrayOf(ownerUserId),
+            limit = limit,
+        )
+    }
+
+    private fun queryPendingMutations(
+        selection: String?,
+        selectionArgs: Array<String>?,
+        limit: Int,
+    ): List<PendingMutation> {
         val result = mutableListOf<PendingMutation>()
         readableDatabase.query(
             "mutation_queue",
-            arrayOf("id", "method", "path", "payload", "created_at", "attempts", "last_error"),
-            null,
-            null,
+            arrayOf("id", "owner_user_id", "method", "path", "payload", "created_at", "attempts", "last_error"),
+            selection,
+            selectionArgs,
             null,
             null,
             "created_at ASC",
@@ -148,16 +177,24 @@ internal class NativeDatabase(context: Context) :
             while (cursor.moveToNext()) {
                 result += PendingMutation(
                     id = cursor.getString(0),
-                    method = cursor.getString(1),
-                    path = cursor.getString(2),
-                    payload = if (cursor.isNull(3)) null else cursor.getString(3),
-                    createdAt = cursor.getLong(4),
-                    attempts = cursor.getInt(5),
-                    lastError = if (cursor.isNull(6)) null else cursor.getString(6),
+                    ownerUserId = if (cursor.isNull(1)) null else cursor.getString(1),
+                    method = cursor.getString(2),
+                    path = cursor.getString(3),
+                    payload = if (cursor.isNull(4)) null else cursor.getString(4),
+                    createdAt = cursor.getLong(5),
+                    attempts = cursor.getInt(6),
+                    lastError = if (cursor.isNull(7)) null else cursor.getString(7),
                 )
             }
         }
         return result
+    }
+
+    fun quarantinedMutationCount(): Int = readableDatabase.rawQuery(
+        "SELECT COUNT(*) FROM mutation_queue WHERE owner_user_id IS NULL OR trim(owner_user_id) = ''",
+        null,
+    ).use { cursor ->
+        if (cursor.moveToFirst()) cursor.getInt(0) else 0
     }
 
     fun completeMutation(id: String) {
@@ -249,6 +286,6 @@ internal class NativeDatabase(context: Context) :
 
     companion object {
         const val DATABASE_NAME = "santa-luzia-native.db"
-        const val DATABASE_VERSION = 1
+        const val DATABASE_VERSION = 2
     }
 }
