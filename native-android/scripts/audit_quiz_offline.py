@@ -26,6 +26,8 @@ def require(condition: bool, message: str) -> None:
 require('readLocalFirst("quizzes", "/api/quizzes"' in journey, "Lista de quizzes não usa cache local-first")
 require('"quizzes" to "/api/quizzes"' in repository, "Sincronização essencial não baixa quizzes publicados")
 require('SyncScheduler.syncNow(this)' in application_text, "Abertura do app não agenda sincronização assim que houver rede")
+require('NativeDatabase.userDocumentKey' in repository, "Cache autenticado não está isolado por conta")
+require('cachedDocumentForCurrentUser("quizzes")' in journey, "Otimismo do quiz ainda acessa cache global")
 
 # 2) Depois de baixado, a resposta pode ser feita offline e deve sobreviver até reconectar.
 require('clientRequestId' in journey, "Resposta avulsa não possui identificador único de replay")
@@ -33,13 +35,16 @@ require('optimisticCacheKey = "quizzes"' in journey, "Resposta offline não atua
 require('Respondido offline · aguardando envio' in journey, "Interface não informa resposta avulsa pendente")
 require('Regex("^/api/quizzes/[^/]+/responder$")' in repository, "Política de fila não reconhece resposta de quiz avulso")
 require('requestId.isNotBlank()' in repository, "Fila de quiz avulso aceita replay sem identificador único")
-require('database.enqueue' in repository and 'mutation_queue' in database, "Resposta offline não usa fila persistente")
+require('database.enqueue(ownerUserId' in repository and 'owner_user_id' in database, "Resposta offline não usa fila persistente vinculada à conta")
+require('pendingMutationsForOwner(active.userId' in sync, "SyncWorker pode reproduzir fila de outra conta")
 require('Regex("^/api/quizzes/[^/]+/responder$")' in sync, "SyncWorker não reconhece replay de quiz avulso")
 
-# 3) Sessão local expirada no servidor não pode apagar uma resposta já feita.
+# 3) Sessão local expirada no servidor não pode apagar a resposta já feita nem transferi-la a outra conta.
 require('shouldPreserveOnAuthFailure' in repository, "Repositório não possui proteção para sessão expirada")
-require('preserveOnAuthFailure && response.status in setOf(401, 403)' in repository, "401/403 ainda podem descartar resposta avulsa")
-require('response.status == 401 || response.status == 403' in sync, "SyncWorker não conserva fila aguardando nova autenticação")
+require('preserveOnAuthFailure && response.status in setOf(401, 403)' in repository, "401/403 ainda podem descartar resposta avulsa antes de entrar na fila")
+require('response.status == 401' in sync and 'validateAuthenticatedSession(container)' in sync, "SyncWorker não revalida autenticação após 401")
+require('response.status == 403' in sync and 'sync-forbidden' in sync, "SyncWorker não preserva a sessão diante de 403 de ação isolada")
+require('container.sessionStore.clear()' in sync and 'session-revoked' in sync, "Sessão realmente revogada não é encerrada localmente")
 require('SyncScheduler.syncNow(container.appContext)' in journey, "Resposta enfileirada não agenda sincronização posterior")
 
 # 4) O Quiz Litúrgico cronometrado continua sendo uma regra diferente.
@@ -71,9 +76,9 @@ if errors:
 
 print("AUDITORIA QUIZ AVULSO OFFLINE")
 print("✓ publicação e administração: somente online")
-print("✓ download: cache local-first")
+print("✓ download: cache local-first isolado por conta")
 print("✓ resposta: offline após download")
-print("✓ envio: fila persistente ao reconectar")
-print("✓ sessão expirada: resposta preservada até novo login")
+print("✓ envio: fila persistente vinculada ao usuário")
+print("✓ sessão expirada: resposta preservada sem atravessar contas")
 print("✓ replay: idempotente")
 print("✓ notificações: sincronizadas e persistidas offline")
