@@ -50,6 +50,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,6 +84,40 @@ private data class FormationParticipant(
     val justification: String,
 )
 
+private fun optimisticFormationPublication(
+    cachedPayload: String?,
+    requestId: String,
+    draft: FormationDraft,
+): String? = runCatching {
+    val root = JSONObject(cachedPayload ?: return@runCatching null)
+    val formations = root.optJSONArray("formacoes") ?: JSONArray().also { root.put("formacoes", it) }
+    formations.put(JSONObject().apply {
+        put("id", "local-formation-$requestId")
+        put("titulo", draft.title)
+        put("tema", draft.theme)
+        put("data", draft.date)
+        put("horario", draft.time.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("descricao", draft.description)
+        put("status", draft.status)
+        put("motivo_cancelamento", draft.cancellationReason.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("arquivo", JSONObject.NULL)
+        put("minha_presenca", JSONObject.NULL)
+        put("sincronizacaoPendente", true)
+    })
+    root.toString()
+}.getOrNull()
+
+private fun FormationDraft.toJson(requestId: String): String = JSONObject()
+    .put("titulo", title)
+    .put("tema", theme)
+    .put("data", date)
+    .put("horario", time)
+    .put("descricao", description)
+    .put("status", status)
+    .put("motivo_cancelamento", cancellationReason)
+    .put("clientRequestId", requestId)
+    .toString()
+
 @Composable
 internal fun FormationModeratorPanel(
     container: AppContainer,
@@ -92,6 +127,7 @@ internal fun FormationModeratorPanel(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
+    var creationRequestId by remember { mutableStateOf<String?>(null) }
     var selectedFile by remember { mutableStateOf<Uri?>(null) }
     var editing by remember { mutableStateOf<NativeFormation?>(null) }
     var deleting by remember { mutableStateOf<NativeFormation?>(null) }
@@ -100,25 +136,40 @@ internal fun FormationModeratorPanel(
     var busy by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> selectedFile = uri }
 
+    fun closeCreation() {
+        creating = false
+        selectedFile = null
+        creationRequestId = null
+    }
+
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = SantaGold.copy(alpha = .12f)),
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Administração da formação", color = SantaWine, fontWeight = FontWeight.Bold)
-            Text("Publicação, materiais e alterações administrativas exigem confirmação do servidor.", style = MaterialTheme.typography.bodySmall)
+            Text("Sem anexo, uma nova formação pode ser salva offline e sincronizada depois. Com material, a publicação exige rede, mas o retry é idempotente.", style = MaterialTheme.typography.bodySmall)
             feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = if (it.startsWith("Erro")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) }
-            Button(onClick = { selectedFile = null; creating = true }, enabled = !busy) {
+            Button(onClick = {
+                selectedFile = null
+                creationRequestId = UUID.randomUUID().toString()
+                creating = true
+            }, enabled = !busy) {
                 Icon(Icons.Rounded.Add, null)
                 Text("Nova formação", Modifier.padding(start = 7.dp))
             }
             formations.sortedByDescending { it.date }.take(10).forEach { formation ->
+                val pending = formation.id.startsWith("local-formation-")
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${formation.date}${formation.time?.let { " · $it" }.orEmpty()} · ${formation.title}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { editing = formation }, enabled = !busy) { Icon(Icons.Rounded.Edit, null, Modifier.size(17.dp)); Text("Editar") }
-                        TextButton(onClick = { attendance = formation }, enabled = !busy) { Icon(Icons.Rounded.HowToReg, null, Modifier.size(17.dp)); Text("Presenças") }
-                        TextButton(onClick = { deleting = formation }, enabled = !busy) { Icon(Icons.Rounded.Delete, null, Modifier.size(17.dp)); Text("Excluir") }
+                    if (pending) {
+                        Text("Aguardando sincronização", style = MaterialTheme.typography.labelSmall, color = SantaWine)
+                    } else {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = { editing = formation }, enabled = !busy) { Icon(Icons.Rounded.Edit, null, Modifier.size(17.dp)); Text("Editar") }
+                            TextButton(onClick = { attendance = formation }, enabled = !busy) { Icon(Icons.Rounded.HowToReg, null, Modifier.size(17.dp)); Text("Presenças") }
+                            TextButton(onClick = { deleting = formation }, enabled = !busy) { Icon(Icons.Rounded.Delete, null, Modifier.size(17.dp)); Text("Excluir") }
+                        }
                     }
                 }
             }
@@ -134,42 +185,69 @@ internal fun FormationModeratorPanel(
             initial = null,
             selectedFile = selectedFile,
             onChooseFile = { picker.launch(arrayOf("application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/plain", "application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.presentation")) },
-            onDismiss = { creating = false; selectedFile = null },
+            onDismiss = { closeCreation() },
             onSave = { draft ->
                 scope.launch {
                     busy = true
+                    val requestId = creationRequestId ?: UUID.randomUUID().toString().also { creationRequestId = it }
                     val upload = selectedFile?.let { loadFormationUpload(context, it) }
+                    if (selectedFile != null && upload == null) {
+                        feedback = "Erro: não foi possível ler o material selecionado."
+                        busy = false
+                        return@launch
+                    }
                     if (upload != null && upload.size > 20L * 1024L * 1024L) {
                         feedback = "Erro: o material deve ter no máximo 20 MB."
                         busy = false
                         return@launch
                     }
-                    val fields = mapOf(
-                        "titulo" to draft.title,
-                        "tema" to draft.theme,
-                        "data" to draft.date,
-                        "horario" to draft.time,
-                        "descricao" to draft.description,
-                        "status" to draft.status,
-                        "motivo_cancelamento" to draft.cancellationReason,
-                    )
-                    when (val result = container.repository.mutateMultipartOnlineOnly(
-                        method = "POST",
-                        path = "/api/formacoes",
-                        fields = fields,
-                        fileField = upload?.let { "arquivo" },
-                        fileName = upload?.name,
-                        mimeType = upload?.mime,
-                        fileBytes = upload?.bytes,
-                    )) {
+
+                    val result = if (upload == null) {
+                        val cached = container.repository.cachedDocumentForCurrentUser("formacoes")?.payload
+                        val optimistic = optimisticFormationPublication(cached, requestId, draft)
+                        container.repository.mutate(
+                            method = "POST",
+                            path = "/api/formacoes",
+                            payload = draft.toJson(requestId),
+                            optimisticCacheKey = optimistic?.let { "formacoes" },
+                            optimisticPayload = optimistic,
+                        )
+                    } else {
+                        val fields = mapOf(
+                            "titulo" to draft.title,
+                            "tema" to draft.theme,
+                            "data" to draft.date,
+                            "horario" to draft.time,
+                            "descricao" to draft.description,
+                            "status" to draft.status,
+                            "motivo_cancelamento" to draft.cancellationReason,
+                            "clientRequestId" to requestId,
+                        )
+                        container.repository.mutateMultipartOnlineOnly(
+                            method = "POST",
+                            path = "/api/formacoes",
+                            fields = fields,
+                            fileField = "arquivo",
+                            fileName = upload.name,
+                            mimeType = upload.mime,
+                            fileBytes = upload.bytes,
+                        )
+                    }
+
+                    when (result) {
                         is RepositoryResult.Success -> {
                             feedback = "Formação publicada."
-                            creating = false
-                            selectedFile = null
+                            closeCreation()
                             onChanged()
                         }
-                        is RepositoryResult.Failure -> feedback = "Erro: ${result.message}"
-                        is RepositoryResult.Queued -> feedback = "Erro: publicação não pode ficar em fila offline."
+                        is RepositoryResult.Failure -> {
+                            feedback = if (upload == null) result.message else "Erro: ${result.message} · tente novamente sem fechar para reutilizar a mesma publicação."
+                        }
+                        is RepositoryResult.Queued -> {
+                            feedback = "Formação salva neste aparelho e aguardando sincronização."
+                            closeCreation()
+                            onChanged()
+                        }
                     }
                     busy = false
                 }
