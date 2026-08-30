@@ -35,8 +35,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,18 +51,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
+import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.io.IOException
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.random.Random
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlin.random.Random
 
 private const val BOARD_SIZE = 8
 private const val BOARD_COUNT = BOARD_SIZE * BOARD_SIZE
@@ -72,6 +75,8 @@ private const val STATE_KEY = "state"
 private const val PENDING_KEY = "pending"
 private const val SOUND_KEY = "sound"
 private const val RECORD_KEY = "record"
+
+private fun scopedJewelKey(base: String, ownerUserId: String) = "$base:user:$ownerUserId"
 
 private val liturgicalPieceNames = listOf(
     "Cruz",
@@ -259,24 +264,36 @@ private fun writePending(list: List<PendingJewelResult>): String = JSONArray().a
 
 @Composable
 internal fun JewelsGamePanel(container: AppContainer) {
+    val session by container.sessionStore.session.collectAsStateWithLifecycle(initialValue = NativeSession())
+    val ownerUserId = session.userId?.trim()?.takeIf { session.loggedIn && it.isNotBlank() }
+    if (ownerUserId == null) {
+        Card(shape = RoundedCornerShape(20.dp)) {
+            Text("Entre na sua conta para salvar e sincronizar o progresso do Joias da Luz.", Modifier.padding(18.dp))
+        }
+        return
+    }
+
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences(PREFS, 0) }
+    val stateKey = remember(ownerUserId) { scopedJewelKey(STATE_KEY, ownerUserId) }
+    val pendingKey = remember(ownerUserId) { scopedJewelKey(PENDING_KEY, ownerUserId) }
+    val recordKey = remember(ownerUserId) { scopedJewelKey(RECORD_KEY, ownerUserId) }
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
-    val restored = remember { decodeState(prefs.getString(STATE_KEY, null)) }
-    var board by remember { mutableStateOf(restored?.board ?: initialBoard(1)) }
-    var phaseScore by remember { mutableIntStateOf(restored?.phaseScore ?: 0) }
-    var totalScore by remember { mutableIntStateOf(restored?.totalScore ?: 0) }
-    var level by remember { mutableIntStateOf(restored?.level ?: 1) }
-    var moves by remember { mutableIntStateOf(restored?.moves ?: phaseMoves(1)) }
-    var selected by remember { mutableStateOf<Int?>(null) }
-    var exploding by remember { mutableStateOf(emptySet<Int>()) }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf("Toque em duas peças vizinhas. Combine 3 ou mais símbolos litúrgicos iguais.") }
-    var rankingMessage by remember { mutableStateOf("") }
+    val restored = remember(ownerUserId) { decodeState(prefs.getString(stateKey, null)) }
+    var board by remember(ownerUserId) { mutableStateOf(restored?.board ?: initialBoard(1)) }
+    var phaseScore by remember(ownerUserId) { mutableIntStateOf(restored?.phaseScore ?: 0) }
+    var totalScore by remember(ownerUserId) { mutableIntStateOf(restored?.totalScore ?: 0) }
+    var level by remember(ownerUserId) { mutableIntStateOf(restored?.level ?: 1) }
+    var moves by remember(ownerUserId) { mutableIntStateOf(restored?.moves ?: phaseMoves(1)) }
+    var selected by remember(ownerUserId) { mutableStateOf<Int?>(null) }
+    var exploding by remember(ownerUserId) { mutableStateOf(emptySet<Int>()) }
+    var busy by remember(ownerUserId) { mutableStateOf(false) }
+    var message by remember(ownerUserId) { mutableStateOf("Toque em duas peças vizinhas. Combine 3 ou mais símbolos litúrgicos iguais.") }
+    var rankingMessage by remember(ownerUserId) { mutableStateOf("") }
     var sound by remember { mutableStateOf(prefs.getBoolean(SOUND_KEY, true)) }
-    var offline by remember { mutableStateOf(false) }
-    var record by remember { mutableIntStateOf(prefs.getInt(RECORD_KEY, 0)) }
+    var offline by remember(ownerUserId) { mutableStateOf(false) }
+    var record by remember(ownerUserId) { mutableIntStateOf(prefs.getInt(recordKey, 0)) }
     val target = phaseTarget(level)
 
     fun tone(kind: String) {
@@ -295,16 +312,22 @@ internal fun JewelsGamePanel(container: AppContainer) {
     }
 
     fun persist() {
-        prefs.edit().putString(STATE_KEY, encodeState(JewelState(board, phaseScore, totalScore, level, moves))).apply()
+        prefs.edit().putString(stateKey, encodeState(JewelState(board, phaseScore, totalScore, level, moves))).apply()
     }
 
     fun savePending(result: PendingJewelResult) {
-        val pending = readPending(prefs.getString(PENDING_KEY, null)).filter { it.completedPhase != result.completedPhase }.toMutableList()
+        val pending = readPending(prefs.getString(pendingKey, null)).filter { it.completedPhase != result.completedPhase }.toMutableList()
         pending += result
-        prefs.edit().putString(PENDING_KEY, writePending(pending)).apply()
+        prefs.edit().putString(pendingKey, writePending(pending)).apply()
     }
 
     suspend fun sendResult(result: PendingJewelResult): Pair<Boolean, Int?> {
+        val currentSession = container.sessionStore.session.first()
+        if (!currentSession.loggedIn || currentSession.userId != ownerUserId) {
+            offline = true
+            rankingMessage = "Resultado mantido somente na conta que concluiu esta fase. Entre novamente nessa conta para sincronizar."
+            return false to null
+        }
         return try {
             val payload = JSONObject().put("score", result.score).put("level", result.level).put("completedPhase", result.completedPhase).put("mode", result.mode).toString()
             val response = container.httpClient.request("POST", "/api/jogo/caminho-da-luz/resultado", payload)
@@ -332,19 +355,19 @@ internal fun JewelsGamePanel(container: AppContainer) {
     }
 
     suspend fun syncPending() {
-        var queue = readPending(prefs.getString(PENDING_KEY, null))
+        var queue = readPending(prefs.getString(pendingKey, null))
         var protection = 0
         while (queue.isNotEmpty() && protection++ < 20) {
             val item = queue.first()
             val (ok, expected) = sendResult(item)
             if (ok) {
                 queue.removeAt(0)
-                prefs.edit().putString(PENDING_KEY, writePending(queue)).apply()
+                prefs.edit().putString(pendingKey, writePending(queue)).apply()
                 continue
             }
             if (expected != null && expected > 0 && expected < item.completedPhase) {
                 queue.add(0, item.copy(level = expected + 1, completedPhase = expected, mode = "Joias da Luz · sincronização offline", savedAt = System.currentTimeMillis()))
-                prefs.edit().putString(PENDING_KEY, writePending(queue)).apply()
+                prefs.edit().putString(pendingKey, writePending(queue)).apply()
                 continue
             }
             break
@@ -415,7 +438,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
             board = initialBoard(next)
         } else if (moves <= 0) {
             record = max(record, totalScore)
-            prefs.edit().putInt(RECORD_KEY, record).remove(STATE_KEY).apply()
+            prefs.edit().putInt(recordKey, record).remove(stateKey).apply()
             message = "Fim da rodada. Reinicie para tentar um novo recorde."
         } else if (!hasMove(board)) {
             board = initialBoard(level)
@@ -425,8 +448,8 @@ internal fun JewelsGamePanel(container: AppContainer) {
         busy = false
     }
 
-    LaunchedEffect(Unit) { syncPending() }
-    LaunchedEffect(board, phaseScore, totalScore, level, moves) { if (moves > 0) persist() }
+    LaunchedEffect(ownerUserId) { syncPending() }
+    LaunchedEffect(ownerUserId, board, phaseScore, totalScore, level, moves) { if (moves > 0) persist() }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Card(
@@ -510,7 +533,7 @@ internal fun JewelsGamePanel(container: AppContainer) {
                 onClick = {
                     level = 1; phaseScore = 0; totalScore = 0; moves = phaseMoves(1); board = initialBoard(1); selected = null; busy = false
                     message = "Nova jornada iniciada. Combine 3 ou mais símbolos litúrgicos."
-                    prefs.edit().remove(STATE_KEY).apply()
+                    prefs.edit().remove(stateKey).apply()
                 },
             ) { Icon(Icons.Rounded.Refresh, null); Spacer(Modifier.size(6.dp)); Text("Reiniciar") }
             Button(modifier = Modifier.weight(1f), onClick = { scope.launch { syncPending() } }) { Icon(Icons.Rounded.AutoAwesome, null); Spacer(Modifier.size(6.dp)); Text("Sincronizar") }
