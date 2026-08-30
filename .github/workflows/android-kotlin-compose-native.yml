@@ -176,7 +176,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             APK=dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
             PKG=br.com.comunidadesantaluzia.nativebeta
             ACT=br.com.comunidadesantaluzia.nativeapp.MainActivity
