@@ -48,6 +48,9 @@ jobs:
       - name: Auditar paridade semântica crítica
         run: python python-backend/scripts/audit_semantic_parity.py
 
+      - name: Auditar regras de negócio críticas
+        run: python python-backend/scripts/audit_business_rules.py
+
       - name: Auditar uploads multipart reais
         run: python python-backend/scripts/audit_multipart_uploads.py
 
