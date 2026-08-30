@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import importlib
 import re
 from pathlib import Path
 
-from santa_luzia_backend.main import app
+import santa_luzia_backend.main as backend_main
+
+# Import explícito/reload: o CI deve auditar exatamente o código do checkout atual,
+# nunca um módulo residual carregado por outra etapa/processo.
+backend_main = importlib.reload(backend_main)
+app = backend_main.app
 
 ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = ROOT / "app" / "api"
@@ -43,16 +49,27 @@ def expected_routes():
 def actual_routes():
     result: set[tuple[str, str]] = set()
     for route in app.routes:
-        path = getattr(route, "path", "")
+        path = str(getattr(route, "path", ""))
+        methods = set(getattr(route, "methods", set()) or set())
         if not path.startswith("/api/"):
             continue
-        for method in getattr(route, "methods", set()):
+        for method in methods:
             if method in METHODS:
                 result.add((method, normalize(path)))
     return result
 
 
 def main():
+    print(f"Backend importado de: {Path(backend_main.__file__).resolve()}")
+    print(f"FastAPI version: {app.version}")
+    registered = sorted(
+        (str(getattr(route, 'path', '')), sorted(getattr(route, 'methods', set()) or set()))
+        for route in app.routes
+    )
+    print(f"Objetos de rota registrados: {len(registered)}")
+    for path, methods in registered:
+        print(f"  ROUTE {','.join(methods) or '-'} {path}")
+
     expected = expected_routes()
     actual = actual_routes()
     missing = sorted(expected - actual)
