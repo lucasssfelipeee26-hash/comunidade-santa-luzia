@@ -18,7 +18,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -43,6 +42,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.AppContainer
 import br.com.comunidadesantaluzia.nativeapp.core.data.RepositoryResult
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaGold
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
+import java.util.UUID
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -68,6 +68,46 @@ private val officialScaleRoles = listOf(
     "Librífero",
     "Auxiliar de Credência",
 )
+
+private fun optimisticScalePublication(
+    cachedPayload: String?,
+    requestId: String,
+    requestPayload: String,
+    members: List<ScaleMemberOption>,
+): String? = runCatching {
+    val root = JSONObject(cachedPayload ?: return@runCatching null)
+    val scales = root.optJSONArray("escalas") ?: JSONArray().also { root.put("escalas", it) }
+    val request = JSONObject(requestPayload)
+    val peopleInput = request.optJSONArray("pessoas") ?: JSONArray()
+    val people = JSONArray()
+    repeat(peopleInput.length()) { index ->
+        val item = peopleInput.optJSONObject(index) ?: return@repeat
+        val id = item.optString("id")
+        val member = members.firstOrNull { it.id == id }
+        people.put(JSONObject().apply {
+            put("id", id)
+            put("nome", member?.name.orEmpty())
+            put("categoria", item.optString("categoria"))
+            put("funcao", item.optString("funcao"))
+        })
+    }
+    scales.put(JSONObject().apply {
+        put("id", "local-scale-$requestId")
+        put("data", request.optString("data"))
+        put("horario", request.optString("horario"))
+        put("celebrante", request.optString("celebrante"))
+        put("observacoes", request.optString("observacoes"))
+        put("celebracao_liturgica", request.optString("celebracaoLiturgica").takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("tempo_liturgico", request.optString("tempoLiturgico").takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("cor_liturgica", request.optString("corLiturgica").takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("ciclo_dominical", request.optString("cicloDominical").takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("data_liturgica", request.optString("dataLiturgica").takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        put("pessoas", people)
+        put("minha_justificativa", JSONObject.NULL)
+        put("sincronizacaoPendente", true)
+    })
+    root.toString()
+}.getOrNull()
 
 @Composable
 internal fun ScaleModeratorPanel(
@@ -100,7 +140,7 @@ internal fun ScaleModeratorPanel(
                 Icon(Icons.Rounded.People, null, tint = SantaWine)
                 Column(Modifier.weight(1f)) {
                     Text("Gestão de escalas", color = SantaWine, fontWeight = FontWeight.Bold)
-                    Text("Publicação e alterações exigem internet para evitar duplicidade.", style = MaterialTheme.typography.bodySmall)
+                    Text("Nova escala pode ser publicada offline e sincroniza depois. Editar ou excluir ainda exige confirmação do servidor.", style = MaterialTheme.typography.bodySmall)
                 }
             }
             membersError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -113,15 +153,21 @@ internal fun ScaleModeratorPanel(
                 Text("Nova escala", Modifier.padding(start = 7.dp))
             }
             scales.take(8).forEach { scale ->
+                val pending = scale.id.startsWith("local-scale-")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${scale.date} · ${scale.time}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                    TextButton(onClick = { editor = scale; creating = false }) {
-                        Icon(Icons.Rounded.Edit, null, Modifier.size(17.dp))
-                        Text("Editar")
+                    Column(Modifier.weight(1f)) {
+                        Text("${scale.date} · ${scale.time}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        if (pending) Text("Aguardando sincronização", style = MaterialTheme.typography.labelSmall, color = SantaWine)
                     }
-                    TextButton(onClick = { deleting = scale }) {
-                        Icon(Icons.Rounded.Delete, null, Modifier.size(17.dp))
-                        Text("Excluir")
+                    if (!pending) {
+                        TextButton(onClick = { editor = scale; creating = false }) {
+                            Icon(Icons.Rounded.Edit, null, Modifier.size(17.dp))
+                            Text("Editar")
+                        }
+                        TextButton(onClick = { deleting = scale }) {
+                            Icon(Icons.Rounded.Delete, null, Modifier.size(17.dp))
+                            Text("Excluir")
+                        }
                     }
                 }
             }
@@ -138,7 +184,17 @@ internal fun ScaleModeratorPanel(
                     feedback = null
                     val current = editor
                     val result = if (current == null) {
-                        container.repository.mutateOnlineOnly("POST", "/api/escalas", payload)
+                        val requestId = UUID.randomUUID().toString()
+                        val requestPayload = JSONObject(payload).put("clientRequestId", requestId).toString()
+                        val cached = container.repository.cachedDocumentForCurrentUser("escalas")?.payload
+                        val optimistic = optimisticScalePublication(cached, requestId, requestPayload, members)
+                        container.repository.mutate(
+                            method = "POST",
+                            path = "/api/escalas",
+                            payload = requestPayload,
+                            optimisticCacheKey = optimistic?.let { "escalas" },
+                            optimisticPayload = optimistic,
+                        )
                     } else {
                         container.repository.mutateOnlineOnly("PATCH", "/api/escalas/${current.id}", payload)
                     }
@@ -150,7 +206,12 @@ internal fun ScaleModeratorPanel(
                             onChanged()
                         }
                         is RepositoryResult.Failure -> feedback = result.message
-                        is RepositoryResult.Queued -> feedback = "Esta operação não pode ficar em fila offline."
+                        is RepositoryResult.Queued -> {
+                            feedback = "Escala salva neste aparelho e aguardando sincronização."
+                            creating = false
+                            editor = null
+                            onChanged()
+                        }
                     }
                 }
             },
