@@ -7,8 +7,12 @@ import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 export const dynamic = "force-dynamic"
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
-  if (!windowsBeta) return NextResponse.json({ erro: "Recurso disponível somente na Beta Windows." }, { status: 403 })
+  const userAgent = request.headers.get("user-agent") || ""
+  const windowsBeta = /SantaLuziaWindowsBeta\//.test(userAgent) || request.headers.get("x-santa-luzia-windows-beta") === "1"
+  const androidNativo = /SantaLuziaNative\//.test(userAgent) || request.headers.get("x-santa-luzia-native") === "1"
+  if (!windowsBeta && !androidNativo) {
+    return NextResponse.json({ erro: "Recurso disponível somente nos aplicativos oficiais Santa Luzia." }, { status: 403 })
+  }
   const sessao = await lerSessao()
   if (!sessao) return NextResponse.json({ erro: "Faça login para justificar sua ausência." }, { status: 401 })
   const usuario = buscarUsuario(sessao.sub)
