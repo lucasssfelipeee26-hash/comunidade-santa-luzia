@@ -295,6 +295,21 @@ internal class SantaLuziaRepository(
         // Allowlist: toda mutação nova começa como ONLINE-ONLY. Uma rota só entra
         // nesta lista depois de provar replay seguro/idempotente no contrato do servidor.
 
+        // Publicação de Escala: o servidor persiste clientRequestId + fingerprint na própria
+        // escala. Repetir exatamente a mesma publicação devolve o registro já criado.
+        if (verb == "POST" && path == "/api/escalas") {
+            val requestId = body?.optString("clientRequestId").orEmpty()
+            val date = body?.optString("data").orEmpty()
+            val time = body?.optString("horario").orEmpty()
+            val celebrant = body?.optString("celebrante").orEmpty().trim()
+            val people = body?.optJSONArray("pessoas")
+            return Regex("^[A-Za-z0-9._:-]{8,120}$").matches(requestId) &&
+                Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(date) &&
+                Regex("^(?:[01]\\d|2[0-3]):[0-5]\\d$").matches(time) &&
+                celebrant.length in 2..120 &&
+                people != null && people.length() <= 80
+        }
+
         if (verb == "PUT" && Regex("^/api/escalas/[^/]+/minha-justificativa$").matches(path)) {
             val justification = body?.optString("justificativa").orEmpty().trim()
             return justification.length in 3..500
