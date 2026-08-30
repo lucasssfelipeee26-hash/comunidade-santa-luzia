@@ -9,6 +9,7 @@ on:
       - public/offline/**
       - app/api/**
       - lib/acervo-liturgico-storage.ts
+      - components/area-menu.tsx
       - .github/workflows/android-kotlin-compose-native.yml
   workflow_dispatch:
 
@@ -98,6 +99,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 native-android/scripts/audit_liturgy_archive_admin.py
+
+      - name: Auditoria do menu restrito
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_restricted_menu.py
 
       - name: Auditoria de materiais e compartilhamento
         run: |
