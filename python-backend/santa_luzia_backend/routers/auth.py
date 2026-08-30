@@ -89,7 +89,7 @@ async def login(request: Request):
                 "email": admin["email"],
                 "senha_hash": password_hash(admin["senha"]),
                 "tipo": "moderador",
-                "funcao": "Acólito",
+                "funcao": None,
                 "desde": None,
                 "status": "aprovado",
                 "criado_em": now_ms(),
