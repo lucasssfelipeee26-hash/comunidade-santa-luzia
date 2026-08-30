@@ -108,22 +108,14 @@ internal class SantaLuziaAuditor(
         val directory = File(context.filesDir, "diagnosticos").apply { mkdirs() }
         val file = File(directory, "Santa-Luzia-Diagnostico-${System.currentTimeMillis()}.json")
         file.writeText(runSelfAudit().toString(2), Charsets.UTF_8)
-        shareReport(file)
         return file
     }
 
-    fun clearHistory() {
-        database.clearAuditEvents()
-        File(context.filesDir, "diagnosticos").listFiles()?.forEach { runCatching { it.delete() } }
-    }
-
-    fun shutdown() {
-        detach()
-        executor.shutdownNow()
-        previousUncaughtHandler?.let { Thread.setDefaultUncaughtExceptionHandler(it) }
-    }
-
-    private fun shareReport(file: File) {
+    fun shareReport(file: File): Boolean {
+        if (!file.isFile || file.parentFile?.name != "diagnosticos") {
+            record("warning", "share-invalid-file", "Tentativa de compartilhar um diagnóstico inválido")
+            return false
+        }
         val uri = FileProvider.getUriForFile(
             context,
             "${BuildConfig.APPLICATION_ID}.files",
@@ -138,10 +130,12 @@ internal class SantaLuziaAuditor(
         val chooser = Intent.createChooser(send, "Compartilhar diagnóstico Santa Luzia").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        try {
+        return try {
             context.startActivity(chooser)
+            true
         } catch (_: ActivityNotFoundException) {
             record("warning", "share-unavailable", "Nenhum aplicativo disponível para compartilhar o diagnóstico")
+            false
         } catch (error: Exception) {
             record(
                 "warning",
@@ -149,7 +143,19 @@ internal class SantaLuziaAuditor(
                 "Não foi possível abrir o compartilhamento do diagnóstico",
                 JSONObject().put("type", error.javaClass.name).put("message", error.message.orEmpty().take(500)).toString(),
             )
+            false
         }
+    }
+
+    fun clearHistory() {
+        database.clearAuditEvents()
+        File(context.filesDir, "diagnosticos").listFiles()?.forEach { runCatching { it.delete() } }
+    }
+
+    fun shutdown() {
+        detach()
+        executor.shutdownNow()
+        previousUncaughtHandler?.let { Thread.setDefaultUncaughtExceptionHandler(it) }
     }
 
     private fun networkState(): JSONObject {
