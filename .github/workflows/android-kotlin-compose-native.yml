@@ -83,6 +83,11 @@ jobs:
           set -euo pipefail
           python3 native-android/scripts/audit_scale_offline_publication.py
 
+      - name: Auditoria de publicação de formação
+        run: |
+          set -euo pipefail
+          python3 native-android/scripts/audit_formation_offline_publication.py
+
       - name: Auditoria de materiais e compartilhamento
         run: |
           set -euo pipefail
