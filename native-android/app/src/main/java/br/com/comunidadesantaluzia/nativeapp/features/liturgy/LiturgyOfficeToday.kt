@@ -25,6 +25,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgicalReadingProgr
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyArchiveDocument
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyCalendarResolver
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgyOfficeHour
+import br.com.comunidadesantaluzia.nativeapp.core.liturgy.LiturgySanctoralResolver
 import br.com.comunidadesantaluzia.nativeapp.core.liturgy.OfflineLiturgyArchiveRepository
 import br.com.comunidadesantaluzia.nativeapp.ui.theme.SantaWine
 import java.time.LocalDate
@@ -34,6 +35,7 @@ import kotlinx.coroutines.withContext
 private data class ResolvedOfficeItem(
     val label: String,
     val document: LiturgyArchiveDocument?,
+    val usesProper: Boolean = false,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -44,9 +46,10 @@ internal fun OfficeTodayQuickLinks(
 ) {
     val today = remember { LiturgicalReadingProgress.todayCuiaba() }
     val effectiveDate = remember(today) { today.takeIf { it.year == 2026 } ?: LocalDate.of(2026, 1, 1) }
-    var items by remember(effectiveDate) { mutableStateOf<List<ResolvedOfficeItem>>(emptyList()) }
+    val celebration = remember(effectiveDate) { LiturgySanctoralResolver.celebration(effectiveDate) }
+    var items by remember(effectiveDate, celebration?.key) { mutableStateOf<List<ResolvedOfficeItem>>(emptyList()) }
 
-    LaunchedEffect(effectiveDate) {
+    LaunchedEffect(effectiveDate, celebration?.key) {
         items = withContext(Dispatchers.IO) {
             buildList {
                 add(
@@ -56,8 +59,18 @@ internal fun OfficeTodayQuickLinks(
                     ),
                 )
                 LiturgyOfficeHour.entries.forEach { hour ->
-                    val path = LiturgyCalendarResolver.temporalOfficePath(effectiveDate, hour)
-                    add(ResolvedOfficeItem(hour.label, archive.documentByPath("oficio", path)))
+                    val properPath = LiturgyCalendarResolver.saintOfficePath(celebration?.key, hour)
+                    val properDocument = properPath.takeIf { it.isNotBlank() }
+                        ?.let { archive.documentByPath("oficio", it) }
+                    val temporalPath = LiturgyCalendarResolver.temporalOfficePath(effectiveDate, hour)
+                    val temporalDocument = archive.documentByPath("oficio", temporalPath)
+                    add(
+                        ResolvedOfficeItem(
+                            label = hour.label,
+                            document = properDocument ?: temporalDocument,
+                            usesProper = properDocument != null,
+                        ),
+                    )
                 }
             }
         }
@@ -68,13 +81,16 @@ internal fun OfficeTodayQuickLinks(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            "Ofício temporal de hoje",
+            "Ofício de hoje",
             style = MaterialTheme.typography.titleMedium,
             color = SantaWine,
             fontWeight = FontWeight.Bold,
         )
+        celebration?.name?.let { name ->
+            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        }
         Text(
-            "Semana ${LiturgyCalendarResolver.psalterWeek(effectiveDate)} do Saltério · acesso direto offline",
+            "Semana ${LiturgyCalendarResolver.psalterWeek(effectiveDate)} do Saltério · calendário do Brasil · acesso direto offline",
             style = MaterialTheme.typography.bodySmall,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -83,12 +99,12 @@ internal fun OfficeTodayQuickLinks(
                     onClick = { item.document?.let(onDocument) },
                     enabled = item.document != null,
                     leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
-                    label = { Text(item.label) },
+                    label = { Text(if (item.usesProper) "${item.label} · Próprio" else item.label) },
                 )
             }
         }
         Text(
-            "Quando houver próprio de santo ou solenidade, ele terá precedência assim que o calendário próprio brasileiro estiver totalmente ligado ao resolvedor nativo.",
+            "O Próprio do santo ou da solenidade tem precedência quando existe no acervo; as demais horas usam automaticamente o temporal correto.",
             style = MaterialTheme.typography.labelSmall,
         )
     }
