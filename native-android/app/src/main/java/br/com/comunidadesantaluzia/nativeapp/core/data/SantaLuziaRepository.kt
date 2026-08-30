@@ -6,6 +6,7 @@ import br.com.comunidadesantaluzia.nativeapp.core.session.NativeSession
 import br.com.comunidadesantaluzia.nativeapp.core.session.SessionStore
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -221,7 +222,8 @@ internal class SantaLuziaRepository(
                         response.status == 429 ||
                         (preserveOnAuthFailure && response.status in setOf(401, 403))
                 ) -> {
-                    val id = database.enqueue(method, path, payload)
+                    val id = enqueueForCurrentUser(method, path, payload)
+                        ?: return@withContext RepositoryResult.Failure("Não há uma conta local válida para guardar esta alteração offline.")
                     commitOptimisticCache()
                     RepositoryResult.Queued(id)
                 }
@@ -238,7 +240,8 @@ internal class SantaLuziaRepository(
             }
         } catch (_: IOException) {
             if (mayQueue) {
-                val id = database.enqueue(method, path, payload)
+                val id = enqueueForCurrentUser(method, path, payload)
+                    ?: return@withContext RepositoryResult.Failure("Não há uma conta local válida para guardar esta alteração offline.")
                 commitOptimisticCache()
                 RepositoryResult.Queued(id)
             } else {
@@ -247,6 +250,12 @@ internal class SantaLuziaRepository(
         } catch (error: Exception) {
             RepositoryResult.Failure(error.message ?: "Não foi possível concluir a alteração.")
         }
+    }
+
+    private suspend fun enqueueForCurrentUser(method: String, path: String, payload: String?): String? {
+        val session = sessionStore.session.first()
+        val ownerUserId = session.userId?.takeIf { session.loggedIn && it.isNotBlank() } ?: return null
+        return database.enqueue(ownerUserId, method, path, payload)
     }
 
     private fun shouldPreserveOnAuthFailure(method: String, path: String, payload: String?): Boolean {
