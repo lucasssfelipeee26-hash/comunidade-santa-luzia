@@ -13,15 +13,49 @@ app = (NATIVE / "ui" / "ReferenceSantaLuziaApp.kt").read_text(encoding="utf-8")
 
 errors: list[str] = []
 
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         errors.append(message)
 
+
 require('putExtra("notificationHref"' in dispatcher, "Notificação do sistema não transporta notificationHref")
-require('publishIntentAfterOptionalDebugSession(intent)' in activity, "Cold start não encaminha o Intent de notificação")
+
+# O MainActivity pode encaminhar o Intent por um helper dedicado ou diretamente.
+# Em ambos os formatos exigimos que cold start e warm start leiam notificationHref
+# e que o barramento interno receba o destino. O caminho DEBUG também precisa
+# publicar somente depois de persistir a sessão de teste para evitar corrida de UI.
+legacy_forwarder = 'publishIntentAfterOptionalDebugSession(intent)' in activity
+refactored_cold_start = (
+    'val launchIntent = intent' in activity
+    and 'launchIntent.getStringExtra("notificationHref")' in activity
+)
+require(legacy_forwarder or refactored_cold_start, "Cold start não encaminha o Intent de notificação")
+
 require('override fun onNewIntent(intent: Intent)' in activity, "App já aberto não trata novo Intent de notificação")
-require(activity.count('publishIntentAfterOptionalDebugSession(intent)') >= 2, "Warm start não encaminha o Intent de notificação")
-require('NotificationNavigationBus.publish(notificationHref)' in activity, "Encaminhador do Intent não publica notificationHref")
+legacy_warm_start = activity.count('publishIntentAfterOptionalDebugSession(intent)') >= 2
+refactored_warm_start = (
+    'override fun onNewIntent(intent: Intent)' in activity
+    and 'intent.getStringExtra("notificationHref")' in activity
+    and 'NotificationNavigationBus.publish(intent.getStringExtra("notificationHref"))' in activity
+)
+require(legacy_warm_start or refactored_warm_start, "Warm start não encaminha o Intent de notificação")
+
+legacy_publish = 'NotificationNavigationBus.publish(notificationHref)' in activity
+refactored_publish = (
+    activity.count('NotificationNavigationBus.publish(') >= 3
+    and 'intent.getStringExtra("notificationHref")' in activity
+)
+require(legacy_publish or refactored_publish, "Encaminhador do Intent não publica notificationHref")
+
+if 'seedDebugSessionAndPublish' in activity:
+    require(
+        'saveAuthenticatedSession(' in activity
+        and 'NotificationNavigationBus.publish(' in activity
+        and activity.index('saveAuthenticatedSession(') < activity.rindex('NotificationNavigationBus.publish('),
+        "Sessão DEBUG deve ser persistida antes de publicar a navegação restrita",
+    )
+
 require('onOpenHref: (String) -> Unit = NotificationNavigationBus::publish' in center, "Central interna não usa o mesmo roteamento das notificações do sistema")
 require('notification.href?.let(onOpenHref)' in center, "Toque na notificação interna não abre seu destino")
 require('it.startsWith("/") && it.length <= 500' in bus, "Barramento aceita destino externo ou sem limite")
