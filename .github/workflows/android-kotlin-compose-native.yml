@@ -52,6 +52,9 @@ jobs:
         with:
           gradle-version: "9.5.0"
 
+      - name: Aplicar paridade visual da Beta 18
+        run: python3 native-android/scripts/apply_beta18_visual_parity.py
+
       - name: Auditoria da referência Windows Beta 19
         run: python3 native-android/scripts/audit_reference_fidelity.py
 
