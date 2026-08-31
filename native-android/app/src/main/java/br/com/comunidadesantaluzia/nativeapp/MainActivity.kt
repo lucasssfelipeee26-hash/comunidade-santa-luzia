@@ -30,38 +30,55 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         app.container.auditor.attach(this)
-        publishIntentAfterOptionalDebugSession(intent)
         requestNotificationPermissionIfNeeded()
-        setContent {
-            SantaLuziaTheme {
-                ReferenceSantaLuziaApp(app.container)
+
+        val launchIntent = intent
+        val debugRole = launchIntent.getStringExtra("debugRole")
+        if (BuildConfig.DEBUG && !debugRole.isNullOrBlank()) {
+            lifecycleScope.launch {
+                seedDebugSessionAndPublish(launchIntent, debugRole)
+                setReferenceContent()
             }
+        } else {
+            NotificationNavigationBus.publish(launchIntent.getStringExtra("notificationHref"))
+            setReferenceContent()
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        publishIntentAfterOptionalDebugSession(intent)
-    }
-
-    private fun publishIntentAfterOptionalDebugSession(intent: Intent?) {
-        val notificationHref = intent?.getStringExtra("notificationHref")
-        val debugRole = intent?.getStringExtra("debugRole")
+        val debugRole = intent.getStringExtra("debugRole")
         if (BuildConfig.DEBUG && !debugRole.isNullOrBlank()) {
             lifecycleScope.launch {
-                val moderator = debugRole.equals("moderator", ignoreCase = true) || debugRole.equals("moderador", ignoreCase = true)
-                app.container.sessionStore.saveAuthenticatedSession(
-                    userId = intent?.getStringExtra("debugId") ?: if (moderator) "debug-moderator" else "debug-member",
-                    userName = intent?.getStringExtra("debugName") ?: if (moderator) "Moderador de Teste" else "Membro de Teste",
-                    userType = if (moderator) "moderador" else "membro",
-                    function = intent?.getStringExtra("debugFunction") ?: if (moderator) "Moderador" else "Coroinha",
-                    sessionCookie = null,
-                )
-                NotificationNavigationBus.publish(notificationHref ?: if (moderator) "/area-restrita/moderador" else "/area-restrita/membro")
+                seedDebugSessionAndPublish(intent, debugRole)
             }
         } else {
-            NotificationNavigationBus.publish(notificationHref)
+            NotificationNavigationBus.publish(intent.getStringExtra("notificationHref"))
+        }
+    }
+
+    private suspend fun seedDebugSessionAndPublish(intent: Intent, debugRole: String) {
+        val moderator = debugRole.equals("moderator", ignoreCase = true) ||
+            debugRole.equals("moderador", ignoreCase = true)
+        app.container.sessionStore.saveAuthenticatedSession(
+            userId = intent.getStringExtra("debugId") ?: if (moderator) "debug-moderator" else "debug-member",
+            userName = intent.getStringExtra("debugName") ?: if (moderator) "Moderador de Teste" else "Membro de Teste",
+            userType = if (moderator) "moderador" else "membro",
+            function = intent.getStringExtra("debugFunction") ?: if (moderator) "Moderador" else "Coroinha",
+            sessionCookie = null,
+        )
+        NotificationNavigationBus.publish(
+            intent.getStringExtra("notificationHref")
+                ?: if (moderator) "/area-restrita/moderador" else "/area-restrita/membro",
+        )
+    }
+
+    private fun setReferenceContent() {
+        setContent {
+            SantaLuziaTheme {
+                ReferenceSantaLuziaApp(app.container)
+            }
         }
     }
 
