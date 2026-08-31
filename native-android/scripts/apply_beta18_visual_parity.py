@@ -23,7 +23,7 @@ header_replacement = r'''@Composable
 private fun ReferencePublicHeader(loggedIn: Boolean, onNavigate: (ReferenceRoute) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     val logo = rememberReferenceAsset("reference/santa-luzia-logo.jpg")
-    Surface(color = Paper, shadowElevation = 3.dp) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
         Column(Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
@@ -44,9 +44,9 @@ private fun ReferencePublicHeader(loggedIn: Boolean, onNavigate: (ReferenceRoute
                     }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("COMUNIDADE", color = Gold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                    Text("COMUNIDADE", color = SantaGold, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                     Text("SANTA LUZIA", color = SantaWine, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
-                    Text("Acólitos e Coroinhas São Padre Pio", style = MaterialTheme.typography.labelSmall, color = WineDark)
+                    Text("Acólitos e Coroinhas São Padre Pio", style = MaterialTheme.typography.labelSmall, color = SantaWineDark)
                 }
                 OutlinedButton(
                     onClick = {
@@ -56,12 +56,12 @@ private fun ReferencePublicHeader(loggedIn: Boolean, onNavigate: (ReferenceRoute
                     Text(if (loggedIn) "☰" else if (menuOpen) "×" else "☰", color = SantaWine, fontWeight = FontWeight.Black)
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Gold.copy(alpha = .60f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(SantaGold.copy(alpha = .60f)))
             if (!loggedIn && menuOpen) {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = Paper),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 5.dp),
                 ) {
                     Row(
@@ -116,18 +116,18 @@ private fun ReferenceHomeCard(modifier: Modifier, title: String, icon: ImageVect
         modifier = modifier,
         onClick = onClick,
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Paper),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Box(
-                Modifier.size(42.dp).clip(CircleShape).background(WineDark),
+                Modifier.size(42.dp).clip(CircleShape).background(SantaWineDark),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = GoldText,
+                    tint = SantaGoldLight,
                     modifier = Modifier.size(22.dp).graphicsLayer {
                         if (title == "Escala do Dia") {
                             rotationX = bookAngle
@@ -138,7 +138,7 @@ private fun ReferenceHomeCard(modifier: Modifier, title: String, icon: ImageVect
                     },
                 )
             }
-            Text(title, color = WineDark, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+            Text(title, color = SantaWineDark, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
