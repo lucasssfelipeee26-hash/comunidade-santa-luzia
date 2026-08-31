@@ -3,7 +3,7 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/python-backend \
-    DATA_DIR=/app/data
+    DATA_DIR=/data
 
 WORKDIR /app
 
@@ -19,7 +19,9 @@ COPY config /app/config
 COPY lib/biblioteca.ts /app/lib/biblioteca.ts
 COPY *.html.json.gz /app/
 
-RUN mkdir -p /app/data \
+# O backend reescrito deve usar o mesmo volume persistente da versão Android/Beta
+# anterior. Nunca inicializar uma base paralela dentro da imagem em /app/data.
+RUN mkdir -p /data \
     && python -m compileall -q /app/python-backend/santa_luzia_backend /app/python-backend/scripts
 
 EXPOSE 8000
