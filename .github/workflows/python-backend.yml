@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - work/android-kotlin-compose-native
+      - work/native-beta19-parity-fix
     paths:
       - python-backend/**
       - .github/workflows/python-backend.yml
@@ -54,6 +55,15 @@ jobs:
       - name: Auditar uploads multipart reais
         run: python python-backend/scripts/audit_multipart_uploads.py
 
+      - name: Garantir volume persistente legado
+        run: |
+          set -euo pipefail
+          grep -Fq 'DATA_DIR=/data' python-backend/Dockerfile
+          if grep -Fq 'DATA_DIR=/app/data' python-backend/Dockerfile; then
+            echo 'ERRO: backend não pode criar uma base paralela efêmera em /app/data.' >&2
+            exit 1
+          fi
+
       - name: Smoke test FastAPI
         run: |
           python - <<'PY'
@@ -88,10 +98,12 @@ jobs:
         run: |
           set -euo pipefail
           docker build -f python-backend/Dockerfile -t santa-luzia-python:ci .
+          mkdir -p "$RUNNER_TEMP/santa-luzia-data"
           docker run --rm -d \
             --name santa-luzia-python-ci \
             -e AUTH_SECRET="$AUTH_SECRET" \
-            -e DATA_DIR=/app/data \
+            -e DATA_DIR=/data \
+            -v "$RUNNER_TEMP/santa-luzia-data:/data" \
             -p 18080:8000 \
             santa-luzia-python:ci
           trap 'docker logs santa-luzia-python-ci || true; docker rm -f santa-luzia-python-ci >/dev/null 2>&1 || true' EXIT
@@ -116,6 +128,7 @@ jobs:
           assert status.get('appRelease') == '0.11.0', status
           print('Imagem Docker de produção: OK')
           PY
+          test -f "$RUNNER_TEMP/santa-luzia-data/santa-luzia.json"
 
       - name: Auditar proteção do banco
         run: |
