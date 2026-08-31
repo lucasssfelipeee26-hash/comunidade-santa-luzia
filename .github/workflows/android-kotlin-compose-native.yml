@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - work/android-kotlin-compose-native
+      - work/native-beta19-parity-fix
     paths:
       - native-android/**
       - public/images/**
@@ -138,8 +139,8 @@ jobs:
             exit 1
           fi
           mkdir -p dist
-          cp "$APK" dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
-          sha256sum dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk | tee dist/SHA256-NATIVE.txt
+          cp "$APK" dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r2.apk
+          sha256sum dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r2.apk | tee dist/SHA256-NATIVE.txt
 
       - name: Android 10 — validar Home, Login, Membro e Moderador
         uses: reactivecircus/android-emulator-runner@v2
@@ -154,9 +155,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-native-kotlin-python-beta19-r1
+          name: santa-luzia-native-kotlin-python-beta19-r2
           path: |
-            dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk
+            dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r2.apk
             dist/SHA256-NATIVE.txt
             dist/android10-*.txt
             dist/android10-*.xml
