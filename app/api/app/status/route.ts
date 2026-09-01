@@ -1,6 +1,7 @@
+import path from "node:path"
 import { NextResponse } from "next/server"
 import { APP_AUTH_RELEASE, APP_DISPLAY_VERSION } from "@/lib/app-release"
-import { obterRevisaoDados } from "@/lib/db"
+import { DATA_DIR, obterRevisaoDados } from "@/lib/db"
 import { obterRevisaoTemaSite } from "@/lib/site-theme"
 import { obterReleaseAndroid } from "@/lib/android-release"
 import novidades from "@/config/app-changelog.json"
@@ -12,6 +13,25 @@ export const dynamic = "force-dynamic"
 // bundle antigo em memória a buscar o runtime corrigido do banner de atualização.
 const REVISAO_INTERFACE = "ui-20260818-update-banner-v2"
 
+function statusPersistenciaRailway() {
+  const emRailway = Boolean(process.env.RAILWAY_DEPLOYMENT_ID || process.env.RAILWAY_PROJECT_ID)
+  const volumeNome = process.env.RAILWAY_VOLUME_NAME?.trim() || ""
+  const mountInformado = process.env.RAILWAY_VOLUME_MOUNT_PATH?.trim() || ""
+  const dataDir = path.resolve(DATA_DIR)
+  const mountPath = mountInformado ? path.resolve(mountInformado) : ""
+  const volumeAnexado = Boolean(volumeNome && mountPath)
+  const mountCorreto = !emRailway || (volumeAnexado && mountPath === dataDir)
+
+  return {
+    ok: !emRailway || mountCorreto,
+    ambienteRailway: emRailway,
+    volumeAnexado,
+    mountCorreto,
+    mountPath: emRailway ? (mountPath || null) : null,
+    dataDir: emRailway ? dataDir : null,
+  }
+}
+
 export async function GET() {
   return NextResponse.json(
     {
@@ -22,6 +42,8 @@ export async function GET() {
       novidades,
       revisaoDados: obterRevisaoDados(),
       revisaoTema: `${obterRevisaoTemaSite()}:${REVISAO_INTERFACE}`,
+      persistencia: statusPersistenciaRailway(),
+      deployCommit: process.env.RAILWAY_GIT_COMMIT_SHA || null,
       servidorEm: Date.now(),
     },
     {
