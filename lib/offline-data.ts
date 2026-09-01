@@ -1,4 +1,4 @@
-import { espelharPresencasNaFilaDuravel, espelharRelatosAtrasoNaFilaDuravel, filaNativaDisponivel, migrarFilasLegadasParaNativa } from "@/lib/local-first-queue"
+import { espelharPresencasNaFilaDuravel, espelharRelatosAtrasoNaFilaDuravel, filaNativaDisponivel, migrarFilasLegadasParaNativa, removerItensFilaDuravelPorOwner } from "@/lib/local-first-queue"
 
 export const OFFLINE_DATA_EVENT = "santa-luzia:offline-data"
 
@@ -145,6 +145,7 @@ export function limparDadosOfflineAposExclusao(usuarioId: string) {
   salvarRelatosAtrasoPendentes(restantes)
   const presencasRestantes = listarPresencasFormacaoPendentes().filter((item) => item.usuarioId !== usuarioId)
   salvarPresencasFormacaoPendentes(presencasRestantes)
+  void removerItensFilaDuravelPorOwner(usuarioId)
   limparDadosPrivadosOffline()
 }
 
@@ -275,7 +276,6 @@ export async function sincronizarRelatosAtrasoPendentes() {
   return { enviados, restantes: mantidos.length }
 }
 
-
 export function listarPresencasFormacaoPendentes(usuarioId?: string | null) {
   const itens = lerJson<PresencaFormacaoPendente[]>(PRESENCAS_FORMACAO_KEY)
   const validos = Array.isArray(itens)
@@ -402,9 +402,6 @@ export async function sincronizarPresencasFormacaoPendentes() {
         enviados += 1
         continue
       }
-      if (response.status === 404) {
-        continue
-      }
 
       const atualizado = {
         ...item,
@@ -412,7 +409,7 @@ export async function sincronizarPresencasFormacaoPendentes() {
         ultimoErro: String(json.erro || `HTTP ${response.status}`),
       }
       mantidos.push(atualizado)
-      if (response.status === 401 || response.status === 403 || response.status >= 500) {
+      if (response.status === 401 || response.status === 403 || response.status === 404 || response.status >= 500) {
         mantidos.push(...todos.slice(index + 1))
         break
       }
