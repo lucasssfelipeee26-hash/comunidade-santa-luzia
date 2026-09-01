@@ -94,25 +94,35 @@ jobs:
           print('Smoke FastAPI: OK')
           PY
 
-      - name: Construir e iniciar imagem Docker de produção
+      - name: Construir e validar imagem Docker com persistência real
         run: |
           set -euo pipefail
           docker build -f python-backend/Dockerfile -t santa-luzia-python:ci .
-          mkdir -p "$RUNNER_TEMP/santa-luzia-data"
+          DATA_VOLUME="$RUNNER_TEMP/santa-luzia-data"
+          mkdir -p "$DATA_VOLUME"
+
+          cleanup() {
+            docker logs santa-luzia-python-ci >/dev/null 2>&1 || true
+            docker rm -f santa-luzia-python-ci >/dev/null 2>&1 || true
+            docker rm -f santa-luzia-python-ci-restart >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
           docker run --rm -d \
             --name santa-luzia-python-ci \
             -e AUTH_SECRET="$AUTH_SECRET" \
             -e DATA_DIR=/data \
-            -v "$RUNNER_TEMP/santa-luzia-data:/data" \
+            -v "$DATA_VOLUME:/data" \
             -p 18080:8000 \
             santa-luzia-python:ci
-          trap 'docker logs santa-luzia-python-ci || true; docker rm -f santa-luzia-python-ci >/dev/null 2>&1 || true' EXIT
+
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:18080/health > /tmp/python-health.json; then
               break
             fi
             sleep 1
           done
+
           python - <<'PY'
           import json
           from urllib.request import urlopen
@@ -128,7 +138,42 @@ jobs:
           assert status.get('appRelease') == '0.11.0', status
           print('Imagem Docker de produção: OK')
           PY
-          test -f "$RUNNER_TEMP/santa-luzia-data/santa-luzia.json"
+
+          # As leituras públicas não devem fabricar um banco vazio. Grave uma
+          # mutação real no mesmo mecanismo usado pela aplicação e confirme que
+          # ela chegou ao volume montado no host.
+          docker exec santa-luzia-python-ci python - <<'PY'
+          from santa_luzia_backend.store import mutate_main
+          mutate_main(lambda store: store.setdefault('ci_probe', []).append('persistiu'))
+          print('Mutação persistente gravada: OK')
+          PY
+          test -s "$DATA_VOLUME/santa-luzia.json"
+          grep -Fq 'persistiu' "$DATA_VOLUME/santa-luzia.json"
+
+          # Recrie o container com o MESMO volume e confirme continuidade real.
+          docker rm -f santa-luzia-python-ci >/dev/null
+          docker run --rm -d \
+            --name santa-luzia-python-ci-restart \
+            -e AUTH_SECRET="$AUTH_SECRET" \
+            -e DATA_DIR=/data \
+            -v "$DATA_VOLUME:/data" \
+            santa-luzia-python:ci
+          for attempt in $(seq 1 30); do
+            if docker exec santa-luzia-python-ci-restart python - <<'PY'
+          from santa_luzia_backend.store import read_main
+          assert 'persistiu' in read_main().get('ci_probe', [])
+          PY
+            then
+              echo 'Persistência Docker após restart: OK'
+              break
+            fi
+            sleep 1
+          done
+          docker exec santa-luzia-python-ci-restart python - <<'PY'
+          from santa_luzia_backend.store import read_main
+          assert 'persistiu' in read_main().get('ci_probe', [])
+          print('Continuidade do banco: OK')
+          PY
 
       - name: Auditar proteção do banco
         run: |
