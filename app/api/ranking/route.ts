@@ -190,6 +190,11 @@ export async function POST(req: NextRequest) {
     const ocorrenciaId = String(body.ocorrenciaId || "")
     const status = String(body.status || "")
     if (status !== "confirmado" && status !== "rejeitado") return NextResponse.json({ erro: "Status inválido." }, { status: 400 })
+    const atual = buscarPontualidadeOcorrencia(ocorrenciaId)
+    if (!atual) return NextResponse.json({ erro: "Ocorrência não encontrada." }, { status: 404 })
+    if (atual.status !== "pendente") {
+      return NextResponse.json({ erro: "Esta ocorrência já foi moderada. A decisão anterior foi preservada no histórico." }, { status: 409 })
+    }
     const row = moderarPontualidade(ocorrenciaId, status, ctx.usuario.id)
     if (!row) return NextResponse.json({ erro: "Ocorrência não encontrada." }, { status: 404 })
     return NextResponse.json({ ok: true, ocorrencia: row })
