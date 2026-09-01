@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r1.apk"
+APK="dist/Santa-Luzia-Native-Kotlin-Python-Beta19-r2.apk"
 PKG="br.com.comunidadesantaluzia.nativebeta"
 ACT="br.com.comunidadesantaluzia.nativeapp.MainActivity"
 
