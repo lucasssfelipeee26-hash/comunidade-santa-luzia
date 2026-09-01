@@ -1,0 +1,72 @@
+name: Gate — código e persistência da produção
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-quality-production-main
+  cancel-in-progress: true
+
+jobs:
+  codigo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+      - name: Auditoria de robustez e preservação
+        run: npm run audit:robustez
+      - name: Compilar aplicação
+        run: npm run build
+
+  producao:
+    needs: codigo
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      STATUS_URL: https://comunidade-santa-luzia-production.up.railway.app/api/app/status
+    steps:
+      - name: Confirmar deploy e Volume Railway
+        shell: bash
+        run: |
+          set -u
+          for tentativa in $(seq 1 60); do
+            rm -f status.json
+            if curl -fsS --max-time 12 "$STATUS_URL?gate=$TARGET_SHA&tentativa=$tentativa" -o status.json; then
+              if node <<'NODE'
+          const fs = require('node:fs')
+          const status = JSON.parse(fs.readFileSync('status.json', 'utf8'))
+          const target = process.env.TARGET_SHA
+          const persistencia = status?.persistencia || {}
+          const correto =
+            status?.ok === true &&
+            status?.deployCommit === target &&
+            persistencia.ambienteRailway === true &&
+            persistencia.volumeAnexado === true &&
+            persistencia.mountCorreto === true &&
+            persistencia.ok === true
+          if (!correto) process.exit(1)
+          console.log('Deploy correto e Volume Railway confirmado em /app/data.')
+          NODE
+              then
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "A produção não confirmou o commit atual com Volume Railway válido." >&2
+          if [ -f status.json ]; then cat status.json >&2; fi
+          exit 1
