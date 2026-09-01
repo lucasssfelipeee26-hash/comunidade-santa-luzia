@@ -21,6 +21,15 @@ const TIMEOUT = 7_000
 const SNAPSHOT_REVISION_KEY = "santa-luzia:local-first:snapshot-revision"
 const SNAPSHOT_USER_KEY = "santa-luzia:local-first:snapshot-user"
 const INTERVALO_SNAPSHOT = 5 * 60_000
+const SNAPSHOT_DOCUMENT_KEYS = [
+  "snapshot:auth",
+  "snapshot:perfil",
+  "snapshot:perfis",
+  "snapshot:formacoes",
+  "snapshot:ranking",
+  "snapshot:escalas",
+  "snapshot:biblioteca",
+] as const
 
 function lerLocal(chave: string) {
   try { return window.localStorage.getItem(chave) } catch { return null }
@@ -84,8 +93,16 @@ export function AndroidOfflineSnapshotRuntime() {
     }
 
     async function limparPersistente() {
-      if (usaNativo) await OfflineStore.clear().catch(() => undefined)
-      else enviarBridge({ type: "SL_OFFLINE_CLEAR" })
+      if (usaNativo) {
+        await Promise.allSettled([
+          OfflineStore.saveSnapshot({ snapshot: "" }),
+          ...SNAPSHOT_DOCUMENT_KEYS.map((key) => OfflineStore.removeDocument({ key })),
+        ])
+      } else {
+        // O bridge mantém snapshot e fila em estruturas separadas. Substituir apenas
+        // o snapshot evita perder operações pendentes durante logout/troca de sessão.
+        enviarBridge({ type: "SL_OFFLINE_SAVE_SNAPSHOT", snapshot: {} })
+      }
       removerLocal(SNAPSHOT_REVISION_KEY)
       removerLocal(SNAPSHOT_USER_KEY)
     }
