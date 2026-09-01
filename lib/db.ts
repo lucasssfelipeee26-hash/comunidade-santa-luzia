@@ -98,6 +98,18 @@ export type FormacaoPresencaRow = {
   atualizado_em: number
 }
 
+export type FormacaoPresencaAuditoriaRow = {
+  id: string
+  formacao_id: string
+  usuario_id: string
+  status_anterior: FormacaoPresencaStatus
+  status_novo: FormacaoPresencaStatus | null
+  justificativa_anterior: string | null
+  justificativa_nova: string | null
+  alterado_por: string
+  alterado_em: number
+}
+
 
 export type ReconhecimentoCategoria = "companheirismo" | "acolhimento" | "espirito_servico" | "disponibilidade"
 
@@ -182,6 +194,7 @@ type Store = {
   escala_justificativas: EscalaJustificativaRow[]
   formacoes: FormacaoRow[]
   formacao_presencas: FormacaoPresencaRow[]
+  formacao_presenca_auditoria: FormacaoPresencaAuditoriaRow[]
   reconhecimentos: ReconhecimentoRow[]
   quizzes: QuizRow[]
   quiz_respostas: QuizRespostaRow[]
@@ -196,7 +209,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 let storeDisponivel = true
 
 function readStore(): Store {
-  if (!fs.existsSync(DB_PATH)) return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], escala_justificativas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
+  if (!fs.existsSync(DB_PATH)) return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], escala_justificativas: [], formacoes: [], formacao_presencas: [], formacao_presenca_auditoria: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
   try {
     const raw = fs.readFileSync(DB_PATH, "utf8")
     const parsed = JSON.parse(raw) as Partial<Store>
@@ -208,6 +221,7 @@ function readStore(): Store {
       escala_justificativas: Array.isArray(parsed.escala_justificativas) ? parsed.escala_justificativas : [],
       formacoes: Array.isArray(parsed.formacoes) ? parsed.formacoes : [],
       formacao_presencas: Array.isArray(parsed.formacao_presencas) ? parsed.formacao_presencas : [],
+      formacao_presenca_auditoria: Array.isArray(parsed.formacao_presenca_auditoria) ? parsed.formacao_presenca_auditoria : [],
       reconhecimentos: Array.isArray(parsed.reconhecimentos) ? parsed.reconhecimentos : [],
       quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
       quiz_respostas: Array.isArray(parsed.quiz_respostas) ? parsed.quiz_respostas : [],
@@ -224,7 +238,7 @@ function readStore(): Store {
     } catch {}
     storeDisponivel = false
     console.error("[Banco local] Não foi possível ler data/santa-luzia.json. As gravações foram bloqueadas para proteger os dados.", error)
-    return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], escala_justificativas: [], formacoes: [], formacao_presencas: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
+    return { usuarios: [], registros: [], codigos_recuperacao: [], escalas: [], escala_justificativas: [], formacoes: [], formacao_presencas: [], formacao_presenca_auditoria: [], reconhecimentos: [], quizzes: [], quiz_respostas: [], pontualidade_ocorrencias: [], pontualidade_reacoes: [], ranking_ajustes: [], ranking_configs: [] }
   }
 }
 
@@ -263,7 +277,19 @@ let store = readStore()
   }
 }
 
+function validarPersistenciaRailwayAntesDeGravar() {
+  const emRailway = Boolean(process.env.RAILWAY_DEPLOYMENT_ID || process.env.RAILWAY_PROJECT_ID)
+  const emBuild = process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build"
+  if (!emRailway || emBuild) return
+
+  const mount = process.env.RAILWAY_VOLUME_MOUNT_PATH?.trim() || ""
+  if (!mount || path.resolve(mount) !== path.resolve(DATA_DIR)) {
+    throw new Error("Persistência bloqueada: o Volume Railway não está montado no mesmo diretório de DATA_DIR.")
+  }
+}
+
 function persistNow() {
+  validarPersistenciaRailwayAntesDeGravar()
   if (!storeDisponivel && fs.existsSync(DB_PATH)) {
     throw new Error("O banco local está temporariamente indisponível. Reinicie o servidor antes de tentar gravar novamente.")
   }
@@ -517,17 +543,7 @@ export function listarEscalas() {
   return store.escalas
     .map((escala) => ({
       ...escala,
-      pessoas: escala.pessoas.map((pessoa) => {
-        const usuario = pessoa.id ? buscarUsuario(pessoa.id) : undefined
-        if (!usuario) return { ...pessoa }
-        const categoria: EscalaPessoa["categoria"] =
-          usuario.funcao === "Acólito"
-            ? "acolito"
-            : usuario.funcao === "Coroinha"
-              ? "coroinha"
-              : pessoa.categoria
-        return { ...pessoa, nome: usuario.nome, categoria }
-      }),
+      pessoas: escala.pessoas.map((pessoa) => ({ ...pessoa })),
     }))
     .sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario))
 }
@@ -577,6 +593,18 @@ export function promoverUsuarioModerador(id: string, promotorId: string) {
 export function excluirContaUsuario(id: string) {
   const usuario = store.usuarios.find((u) => u.id === id)
   if (!usuario) return false
+
+  const possuiHistorico =
+    store.registros.some((r) => r.usuario_id === id) ||
+    store.escalas.some((escala) => escala.pessoas.some((pessoa) => pessoa.id === id)) ||
+    store.escala_justificativas.some((item) => item.usuario_id === id) ||
+    store.formacao_presencas.some((item) => item.usuario_id === id || item.registrado_por === id) ||
+    store.reconhecimentos.some((item) => item.de_usuario_id === id || item.para_usuario_id === id) ||
+    store.quizzes.some((item) => item.criado_por === id) ||
+    store.quiz_respostas.some((item) => item.usuario_id === id) ||
+    store.pontualidade_ocorrencias.some((item) => item.usuario_id === id || item.reportado_por === id || item.moderado_por === id) ||
+    store.ranking_ajustes.some((item) => item.usuario_id === id || item.criado_por === id)
+  if (possuiHistorico) return false
 
   const quizzesCriados = new Set(store.quizzes.filter((q) => q.criado_por === id).map((q) => q.id))
   const ocorrenciasRemovidas = new Set(
@@ -649,6 +677,12 @@ export function listarTodasPresencasFormacao() {
   return [...store.formacao_presencas].sort((a, b) => b.atualizado_em - a.atualizado_em)
 }
 
+export function listarAuditoriaPresencasFormacao(formacaoId?: string) {
+  return store.formacao_presenca_auditoria
+    .filter((item) => !formacaoId || item.formacao_id === formacaoId)
+    .sort((a, b) => b.alterado_em - a.alterado_em)
+}
+
 export function salvarPresencasFormacao(
   formacaoId: string,
   registros: Array<{ usuario_id: string; status: FormacaoPresencaStatus | null; justificativa: string | null }>,
@@ -661,6 +695,24 @@ export function salvarPresencasFormacao(
       .filter((presenca) => presenca.formacao_id === formacaoId && idsAtualizados.has(presenca.usuario_id))
       .map((presenca) => [presenca.usuario_id, presenca]),
   )
+
+  for (const registro of registros) {
+    const existente = existentes.get(registro.usuario_id)
+    if (!existente) continue
+    const justificativaNova = registro.status === "justificada" ? registro.justificativa : null
+    if (existente.status === registro.status && existente.justificativa === justificativaNova) continue
+    store.formacao_presenca_auditoria.push({
+      id: `presenca-audit-${agora}-${Math.random().toString(36).slice(2, 8)}`,
+      formacao_id: formacaoId,
+      usuario_id: registro.usuario_id,
+      status_anterior: existente.status,
+      status_novo: registro.status,
+      justificativa_anterior: existente.justificativa,
+      justificativa_nova: justificativaNova,
+      alterado_por: moderadorId,
+      alterado_em: agora,
+    })
+  }
 
   store.formacao_presencas = store.formacao_presencas.filter(
     (presenca) => presenca.formacao_id !== formacaoId || !idsAtualizados.has(presenca.usuario_id),
@@ -688,6 +740,7 @@ export function salvarPresencasFormacao(
 export function excluirFormacao(id: string) {
   const row = store.formacoes.find((f) => f.id === id)
   if (!row) return null
+  if (row.status === "concluida" || store.formacao_presencas.some((presenca) => presenca.formacao_id === id)) return null
   store.formacoes = store.formacoes.filter((f) => f.id !== id)
   store.formacao_presencas = store.formacao_presencas.filter((presenca) => presenca.formacao_id !== id)
   persistNow()
@@ -731,7 +784,8 @@ export function atualizarQuiz(id: string, dados: Partial<Omit<QuizRow, "id" | "c
   const q = store.quizzes.find((x) => x.id === id); if (!q) return null; Object.assign(q, dados, { atualizado_em: Date.now() }); persistNow(); return q
 }
 export function excluirQuiz(id: string) {
-  const antes = store.quizzes.length; store.quizzes = store.quizzes.filter((q) => q.id !== id); store.quiz_respostas = store.quiz_respostas.filter((r) => r.quiz_id !== id); persistNow(); return antes !== store.quizzes.length
+  if (store.quiz_respostas.some((r) => r.quiz_id === id)) return false
+  const antes = store.quizzes.length; store.quizzes = store.quizzes.filter((q) => q.id !== id); persistNow(); return antes !== store.quizzes.length
 }
 export function buscarRespostaQuiz(quizId: string, usuarioId: string) { return store.quiz_respostas.find((r) => r.quiz_id === quizId && r.usuario_id === usuarioId) }
 export function listarRespostasQuiz() { return [...store.quiz_respostas] }
@@ -753,7 +807,7 @@ export function salvarPontualidadeOcorrencia(row: Omit<PontualidadeOcorrenciaRow
   store.pontualidade_ocorrencias.push(novo); persistNow(); return novo
 }
 export function moderarPontualidade(id: string, status: Exclude<PontualidadeStatus, "pendente">, moderadorId: string) {
-  const row = buscarPontualidadeOcorrencia(id); if (!row) return null; row.status = status; row.moderado_por = moderadorId; row.moderado_em = Date.now(); persistNow(); return row
+  const row = buscarPontualidadeOcorrencia(id); if (!row || row.status !== "pendente") return null; row.status = status; row.moderado_por = moderadorId; row.moderado_em = Date.now(); persistNow(); return row
 }
 export function listarPontualidadeReacoes() { return [...store.pontualidade_reacoes] }
 export function salvarPontualidadeReacao(ocorrenciaId: string, usuarioId: string, emoji: string) {
