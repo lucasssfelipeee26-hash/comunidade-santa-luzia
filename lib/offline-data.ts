@@ -44,6 +44,7 @@ export type MinhaPresencaFormacaoPayload = {
   situacao: MinhaPresencaFormacaoSituacao
   justificativa: string
   clientRequestId: string
+  criadoNoAparelhoEm?: number
 }
 
 export type PresencaFormacaoPendente = {
@@ -300,13 +301,16 @@ function colocarPresencaFormacaoNaFila(
   const atuais = listarPresencasFormacaoPendentes()
   const outros = atuais.filter((item) => item.usuarioId !== usuarioId || item.formacaoId !== formacaoId)
   const clientRequestId = payload.clientRequestId || criarId()
+  const criadoNoAparelhoEm = Number.isFinite(Number(payload.criadoNoAparelhoEm)) && Number(payload.criadoNoAparelhoEm) > 0
+    ? Number(payload.criadoNoAparelhoEm)
+    : Date.now()
   const item: PresencaFormacaoPendente = {
     id: clientRequestId,
     usuarioId,
     formacaoId,
-    criadoNoAparelhoEm: Date.now(),
+    criadoNoAparelhoEm,
     tentativas: 0,
-    payload: { ...payload, clientRequestId },
+    payload: { ...payload, clientRequestId, criadoNoAparelhoEm },
   }
   salvarPresencasFormacaoPendentes([...outros, item])
   return item
@@ -321,10 +325,14 @@ function removerPresencaFormacaoPendente(usuarioId: string, formacaoId: string) 
 
 export async function enviarOuEnfileirarMinhaPresencaFormacao(
   formacaoId: string,
-  payload: Omit<MinhaPresencaFormacaoPayload, "clientRequestId">,
+  payload: Omit<MinhaPresencaFormacaoPayload, "clientRequestId" | "criadoNoAparelhoEm">,
   usuarioId: string,
 ): Promise<ResultadoMinhaPresencaFormacao> {
-  const completo: MinhaPresencaFormacaoPayload = { ...payload, clientRequestId: criarId() }
+  const completo: MinhaPresencaFormacaoPayload = {
+    ...payload,
+    clientRequestId: criarId(),
+    criadoNoAparelhoEm: Date.now(),
+  }
 
   if (typeof navigator !== "undefined" && navigator.onLine) {
     try {
@@ -386,15 +394,15 @@ export async function sincronizarPresencasFormacaoPendentes() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify(item.payload),
+        body: JSON.stringify({ ...item.payload, criadoNoAparelhoEm: item.criadoNoAparelhoEm }),
       })
       const json = await respostaJson(response)
 
-      if (response.ok) {
+      if (response.ok || (response.status === 409 && json.presenca)) {
         enviados += 1
         continue
       }
-      if (response.status === 404 || response.status === 409) {
+      if (response.status === 404) {
         continue
       }
 
