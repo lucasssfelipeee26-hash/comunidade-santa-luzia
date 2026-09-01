@@ -64,8 +64,8 @@ android {
         applicationId = "br.com.comunidadesantaluzia.nativebeta"
         minSdk = 24
         targetSdk = 36
-        versionCode = 30019
-        versionName = "3.0.0-native-beta.19-r1"
+        versionCode = 30020
+        versionName = "3.0.0-native-beta.19-r2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField(
@@ -89,6 +89,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+
     }
 
     packaging {
