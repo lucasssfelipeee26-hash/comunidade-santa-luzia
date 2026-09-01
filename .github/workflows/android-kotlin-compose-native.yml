@@ -5,6 +5,7 @@ on:
     branches:
       - work/android-kotlin-compose-native
       - work/native-beta19-parity-fix
+      - work/native-beta19-release-gates
     paths:
       - native-android/**
       - public/images/**
@@ -58,6 +59,9 @@ jobs:
       - name: Auditoria da referência Windows Beta 19
         run: python3 native-android/scripts/audit_reference_fidelity.py
 
+      - name: Auditoria dos gates finais de release
+        run: python3 native-android/scripts/audit_release_gate.py
+
       - name: Auditoria Python de paridade Beta 18
         run: python3 native-android/scripts/audit_parity.py
 
@@ -100,6 +104,9 @@ jobs:
           test -f native-android/MIGRATION-CONTRACT.md
           test -f native-android/PARITY-MATRIX.json
           test -f native-android/REFERENCE-HISTORY.md
+          test -f native-android/PHYSICAL-VALIDATION.md
+          test -f native-android/PYTHON-DEPLOY-HOMOLOGATION.md
+          test -f native-android/scripts/audit_release_gate.py
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/MainActivity.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/ReferenceSantaLuziaApp.kt
           test -f native-android/app/src/main/java/br/com/comunidadesantaluzia/nativeapp/ui/ReferenceRestrictedArea.kt
