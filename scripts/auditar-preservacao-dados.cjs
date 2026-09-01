@@ -24,6 +24,9 @@ const formacaoDetalhe = ler("app/api/formacoes/[id]/route.ts")
 const escalaDetalhe = ler("app/api/escalas/[id]/route.ts")
 const adminDados = ler("app/api/app/admin-dados/route.ts")
 const excluirPerfil = ler("app/api/perfil/excluir/route.ts")
+const quizzes = ler("app/api/quizzes/route.ts")
+const ranking = ler("app/api/ranking/route.ts")
+const appStatus = ler("app/api/app/status/route.ts")
 
 console.log("\nAUDITORIA DE PRESERVAÇÃO DE DADOS — SANTA LUZIA\n")
 
@@ -36,6 +39,9 @@ exigir(localFirstQueue.includes("removerItensFilaDuravelPorOwner"), "Exclusão r
 exigir(formacaoDetalhe.includes("listarPresencasFormacao(id).length > 0"), "Formação com histórico não pode ser excluída")
 exigir(escalaDetalhe.includes("possuiHistoricoVinculado"), "Escala com histórico não pode ser alterada ou excluída")
 exigir(adminDados.includes("possuiHistoricoUsuario") && excluirPerfil.includes("possuiHistoricoUsuario"), "Cadastro com histórico não pode destruir registros anteriores")
+exigir(quizzes.includes("listarRespostasQuiz") && quizzes.includes("faz parte do histórico") && quizzes.includes("Perguntas, pontuação e conteúdo histórico não podem mais ser alterados"), "Quiz respondido não pode apagar nem reescrever o histórico")
+exigir(ranking.includes('atual.status !== "pendente"') && ranking.includes("decisão anterior foi preservada"), "Decisão de atraso não pode ser sobrescrita depois da moderação")
+exigir(appStatus.includes("RAILWAY_VOLUME_MOUNT_PATH") && appStatus.includes("volumeAnexado") && appStatus.includes("mountCorreto"), "Produção expõe diagnóstico seguro do volume persistente Railway")
 
 if (falhas > 0) {
   console.error(`\nPreservação de dados reprovada: ${falhas} falha(s).\n`)
