@@ -27,11 +27,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: Aplicar reforço no banco
         run: node scripts/aplicar-seguranca-dados-db.cjs
       - name: Instalar dependências
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
       - name: Auditar robustez
         run: npm run audit:robustez
       - name: Compilar aplicação
