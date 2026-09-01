@@ -102,7 +102,6 @@ jobs:
           mkdir -p "$DATA_VOLUME"
 
           cleanup() {
-            docker logs santa-luzia-python-ci >/dev/null 2>&1 || true
             docker rm -f santa-luzia-python-ci >/dev/null 2>&1 || true
             docker rm -f santa-luzia-python-ci-restart >/dev/null 2>&1 || true
           }
@@ -139,18 +138,12 @@ jobs:
           print('Imagem Docker de produção: OK')
           PY
 
-          # As leituras públicas não devem fabricar um banco vazio. Grave uma
-          # mutação real no mesmo mecanismo usado pela aplicação e confirme que
-          # ela chegou ao volume montado no host.
-          docker exec santa-luzia-python-ci python - <<'PY'
-          from santa_luzia_backend.store import mutate_main
-          mutate_main(lambda store: store.setdefault('ci_probe', []).append('persistiu'))
-          print('Mutação persistente gravada: OK')
-          PY
+          # Faça uma escrita real usando a mesma camada de persistência da API.
+          docker exec santa-luzia-python-ci python -c "from santa_luzia_backend.store import mutate_main; mutate_main(lambda store: store.setdefault('ci_probe', []).append('persistiu')); print('Mutação persistente gravada: OK')"
           test -s "$DATA_VOLUME/santa-luzia.json"
           grep -Fq 'persistiu' "$DATA_VOLUME/santa-luzia.json"
 
-          # Recrie o container com o MESMO volume e confirme continuidade real.
+          # Recrie o processo com o MESMO volume e confirme que a gravação sobrevive.
           docker rm -f santa-luzia-python-ci >/dev/null
           docker run --rm -d \
             --name santa-luzia-python-ci-restart \
@@ -159,21 +152,13 @@ jobs:
             -v "$DATA_VOLUME:/data" \
             santa-luzia-python:ci
           for attempt in $(seq 1 30); do
-            if docker exec santa-luzia-python-ci-restart python - <<'PY'
-          from santa_luzia_backend.store import read_main
-          assert 'persistiu' in read_main().get('ci_probe', [])
-          PY
-            then
+            if docker exec santa-luzia-python-ci-restart python -c "from santa_luzia_backend.store import read_main; assert 'persistiu' in read_main().get('ci_probe', [])"; then
               echo 'Persistência Docker após restart: OK'
               break
             fi
             sleep 1
           done
-          docker exec santa-luzia-python-ci-restart python - <<'PY'
-          from santa_luzia_backend.store import read_main
-          assert 'persistiu' in read_main().get('ci_probe', [])
-          print('Continuidade do banco: OK')
-          PY
+          docker exec santa-luzia-python-ci-restart python -c "from santa_luzia_backend.store import read_main; assert 'persistiu' in read_main().get('ci_probe', []); print('Continuidade do banco: OK')"
 
       - name: Auditar proteção do banco
         run: |
