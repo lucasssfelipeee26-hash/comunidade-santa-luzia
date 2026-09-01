@@ -11,15 +11,29 @@ import { ipDaRequisicao, limitar } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
-function hojeEmCuiaba() {
+function dataEmCuiaba(data: Date) {
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Cuiaba",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date())
+  }).formatToParts(data)
   const mapa = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]))
   return `${mapa.year}-${mapa.month}-${mapa.day}`
+}
+
+function hojeEmCuiaba() {
+  return dataEmCuiaba(new Date())
+}
+
+function respostaPresenca(presenca: ReturnType<typeof listarHistoricoFormacaoUsuario>[number] | undefined) {
+  return presenca
+    ? {
+        status: presenca.status,
+        justificativa: presenca.justificativa,
+        atualizado_em: presenca.atualizado_em,
+      }
+    : null
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,8 +67,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const body = await request.json().catch(() => null) as {
     situacao?: unknown
     justificativa?: unknown
+    clientRequestId?: unknown
+    criadoNoAparelhoEm?: unknown
   } | null
   const situacao = String(body?.situacao ?? "") as FormacaoPresencaStatus
+  const clientRequestId = String(body?.clientRequestId ?? "").trim()
+  const criadoNoAparelhoEm = Number(body?.criadoNoAparelhoEm)
   const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
 
   if (windowsBeta && situacao === "falta") {
@@ -62,19 +80,46 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const anterior = listarHistoricoFormacaoUsuario(sessao.sub).find((item) => item.formacao_id === id)
+
+  // Toda operação offline recebe um clientRequestId estável. Se a primeira tentativa
+  // chegou ao servidor mas a resposta se perdeu, o reenvio deve ser idempotente.
+  if (clientRequestId && anterior) {
+    return NextResponse.json(
+      { ok: true, idempotente: true, presenca: respostaPresenca(anterior) },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } },
+    )
+  }
+
   if (windowsBeta && anterior) {
     return NextResponse.json({ erro: "Sua participação já foi registrada e não pode mais ser alterada.", presenca: anterior }, { status: 409 })
   }
 
   const hoje = hojeEmCuiaba()
+  const timestampOfflineValido =
+    clientRequestId.length >= 8 &&
+    Number.isFinite(criadoNoAparelhoEm) &&
+    criadoNoAparelhoEm > 0 &&
+    criadoNoAparelhoEm <= Date.now() + 5 * 60_000
+  const dataRegistroOffline = timestampOfflineValido ? dataEmCuiaba(new Date(criadoNoAparelhoEm)) : ""
+  const replayOfflineDoDia = formacao.data < hoje && dataRegistroOffline === formacao.data
+
   if (formacao.data !== hoje) {
-    if (windowsBeta && formacao.data > hoje && situacao === "justificada") {
+    if (replayOfflineDoDia) {
+      // Registro feito no aparelho no dia correto e sincronizado depois.
+    } else if (windowsBeta && formacao.data > hoje && situacao === "justificada") {
       // A Beta Windows permite justificar desde a publicação da formação.
     } else {
-    const mensagem = formacao.data > hoje
-      ? "A presença só poderá ser marcada no dia da formação."
-      : "O período para marcar presença nesta formação já terminou."
-    return NextResponse.json({ erro: mensagem, dataFormacao: formacao.data, hoje }, { status: 409 })
+      const mensagem = formacao.data > hoje
+        ? "A presença só poderá ser marcada no dia da formação."
+        : "O período para marcar presença nesta formação já terminou."
+      return NextResponse.json({ erro: mensagem, dataFormacao: formacao.data, hoje }, { status: 409 })
+    }
+  }
+
+  if (replayOfflineDoDia && situacao === "presente" && formacao.horario) {
+    const inicio = Date.parse(`${formacao.data}T${formacao.horario}:00-04:00`)
+    if (Number.isFinite(inicio) && criadoNoAparelhoEm < inicio) {
+      return NextResponse.json({ erro: `A presença só poderia ser registrada a partir das ${formacao.horario}.` }, { status: 409 })
     }
   }
 
@@ -112,12 +157,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   return NextResponse.json({
     ok: true,
-    presenca: presenca
-      ? {
-          status: presenca.status,
-          justificativa: presenca.justificativa,
-          atualizado_em: presenca.atualizado_em,
-        }
-      : null,
+    presenca: respostaPresenca(presenca),
   }, { headers: { "Cache-Control": "private, no-store, max-age=0" } })
 }
