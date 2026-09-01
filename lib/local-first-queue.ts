@@ -117,6 +117,21 @@ export async function mesclarNaFilaDuravel(items: LocalFirstQueueItem[]) {
   }
 }
 
+export async function removerItensFilaDuravelPorOwner(ownerId: string) {
+  const alvo = String(ownerId || "").trim()
+  if (!alvo) return false
+  const store = await nativeStore()
+  if (!store) return false
+  try {
+    const current = await lerFilaDuravel()
+    const next = current.filter((item) => String(item.ownerId || "") !== alvo)
+    await store.saveQueue({ queue: JSON.stringify(next) })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function migrarFilasLegadasParaNativa() {
   return mesclarNaFilaDuravel(legacyItems())
 }
