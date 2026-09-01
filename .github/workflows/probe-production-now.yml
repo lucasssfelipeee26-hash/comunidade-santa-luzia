@@ -1,0 +1,30 @@
+name: Diagnóstico imediato da produção
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/probe-production-now.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE: https://comunidade-santa-luzia-production.up.railway.app
+    steps:
+      - name: Diagnosticar domínio e rotas sem expor dados
+        shell: bash
+        run: |
+          set -u
+          for path in / /api/app/status /api/app/android/download /api/auth/me; do
+            echo "=== $path ==="
+            curl -sS -L --max-time 15 -o /tmp/body -D /tmp/headers -w 'HTTP=%{http_code} EFFECTIVE=%{url_effective}\n' "$BASE$path" || true
+            grep -Ei '^(server|location|x-powered-by|content-type|x-railway|railway|cache-control):' /tmp/headers || true
+            printf 'BODY_PREFIX='
+            head -c 180 /tmp/body 2>/dev/null | tr '\n\r' '  ' || true
+            echo
+          done
