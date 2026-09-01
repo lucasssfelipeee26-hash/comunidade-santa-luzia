@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { buscarUsuario, db, excluirContaUsuario, salvarRankingAjuste, type UsuarioRow } from "@/lib/db"
+import {
+  buscarUsuario,
+  db,
+  excluirContaUsuario,
+  listarEscalas,
+  listarJustificativasEscala,
+  listarPontualidadeOcorrencias,
+  listarQuizzes,
+  listarRankingAjustes,
+  listarReconhecimentos,
+  listarRespostasQuiz,
+  listarTodasPresencasFormacao,
+  salvarRankingAjuste,
+  type UsuarioRow,
+} from "@/lib/db"
 import { calcularRanking } from "@/lib/ranking"
 
 function anoCuiaba() {
@@ -30,6 +44,21 @@ function cadastros() {
   }))
 }
 
+function possuiHistoricoUsuario(usuarioId: string) {
+  const registros = db.prepare("SELECT * FROM registros WHERE usuario_id = ?").all(usuarioId)
+  return (
+    registros.length > 0 ||
+    listarEscalas().some((escala) => escala.pessoas.some((pessoa) => pessoa.id === usuarioId)) ||
+    listarJustificativasEscala().some((item) => item.usuario_id === usuarioId) ||
+    listarTodasPresencasFormacao().some((item) => item.usuario_id === usuarioId || item.registrado_por === usuarioId) ||
+    listarReconhecimentos().some((item) => item.de_usuario_id === usuarioId || item.para_usuario_id === usuarioId) ||
+    listarQuizzes(true).some((item) => item.criado_por === usuarioId) ||
+    listarRespostasQuiz().some((item) => item.usuario_id === usuarioId) ||
+    listarPontualidadeOcorrencias(true).some((item) => item.usuario_id === usuarioId || item.reportado_por === usuarioId || item.moderado_por === usuarioId) ||
+    listarRankingAjustes().some((item) => item.usuario_id === usuarioId || item.criado_por === usuarioId)
+  )
+}
+
 export async function GET() {
   const moderador = await moderadorAtual()
   if (!moderador) return NextResponse.json({ erro: "Acesso exclusivo do moderador." }, { status: 403 })
@@ -57,6 +86,9 @@ export async function POST(req: NextRequest) {
     const usuarioId = String(body.usuarioId || "")
     const alvo = buscarUsuario(usuarioId)
     if (!alvo || alvo.tipo !== "membro") return NextResponse.json({ erro: "Cadastro de membro não encontrado." }, { status: 404 })
+    if (possuiHistoricoUsuario(usuarioId)) {
+      return NextResponse.json({ erro: "Este cadastro possui histórico comunitário vinculado e não pode ser excluído sem destruir registros anteriores." }, { status: 409 })
+    }
     if (!excluirContaUsuario(usuarioId)) return NextResponse.json({ erro: "Não foi possível excluir o cadastro." }, { status: 409 })
     return NextResponse.json({ ok: true, excluido: { id: alvo.id, nome: alvo.nome }, cadastros: cadastros() })
   }
