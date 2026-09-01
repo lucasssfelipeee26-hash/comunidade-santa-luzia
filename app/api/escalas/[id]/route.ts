@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { atualizarEscala, buscarEscala, buscarUsuario, excluirEscala, type EscalaPessoa } from "@/lib/db"
+import { atualizarEscala, buscarEscala, buscarUsuario, excluirEscala, listarJustificativasEscala, listarPontualidadeOcorrencias, type EscalaPessoa } from "@/lib/db"
 import { funcaoEscalaValida } from "@/lib/escala-funcoes"
 import { dataCivilIsoValida, horario24hValido } from "@/lib/validation"
 
@@ -9,13 +9,33 @@ function normalizarCelebrante(valor: string) {
   return /^(padre|pe\.?|frei|dom)\s/i.test(nome) ? nome.replace(/^pe\.?\s+/i, "Padre ") : `Padre ${nome}`
 }
 
+function hojeEmCuiaba() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Cuiaba",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+}
+
+function possuiHistoricoVinculado(escalaId: string) {
+  return (
+    listarJustificativasEscala().some((item) => item.escala_id === escalaId) ||
+    listarPontualidadeOcorrencias(true).some((item) => item.escala_id === escalaId)
+  )
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao()
   if (!sessao || sessao.tipo !== "moderador") return NextResponse.json({ ok: false, erro: "Acesso exclusivo do moderador." }, { status: 403 })
   const windowsBeta = /SantaLuziaWindowsBeta\//.test(request.headers.get("user-agent") || "") || request.headers.get("x-santa-luzia-windows-beta") === "1"
   if (!windowsBeta) return NextResponse.json({ ok: false, erro: "Edição disponível somente na Beta Windows." }, { status: 403 })
   const { id } = await params
-  if (!id || id.length > 160 || !buscarEscala(id)) return NextResponse.json({ ok: false, erro: "Escala não encontrada." }, { status: 404 })
+  const atual = id && id.length <= 160 ? buscarEscala(id) : null
+  if (!atual) return NextResponse.json({ ok: false, erro: "Escala não encontrada." }, { status: 404 })
+  if (atual.data < hojeEmCuiaba() || possuiHistoricoVinculado(id)) {
+    return NextResponse.json({ ok: false, erro: "Esta escala já faz parte do histórico e não pode ser alterada retroativamente." }, { status: 409 })
+  }
 
   const body = await request.json().catch(() => null) as {
     data?: unknown; horario?: unknown; celebrante?: unknown; observacoes?: unknown
@@ -65,6 +85,12 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { id } = await params
   if (!id || id.length > 160) {
     return NextResponse.json({ ok: false, erro: "Escala inválida." }, { status: 400 })
+  }
+
+  const atual = buscarEscala(id)
+  if (!atual) return NextResponse.json({ ok: false, erro: "Escala não encontrada." }, { status: 404 })
+  if (atual.data <= hojeEmCuiaba() || possuiHistoricoVinculado(id)) {
+    return NextResponse.json({ ok: false, erro: "Esta escala pertence ao histórico e não pode ser excluída." }, { status: 409 })
   }
 
   if (!excluirEscala(id)) {
