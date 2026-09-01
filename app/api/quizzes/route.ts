@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { lerSessao } from "@/lib/auth"
-import { atualizarQuiz, buscarQuiz, buscarRespostaQuiz, buscarUsuario, excluirQuiz, listarMembrosAprovados, listarQuizzes, salvarQuiz, type QuizPergunta, type QuizOrigem } from "@/lib/db"
+import { atualizarQuiz, buscarQuiz, buscarRespostaQuiz, buscarUsuario, excluirQuiz, listarMembrosAprovados, listarQuizzes, listarRespostasQuiz, salvarQuiz, type QuizPergunta, type QuizOrigem } from "@/lib/db"
 import { dataCuiabaIso, obterLiturgiaLocal } from "@/lib/liturgia-local"
 import { garantirQuizLiturgiaOffline } from "@/lib/quiz-liturgia-offline"
 import { notificarUsuarios } from "@/lib/notificacoes"
@@ -95,6 +95,11 @@ export async function POST(req: NextRequest) {
   if (action === "excluir") {
     const id = String(body.id || "").trim()
     if (!id || id.length > 180) return NextResponse.json({ erro: "Quiz inválido." }, { status: 400 })
+    const existente = buscarQuiz(id)
+    if (!existente) return NextResponse.json({ erro: "Quiz não encontrado." }, { status: 404 })
+    if (listarRespostasQuiz().some((resposta) => resposta.quiz_id === id)) {
+      return NextResponse.json({ erro: "Este quiz já possui respostas e faz parte do histórico. Desative-o em vez de excluí-lo." }, { status: 409 })
+    }
     const ok = excluirQuiz(id)
     return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ erro: "Quiz não encontrado." }, { status: 404 })
   }
@@ -135,6 +140,23 @@ export async function POST(req: NextRequest) {
     const existente = buscarQuiz(id)
     if (existente) {
       const eraAtivo = existente.ativo
+      const possuiRespostas = listarRespostasQuiz().some((resposta) => resposta.quiz_id === id)
+      if (possuiRespostas) {
+        const estruturaIgual =
+          existente.titulo === dados.titulo &&
+          existente.descricao === dados.descricao &&
+          existente.origem === dados.origem &&
+          existente.referencia_id === dados.referencia_id &&
+          existente.data_referencia === dados.data_referencia &&
+          JSON.stringify(existente.perguntas) === JSON.stringify(dados.perguntas)
+        if (!estruturaIgual) {
+          return NextResponse.json({ erro: "Este quiz já possui respostas. Perguntas, pontuação e conteúdo histórico não podem mais ser alterados." }, { status: 409 })
+        }
+        const quiz = atualizarQuiz(id, { ativo: dados.ativo })
+        if (quiz?.ativo && !eraAtivo) notificarQuizAvulso(quiz)
+        return NextResponse.json({ ok: true, quiz })
+      }
+
       const quiz = atualizarQuiz(id, dados)
       if (quiz?.ativo && !eraAtivo) notificarQuizAvulso(quiz)
       return NextResponse.json({ ok: true, quiz })
