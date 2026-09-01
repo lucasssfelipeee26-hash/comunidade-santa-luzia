@@ -1,0 +1,49 @@
+name: Aplicar reforço interno de integridade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-data-safety-patch.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aplicar-reforco-integridade-db
+  cancel-in-progress: false
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_SECRET: ci-apenas-para-validacao-nao-usar-em-producao-123456789
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Aplicar reforço no banco
+        run: node scripts/aplicar-seguranca-dados-db.cjs
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+      - name: Auditar robustez
+        run: npm run audit:robustez
+      - name: Compilar aplicação
+        run: npm run build
+      - name: Publicar alteração validada
+        run: |
+          if git diff --quiet -- lib/db.ts; then
+            echo "Nenhuma alteração necessária."
+            exit 0
+          fi
+          git config user.name "santa-luzia-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/db.ts
+          git commit -m "fix: reforçar integridade interna do banco"
+          git push origin HEAD:main
