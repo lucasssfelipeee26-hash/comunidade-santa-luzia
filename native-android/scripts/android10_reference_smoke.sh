@@ -25,7 +25,6 @@ dismiss_system_ui_anr_from_xml() {
     if ! grep -Eqi "System UI (isn't|is not) responding|System UI.*não.*respondendo|IU do sistema.*não.*respondendo" "$xml"; then
         return 1
     fi
-
     python3 - "$xml" <<'PY'
 import re
 import sys
@@ -106,6 +105,9 @@ PY
 }
 
 adb install -r "$APK" > dist/android10-install.txt 2>&1
+adb shell dumpsys package "$PKG" > dist/android10-package.txt
+grep -q 'versionCode=30020' dist/android10-package.txt
+grep -q 'versionName=3.0.0-native-beta.19-r2' dist/android10-package.txt
 adb logcat -c
 
 # Home pública — golden master Beta 18: marca em duas linhas + menu hambúrguer.
@@ -210,4 +212,4 @@ if grep -Eqi "ANR in ${PKG}|Input dispatching timed out.*${PKG}" dist/android10-
     exit 1
 fi
 
-printf 'REFERENCE_PUBLIC_OK\nREFERENCE_PUBLIC_MENU_OK\nREFERENCE_LOGIN_OK\nREFERENCE_MEMBER_OK\nREFERENCE_MODERATOR_OK\nREFERENCE_MENU_OK\nCRASH_FREE_OK\n' > dist/android10-smoke-report.txt
+printf 'PACKAGE_R2_OK\nREFERENCE_PUBLIC_OK\nREFERENCE_PUBLIC_MENU_OK\nREFERENCE_LOGIN_OK\nREFERENCE_MEMBER_OK\nREFERENCE_MODERATOR_OK\nREFERENCE_MENU_OK\nCRASH_FREE_OK\n' > dist/android10-smoke-report.txt
