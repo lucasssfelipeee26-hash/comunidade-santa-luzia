@@ -2,11 +2,11 @@
   "reference": {
     "version": "2.0.0-beta.18",
     "versionCode": 20018,
-    "role": "contrato funcional e visual"
+    "role": "contrato funcional e visual / golden master Windows"
   },
   "native": {
-    "version": "3.0.0-native-alpha.1",
-    "versionCode": 30001,
+    "version": "3.0.0-native-beta.19-r2",
+    "versionCode": 30020,
     "applicationId": "br.com.comunidadesantaluzia.nativebeta",
     "releaseAllowed": false
   },
@@ -40,7 +40,7 @@
     {"id":"admin.members","label":"Status/promoção de membros","status":"implemented"},
     {"id":"notifications.full","label":"Notificações locais e sincronizadas","status":"implemented"},
     {"id":"auditor.share","label":"Gerar e compartilhar relatório nativo","status":"implemented"},
-    {"id":"backend.python","label":"Backend Python com paridade 67/67 e auditorias semânticas/negócio/multipart","status":"implemented"},
+    {"id":"backend.python","label":"Backend Python com paridade 67/67, auditorias semânticas/negócio/multipart, Docker e persistência após restart validados","status":"implemented"},
     {"id":"backend.pythonDeploy","label":"Deploy Python paralelo homologado com volume persistente e rollback testado","status":"pending"},
     {"id":"physical.validation","label":"Auditoria final em aparelho físico","status":"pending"}
   ]
