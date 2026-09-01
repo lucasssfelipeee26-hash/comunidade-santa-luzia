@@ -103,7 +103,13 @@ export function AndroidOfflineSnapshotRuntime() {
     }
 
     async function salvarFila(itens: QueueItem[]) {
-      if (usaNativo) await OfflineStore.saveQueue({ queue: JSON.stringify(itens) }).catch(() => undefined)
+      if (!usaNativo) return false
+      try {
+        await OfflineStore.saveQueue({ queue: JSON.stringify(itens) })
+        return true
+      } catch {
+        return false
+      }
     }
 
     async function salvarSnapshot() {
@@ -114,7 +120,9 @@ export function AndroidOfflineSnapshotRuntime() {
         const auth = await jsonComTimeout("/api/auth/me")
         const sessao = auth?.sessao
         if (!sessao?.usuario?.id || !sessao?.tipo) {
-          await limparPersistente()
+          // Uma sessão expirada ou uma falha temporária de autenticação não pode
+          // destruir o snapshot nem, principalmente, operações ainda não sincronizadas.
+          // A limpeza continua disponível apenas por eventos explícitos de logout/exclusão.
           return
         }
 
@@ -195,7 +203,10 @@ export function AndroidOfflineSnapshotRuntime() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify(item.payload),
+          body: JSON.stringify({
+            ...item.payload,
+            criadoNoAparelhoEm: Number(item.payload.criadoNoAparelhoEm || item.criadoEm || Date.now()),
+          }),
         })
         return response.ok
       }
@@ -241,8 +252,8 @@ export function AndroidOfflineSnapshotRuntime() {
         }
         const removidos = items.filter((item) => !restantes.some((r) => r.id === item.id)).map((item) => String(item.id))
         if (usaNativo) {
-          await salvarFila(restantes)
-          if (removidos.length) removerEspelhosLegados(removidos)
+          const filaPersistida = await salvarFila(restantes)
+          if (filaPersistida && removidos.length) removerEspelhosLegados(removidos)
         } else if (removidos.length) {
           enviarBridge({ type: "SL_OFFLINE_QUEUE_REMOVE", ids: removidos })
         }
