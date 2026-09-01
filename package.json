@@ -8,7 +8,7 @@
     "prestart": "node scripts/bootstrap-acervo.cjs",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
-    "audit:robustez": "node scripts/auditar-robustez.cjs && node scripts/auditar-ux-106.cjs",
+    "audit:robustez": "node scripts/auditar-robustez.cjs && node scripts/auditar-preservacao-dados.cjs && node scripts/auditar-ux-106.cjs",
     "audit:offline": "node scripts/auditar-indice-liturgico-2026.cjs && node scripts/auditar-liturgia-completa-2026.cjs && node scripts/auditar-iliturgia-offline.mjs",
     "generate:offline": "node scripts/gerar-indice-liturgico-2026.cjs && node scripts/gerar-liturgia-completa-2026.cjs",
     "android:add": "npx cap add android",
