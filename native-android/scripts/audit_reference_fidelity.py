@@ -59,8 +59,8 @@ assert "\n                SantaLuziaApp(app.container)" not in activity_text
 assert "RestrictedMenuButton(" not in activity_text
 
 assert 'applicationId = "br.com.comunidadesantaluzia.nativebeta"' in gradle_text
-assert 'versionCode = 30019' in gradle_text
-assert 'versionName = "3.0.0-native-beta.19-r1"' in gradle_text
+assert 'versionCode = 30020' in gradle_text
+assert 'versionName = "3.0.0-native-beta.19-r2"' in gradle_text
 
 for marker in ("RELATORIO-MOTION-BETA15.txt", "RELATORIO-MOTION-BETA16.txt", "RELATORIO-MOTION-BETA17.txt", "RELATORIO-MOTION-BETA18.txt", "Python/FastAPI", "Deep Scan", "Administração de dados", "Next.js hydration mismatch"):
     assert marker in history_text, f"Histórico obrigatório ausente: {marker}"
