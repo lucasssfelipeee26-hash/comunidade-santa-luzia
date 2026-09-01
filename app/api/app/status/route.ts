@@ -8,6 +8,7 @@ import novidades from "@/config/app-changelog.json"
 
 export const dynamic = "force-dynamic"
 
+// Endpoint usado também pelo gate de pré-teste para confirmar o deploy e a persistência real do Railway.
 // A revisão do tema já é observada pelas builds Android anteriores e provoca
 // uma única recarga segura quando muda. O sufixo abaixo força quem está com o
 // bundle antigo em memória a buscar o runtime corrigido do banner de atualização.
