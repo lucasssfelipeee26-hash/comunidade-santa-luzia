@@ -1,5 +1,6 @@
 name: Gate — código e persistência da produção
 
+# Gate obrigatório de pré-teste: cada push em main valida código, build e o Volume Railway ao vivo.
 on:
   push:
     branches: [main]
