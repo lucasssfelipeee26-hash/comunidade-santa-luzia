@@ -1,0 +1,200 @@
+name: Android — Santa Luzia Motion Beta 19 Regression Fix
+
+on:
+  push:
+    branches:
+      - work/android-motion-beta19-regression-fix
+    paths:
+      - .github/workflows/build-motion-beta19-regression-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-motion-beta19-regression-fix
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      SANTA_LUZIA_MOTION_VERSION: "2.0.0-beta.19"
+      AUTH_SECRET: ci-motion-beta19-regression-fix-12345678901234567890
+      APP_VERSION_CODE: "20019"
+      APP_VERSION_NAME: "2.0.0-beta.19"
+      MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
+      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta18-final.keystore
+      MOTION_BETA_STORE_PASSWORD: android
+      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta18-final
+      MOTION_BETA_KEY_PASSWORD: android
+      EXPECTED_CERT: 960700e745640edd637ed4f2cf4dd6906465d55fe9ecec0dedd22b198626d9fc
+
+    steps:
+      - name: Checkout da linha Motion auditada
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar assinatura persistente da Beta instalada
+        id: beta-key
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.android/santa-luzia-motion-beta18-final.keystore
+          key: santa-luzia-motion-beta18-final-keystore-v1
+          fail-on-cache-miss: true
+
+      - name: Validar identidade e assinatura
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$MOTION_BETA_KEYSTORE"
+          CERT="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test "$CERT" = "$EXPECTED_CERT"
+          node - <<'NODE'
+          const beta=require('./config/android-motion-beta.json')
+          const stable=require('./config/android-build.json')
+          if(beta.versionName!=='2.0.0-beta.19'||beta.versionCode!==20019) throw new Error('Fonte não é Beta 19')
+          if(beta.applicationId!=='br.com.comunidadesantaluzia.motionbeta') throw new Error('Pacote Motion alterado')
+          if(stable.versionName!=='1.0.6'||stable.versionCode!==18) throw new Error('Canal oficial alterado')
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Restaurar runtime visual histórico
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/fetch-windows-beta-stack.cjs
+          node scripts/patch-windows-polish-android-beta18.cjs
+
+      - name: Reaplicar auditoria completa e travas Beta 19
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit
+          node scripts/auditar-robustez.cjs
+          npm run audit:offline
+          node scripts/auditar-beta19-heranca-completa.cjs
+          node scripts/auditar-beta19-regressoes.cjs
+
+      - name: Compilar React local e acervo 100% offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/build-next.cjs
+          npm run build:android-local
+          node scripts/patch-beta19-offline-pack.cjs
+          node scripts/patch-beta19-android-web.cjs
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          grep -Fq '/motion/android-beta19-regression-fix.js' android-web/index.html
+          grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
+          test -s android-web/offline/iliturgia/oficio-01.html.json.bin
+          test -s android-web/offline/iliturgia/oficio-10.html.json.bin
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Preparar Android Motion Beta 19
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta19.cjs
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Auditar APK final
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_CERT"
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          for file in \
+            assets/public/index.html \
+            assets/public/local-app.js \
+            assets/public/motion/android-beta19-regression-fix.js \
+            assets/public/motion/android-deep-auditor-beta16.js \
+            assets/public/motion/android-auditor-patch-beta16.js \
+            assets/public/offline/iliturgia/oficio-01.html.json.bin \
+            assets/public/offline/iliturgia/oficio-10.html.json.bin \
+            assets/public/offline/iliturgia/lecionario.html.json.bin \
+            assets/public/offline/iliturgia/missal.html.json.bin; do
+              grep -Fq "$file" "$RUNNER_TEMP/apk-files.txt"
+          done
+          if grep -Eq 'assets/public/(offline\.html|offline-bridge\.html)' "$RUNNER_TEMP/apk-files.txt"; then
+            echo 'ERRO: shell offline paralelo reapareceu' >&2
+            exit 1
+          fi
+          unzip -p "$APK" assets/public/offline/iliturgia/manifest.json > "$RUNNER_TEMP/iliturgia-manifest.json"
+          grep -Fq '"androidAssetTransport": "binary-v1"' "$RUNNER_TEMP/iliturgia-manifest.json"
+          grep -Fq 'oficio-01.html.json.bin' "$RUNNER_TEMP/iliturgia-manifest.json"
+          unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/capacitor-config.json"
+          if grep -Fq '"server"' "$RUNNER_TEMP/capacitor-config.json"; then
+            echo 'ERRO: APK Motion contém server.url' >&2
+            exit 1
+          fi
+          grep -Fq 'SantaLuziaMotionBeta/2.0.0-beta.19' "$RUNNER_TEMP/capacitor-config.json"
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk)"
+          printf '%s  Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk\n' "$SHA" > dist/Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk.sha256
+          cat > dist/RELATORIO-MOTION-BETA19-REGRESSION-FIX.txt <<EOF
+          Santa Luzia Motion Beta 19 — correção de regressões de aparelho real
+          VersionName: 2.0.0-beta.19
+          VersionCode: 20019
+          ApplicationId: br.com.comunidadesantaluzia.motionbeta
+          Certificado SHA-256: $CERT
+          SHA-256 APK: $SHA
+          Tamanho: $SIZE bytes
+          Base: Beta 18 Recovery / auditoria completa Beta 16 preservada
+          Home: quatro atalhos, sem quinto card e sem ícones duplicados
+          Hero: proporção móvel 1800x620, sem faixas vazias
+          Biblioteca: banner promocional superior removido
+          Centro Litúrgico: pacotes internos binários no APK, sem dependência do servidor para leitura
+          Auditor/Deep Scan/históricos/animações/SQLite/fila: preservados
+          Android oficial 1.0.6/code18: não alterado
+          Infraestrutura de sincronização: o domínio Railway histórico respondeu Application not found em 02/09/2026; autenticação e sincronização online exigem restauração do backend ou novo domínio.
+          EOF
+
+      - name: Guardar APK de validação
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta19-regression-fix
+          path: |
+            dist/Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.19-REGRESSION-FIX.apk.sha256
+            dist/RELATORIO-MOTION-BETA19-REGRESSION-FIX.txt
+          retention-days: 14
+          if-no-files-found: error
