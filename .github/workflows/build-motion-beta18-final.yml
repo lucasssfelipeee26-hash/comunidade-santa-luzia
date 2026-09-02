@@ -1,0 +1,173 @@
+name: Android — Santa Luzia Motion Beta 18 Final
+
+on:
+  push:
+    branches:
+      - work/android-motion-beta12-stability-audit
+    paths:
+      - .github/workflows/build-motion-beta18-final.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-motion-beta18-final
+  cancel-in-progress: false
+
+jobs:
+  build-beta18:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      AUTH_SECRET: ci-motion-beta18-final-santa-luzia-12345678901234567890
+      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta.keystore
+      MOTION_BETA_STORE_PASSWORD: android
+      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta
+      MOTION_BETA_KEY_PASSWORD: android
+      APP_VERSION_CODE: "20018"
+      APP_VERSION_NAME: "2.0.0-beta.18"
+      MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
+
+    steps:
+      - name: Checkout Beta 18 final
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar assinatura persistente Motion Beta
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.android/santa-luzia-motion-beta.keystore
+          key: santa-luzia-motion-beta-keystore-v2
+
+      - name: Validar identidade e assinatura da Beta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$MOTION_BETA_KEYSTORE"
+          keytool -list -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" >/dev/null
+          CERT="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test "$CERT" = "0cf42dad25bd2673c81c6e47b87b77d5581c3de5cf23552e23088bdc447a4a21"
+          node - <<'NODE'
+          const beta = require('./config/android-motion-beta.json')
+          const stable = require('./config/android-build.json')
+          if (beta.versionName !== '2.0.0-beta.18' || beta.versionCode !== 20018) throw new Error('Fonte não é Beta 18 final')
+          if (beta.applicationId !== 'br.com.comunidadesantaluzia.motionbeta') throw new Error('ApplicationId Beta incorreto')
+          if (stable.versionName !== '1.0.6' || stable.versionCode !== 18) throw new Error('Canal oficial foi alterado')
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Restaurar runtime visual aprovado da Beta 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/fetch-windows-beta-stack.cjs
+          node scripts/patch-windows-polish-android-beta18.cjs
+
+      - name: Auditar fonte final Beta 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit
+          npm run audit:robustez
+          npm run audit:offline
+          node scripts/auditar-beta18-recovery.cjs
+
+      - name: Compilar React original e pacote Android local
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          npm run build:android-local
+          node scripts/validate-android-web.cjs
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Criar projeto Android Motion Beta 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta18.cjs
+
+      - name: Compilar APK Beta 18
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Auditar APK final correto
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "0cf42dad25bd2673c81c6e47b87b77d5581c3de5cf23552e23088bdc447a4a21"
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/index.html' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/local-app.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-deep-auditor-beta16.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-auditor-patch-beta16.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-domain-bridge-beta10.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-report-bridge-beta11.js' "$RUNNER_TEMP/apk-files.txt"
+          if grep -Eq 'assets/public/(offline\.html|offline-bridge\.html)' "$RUNNER_TEMP/apk-files.txt"; then
+            echo 'ERRO: interface offline paralela encontrada dentro do APK' >&2
+            exit 1
+          fi
+          unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/capacitor-config.json"
+          if grep -Fq '"server"' "$RUNNER_TEMP/capacitor-config.json"; then
+            echo 'ERRO: APK Beta 18 contém server.url' >&2
+            exit 1
+          fi
+          grep -Fq 'SantaLuziaMotionBeta/2.0.0-beta.18' "$RUNNER_TEMP/capacitor-config.json"
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL.apk | tee dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL.apk.sha256
+          cat > dist/RELATORIO-BETA18-FINAL.txt <<EOF
+          Santa Luzia Motion Beta 18 — APK final correto
+          VersionName: 2.0.0-beta.18
+          VersionCode: 20018
+          ApplicationId: br.com.comunidadesantaluzia.motionbeta
+          Certificado SHA-256: $CERT
+          Interface: React original local empacotada
+          Offline: SQLite + caches + filas locais
+          Canal oficial preservado: Santa Luzia 1.0.6 / code18
+          EOF
+
+      - name: Guardar APK final correto
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta18-final-correct
+          path: |
+            dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL.apk.sha256
+            dist/RELATORIO-BETA18-FINAL.txt
+          retention-days: 14
+          if-no-files-found: error
