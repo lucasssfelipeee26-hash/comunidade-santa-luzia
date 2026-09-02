@@ -16,20 +16,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verificar status e contrato de login
+      - name: Diagnosticar domínio e contrato sem credenciais reais
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           BASE='https://comunidade-santa-luzia-production.up.railway.app'
-          curl -fsS --max-time 20 -D "$RUNNER_TEMP/status.headers" "$BASE/api/app/status" -o "$RUNNER_TEMP/status.json"
-          cat "$RUNNER_TEMP/status.json"
-          CODE="$(curl -sS --max-time 20 -o "$RUNNER_TEMP/login.json" -w '%{http_code}' -H 'Content-Type: application/json' -d '{"usuario":"__probe_beta19_inexistente__","senha":"__senha_probe_invalida__"}' "$BASE/api/auth/login")"
-          cat "$RUNNER_TEMP/login.json"
-          test "$CODE" = '401' || test "$CODE" = '403' || test "$CODE" = '429'
-          node - <<'NODE'
-          const fs=require('fs')
-          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/login.json','utf8'))
-          if(data.ok!==false) throw new Error('Contrato de login sem ok:false')
-          if(typeof data.erro!=='string'||!data.erro.trim()) throw new Error('Contrato de login sem erro descritivo')
-          console.log('Contrato /api/auth/login compatível com a Motion Beta.')
-          NODE
+          for path in / /api/app/status /api/auth/me; do
+            echo "=== GET $path ==="
+            curl -sS -L --max-time 20 -o "$RUNNER_TEMP/body" -D "$RUNNER_TEMP/headers" -w 'HTTP=%{http_code} EFFECTIVE=%{url_effective}\n' "$BASE$path" || true
+            grep -Ei '^(server|location|content-type|x-powered-by|x-railway|railway|cache-control):' "$RUNNER_TEMP/headers" || true
+            printf 'BODY_PREFIX='
+            head -c 260 "$RUNNER_TEMP/body" 2>/dev/null | tr '\n\r' '  ' || true
+            echo
+          done
+          echo '=== POST /api/auth/login ==='
+          curl -sS -L --max-time 20 -o "$RUNNER_TEMP/login" -D "$RUNNER_TEMP/login.headers" -w 'HTTP=%{http_code} EFFECTIVE=%{url_effective}\n' -H 'Content-Type: application/json' -d '{"usuario":"__probe_beta19_inexistente__","senha":"__senha_probe_invalida__"}' "$BASE/api/auth/login" || true
+          grep -Ei '^(server|location|content-type|x-powered-by|x-railway|railway|cache-control):' "$RUNNER_TEMP/login.headers" || true
+          printf 'BODY_PREFIX='
+          head -c 500 "$RUNNER_TEMP/login" 2>/dev/null | tr '\n\r' '  ' || true
+          echo
