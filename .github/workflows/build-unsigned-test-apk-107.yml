@@ -38,6 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Metadados ficam locais ao runner para não publicar code 19 antes do servidor estar validado.
           node <<'NODE'
           const fs = require('node:fs')
           const p = 'config/android-build.json'
