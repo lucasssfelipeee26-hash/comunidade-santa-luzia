@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - work/android-motion-beta19-regression-fix
+      - build/motion-beta18-final-apk
     paths:
       - .github/workflows/build-motion-beta19-regression-fix.yml
   workflow_dispatch:
