@@ -1,0 +1,35 @@
+name: Verificar cache seguro de assinatura
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/probe-signing-cache-now.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - id: bridge
+        uses: actions/cache/restore@v4
+        with:
+          path: .github/.temp-signing-bridge-private.pem
+          key: signing-probe-do-not-exist
+          restore-keys: |
+            santa-luzia-signing-bridge-
+      - name: Resultado seguro
+        shell: bash
+        env:
+          MATCHED: ${{ steps.bridge.outputs.cache-matched-key }}
+        run: |
+          if [ -n "$MATCHED" ] && [ -s .github/.temp-signing-bridge-private.pem ]; then
+            echo "SIGNING_CACHE_FOUND=$MATCHED"
+          else
+            echo 'SIGNING_CACHE_FOUND=false'
+            exit 2
+          fi
