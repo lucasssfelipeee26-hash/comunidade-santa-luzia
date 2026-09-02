@@ -121,14 +121,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run build
+          node scripts/build-next.cjs
           npm run build:android-local
-          node scripts/validate-android-web.cjs
           test -s android-web/index.html
           test -s android-web/local-app.js
           test "$(stat -c%s android-web/local-app.js)" -gt 250000
           test ! -e android-web/offline.html
           test ! -e android-web/offline-bridge.html
+          grep -Fq '/local-app.js' android-web/index.html
+          grep -Fq 'android-deep-auditor-beta16.js' android-web/index.html
+          grep -Fq 'android-auditor-patch-beta16.js' android-web/index.html
+          grep -Fq 'windows-beta-runtime.js' android-web/index.html
 
       - name: Preparar Android Motion Beta 18
         shell: bash
