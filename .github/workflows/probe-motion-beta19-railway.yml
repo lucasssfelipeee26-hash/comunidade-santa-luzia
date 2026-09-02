@@ -1,0 +1,33 @@
+name: Motion Beta 19 — Railway
+
+on:
+  push:
+    branches:
+      - work/android-motion-beta19-regression-fix
+    paths:
+      - .github/workflows/probe-motion-beta19-railway.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      S1: ${{ secrets.RAILWAY_TOKEN }}
+      S2: ${{ secrets.RAILWAY_API_TOKEN }}
+      S3: ${{ secrets.RAILWAY_DEPLOY_HOOK }}
+      V1: ${{ vars.RAILWAY_TOKEN }}
+      V2: ${{ vars.RAILWAY_PROJECT_ID }}
+      V3: ${{ vars.RAILWAY_SERVICE_ID }}
+      V4: ${{ vars.RAILWAY_ENVIRONMENT_ID }}
+      V5: ${{ vars.RAILWAY_DEPLOY_HOOK }}
+    steps:
+      - name: Verificar somente disponibilidade
+        shell: bash
+        run: |
+          node - <<'NODE'
+          for (const k of ['S1','S2','S3','V1','V2','V3','V4','V5']) console.log(`${k}=${Boolean((process.env[k] || '').trim())}`)
+          NODE
