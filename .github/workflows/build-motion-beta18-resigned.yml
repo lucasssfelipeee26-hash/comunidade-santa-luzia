@@ -113,7 +113,7 @@ jobs:
         run: |
           set -euo pipefail
           npx tsc --noEmit
-          npm run audit:robustez
+          node scripts/auditar-robustez.cjs
           npm run audit:offline
           node scripts/auditar-beta18-recovery.cjs
 
