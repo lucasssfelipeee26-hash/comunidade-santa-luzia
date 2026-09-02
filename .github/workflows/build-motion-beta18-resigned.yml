@@ -129,9 +129,11 @@ jobs:
           test ! -e android-web/offline.html
           test ! -e android-web/offline-bridge.html
           grep -Fq '/local-app.js' android-web/index.html
-          grep -Fq 'android-deep-auditor-beta16.js' android-web/index.html
-          grep -Fq 'android-auditor-patch-beta16.js' android-web/index.html
           grep -Fq 'windows-beta-runtime.js' android-web/index.html
+          test -s android-web/motion/android-deep-auditor-beta16.js
+          test -s android-web/motion/android-auditor-patch-beta16.js
+          grep -Fq 'android-deep-auditor-beta16.js' components/diagnostico-santa-luzia.tsx
+          grep -Fq 'android-auditor-patch-beta16.js' components/diagnostico-santa-luzia.tsx
 
       - name: Preparar Android Motion Beta 18
         shell: bash
