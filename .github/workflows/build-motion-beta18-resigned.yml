@@ -1,0 +1,206 @@
+name: Android — Santa Luzia Motion Beta 18 Reassinada
+
+on:
+  push:
+    branches:
+      - build/motion-beta18-final-apk
+    paths:
+      - .github/workflows/build-motion-beta18-resigned.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-motion-beta18-resigned
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      AUTH_SECRET: ci-motion-beta18-resigned-santa-luzia-12345678901234567890
+      APP_VERSION_CODE: "20018"
+      APP_VERSION_NAME: "2.0.0-beta.18"
+      MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
+      EXPECTED_SIGNING_CERT: 1602f064eed7dba5aca9c54e9cfb0a7a9850d18a426059566f3e725320866e18
+      BRIDGE_PRIVATE: .github/.temp-signing-bridge-private.pem
+
+    steps:
+      - name: Checkout da Beta 18 final
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar ponte criptográfica da assinatura Santa Luzia
+        uses: actions/cache/restore@v4
+        with:
+          path: .github/.temp-signing-bridge-private.pem
+          key: santa-luzia-signing-bridge-421bc125ce9be08617705100254c469097e1238e
+          fail-on-cache-miss: true
+
+      - name: Recuperar assinatura histórica disponível
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$BRIDGE_PRIVATE"
+          base64 -d .github/temp-signing-pass-code18.enc.b64 > "$RUNNER_TEMP/pass.enc"
+          openssl pkeyutl -decrypt -inkey "$BRIDGE_PRIVATE" -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in "$RUNNER_TEMP/pass.enc" -out "$RUNNER_TEMP/pass.txt"
+          base64 -d .github/temp-signing-recovery-code18.enc.b64 > "$RUNNER_TEMP/recovery.enc"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$RUNNER_TEMP/recovery.enc" -out "$RUNNER_TEMP/recovery.zip" -pass file:"$RUNNER_TEMP/pass.txt"
+          mkdir -p "$RUNNER_TEMP/signing"
+          unzip -q "$RUNNER_TEMP/recovery.zip" -d "$RUNNER_TEMP/signing"
+          STORE_PASS="$(tr -d '\r\n' < "$RUNNER_TEMP/signing/signing-password.txt")"
+          KEY_ALIAS="$(tr -d '\r\n' < "$RUNNER_TEMP/signing/santa-luzia-signing-alias.txt")"
+          KEYSTORE="$RUNNER_TEMP/signing/santa-luzia-release.jks"
+          test -s "$KEYSTORE" && test -n "$STORE_PASS" && test -n "$KEY_ALIAS"
+          echo "::add-mask::$STORE_PASS"
+          echo "::add-mask::$KEY_ALIAS"
+          printf 'MOTION_BETA_KEYSTORE=%s\nMOTION_BETA_STORE_PASSWORD=%s\nMOTION_BETA_KEY_ALIAS=%s\nMOTION_BETA_KEY_PASSWORD=%s\n' "$KEYSTORE" "$STORE_PASS" "$KEY_ALIAS" "$STORE_PASS" >> "$GITHUB_ENV"
+
+      - name: Validar certificado recuperado
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" > "$RUNNER_TEMP/key.txt"
+          CERT="$(awk -F'SHA256: ' 'tolower($0) ~ /sha256:/ {print $2; exit}' "$RUNNER_TEMP/key.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_SIGNING_CERT"
+          echo "RECOVERED_CERT=$CERT" >> "$GITHUB_ENV"
+
+      - name: Validar fonte exata da Beta 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const beta = require('./config/android-motion-beta.json')
+          const stable = require('./config/android-build.json')
+          if (beta.versionName !== '2.0.0-beta.18' || beta.versionCode !== 20018) throw new Error('Fonte não é a Motion Beta 18 final')
+          if (beta.applicationId !== 'br.com.comunidadesantaluzia.motionbeta') throw new Error('ApplicationId Motion Beta incorreto')
+          if (stable.versionName !== '1.0.6' || stable.versionCode !== 18) throw new Error('Canal oficial foi alterado')
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Restaurar runtime visual aprovado
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/fetch-windows-beta-stack.cjs
+          node scripts/patch-windows-polish-android-beta18.cjs
+
+      - name: Auditorias da Beta 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit
+          npm run audit:robustez
+          npm run audit:offline
+          node scripts/auditar-beta18-recovery.cjs
+
+      - name: Compilar interface React original local
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          npm run build:android-local
+          node scripts/validate-android-web.cjs
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Preparar Android Motion Beta 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta18.cjs
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Auditar APK produzido
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_SIGNING_CERT"
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/index.html' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/local-app.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-deep-auditor-beta16.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-auditor-patch-beta16.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-domain-bridge-beta10.js' "$RUNNER_TEMP/apk-files.txt"
+          grep -Fq 'assets/public/motion/android-report-bridge-beta11.js' "$RUNNER_TEMP/apk-files.txt"
+          if grep -Eq 'assets/public/(offline\.html|offline-bridge\.html)' "$RUNNER_TEMP/apk-files.txt"; then
+            echo 'ERRO: interface offline paralela encontrada no APK' >&2
+            exit 1
+          fi
+          unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/capacitor-config.json"
+          if grep -Fq '"server"' "$RUNNER_TEMP/capacitor-config.json"; then
+            echo 'ERRO: APK contém server.url' >&2
+            exit 1
+          fi
+          grep -Fq 'SantaLuziaMotionBeta/2.0.0-beta.18' "$RUNNER_TEMP/capacitor-config.json"
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk)"
+          printf '%s  Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk\n' "$SHA" > dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk.sha256
+          cat > dist/RELATORIO-BETA18-FINAL-CORRETO.txt <<EOF
+          Santa Luzia Motion Beta 18 — fonte final recuperada
+          VersionName: 2.0.0-beta.18
+          VersionCode: 20018
+          ApplicationId: br.com.comunidadesantaluzia.motionbeta
+          Certificado utilizado: $CERT
+          SHA-256 APK: $SHA
+          Tamanho: $SIZE bytes
+          Interface: React original local empacotada
+          Offline: SQLite + caches + filas locais
+          Canal oficial Santa Luzia 1.0.6/code18: não alterado
+          Observação: a chave privada histórica exclusiva da linha Motion Beta expirou do cache do Actions; este APK foi reassinado com a chave histórica recuperável do projeto Santa Luzia, mantendo o pacote Beta isolado.
+          EOF
+
+      - name: Guardar APK correto
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta18-final-correto
+          path: |
+            dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.18-FINAL-CORRETO.apk.sha256
+            dist/RELATORIO-BETA18-FINAL-CORRETO.txt
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Limpar material de assinatura do runner
+        if: always()
+        shell: bash
+        run: rm -rf "$BRIDGE_PRIVATE" "$RUNNER_TEMP/pass.enc" "$RUNNER_TEMP/pass.txt" "$RUNNER_TEMP/recovery.enc" "$RUNNER_TEMP/recovery.zip" "$RUNNER_TEMP/signing" "$RUNNER_TEMP/key.txt" "$RUNNER_TEMP/apksigner.txt" || true
