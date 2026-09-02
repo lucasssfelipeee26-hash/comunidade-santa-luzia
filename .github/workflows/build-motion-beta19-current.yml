@@ -1,0 +1,174 @@
+name: Android — Santa Luzia Motion Beta 19 separada
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-motion-beta19-current.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-motion-beta19-current
+  cancel-in-progress: false
+
+env:
+  BETA_VERSION_CODE: "20019"
+  BETA_VERSION_NAME: "2.0.0-beta.19"
+  BETA_APPLICATION_ID: br.com.comunidadesantaluzia.motionbeta
+  BETA_APP_NAME: Santa Luzia Motion Beta
+  CAPACITOR_SERVER_URL: https://comunidade-santa-luzia-production.up.railway.app
+  AUTH_SECRET: ci-motion-beta19-current-12345678901234567890
+  MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta.keystore
+  MOTION_BETA_STORE_PASSWORD: android
+  MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta
+  MOTION_BETA_KEY_PASSWORD: android
+  EXPECTED_BETA_CERT: 0cf42dad25bd2673c81c6e47b87b77d5581c3de5cf23552e23088bdc447a4a21
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Restaurar assinatura própria da linha Beta
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.android/santa-luzia-motion-beta.keystore
+          key: santa-luzia-motion-beta-keystore-v2
+          fail-on-cache-miss: true
+
+      - name: Validar assinatura Beta histórica
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$MOTION_BETA_KEYSTORE"
+          keytool -list -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" >/dev/null
+          CERT="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          test "$CERT" = "$EXPECTED_BETA_CERT"
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Aplicar identidade Beta somente no runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          pkg.version = process.env.BETA_VERSION_NAME
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
+          const build = JSON.parse(fs.readFileSync('config/android-build.json', 'utf8'))
+          build.versionCode = Number(process.env.BETA_VERSION_CODE)
+          build.versionName = process.env.BETA_VERSION_NAME
+          fs.writeFileSync('config/android-build.json', JSON.stringify(build, null, 2) + '\n')
+          const appReleasePath = 'lib/app-release.ts'
+          let appRelease = fs.readFileSync(appReleasePath, 'utf8')
+          appRelease = appRelease.replace(/APP_DISPLAY_VERSION = "[^"]+"/, `APP_DISPLAY_VERSION = "${process.env.BETA_VERSION_NAME}"`)
+          fs.writeFileSync(appReleasePath, appRelease)
+          NODE
+
+      - name: Auditar código corrigido
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit
+          npm run audit:robustez
+          npm run build
+
+      - name: Criar Android Beta separado
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$BETA_VERSION_CODE" APP_VERSION_NAME="$BETA_VERSION_NAME" node scripts/prepare-android.cjs
+          node <<'NODE'
+          const fs = require('node:fs')
+          const gradlePath = 'android/app/build.gradle'
+          let gradle = fs.readFileSync(gradlePath, 'utf8')
+          gradle = gradle.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${process.env.BETA_APPLICATION_ID}"`)
+          fs.writeFileSync(gradlePath, gradle)
+          const stringsPath = 'android/app/src/main/res/values/strings.xml'
+          let strings = fs.readFileSync(stringsPath, 'utf8')
+          for (const [key, value] of [
+            ['app_name', process.env.BETA_APP_NAME],
+            ['title_activity_main', process.env.BETA_APP_NAME],
+            ['package_name', process.env.BETA_APPLICATION_ID],
+            ['custom_url_scheme', process.env.BETA_APPLICATION_ID],
+          ]) {
+            const re = new RegExp(`<string name=["']${key}["']>[\\s\\S]*?<\\/string>`)
+            if (re.test(strings)) strings = strings.replace(re, `<string name="${key}">${value}</string>`)
+          }
+          fs.writeFileSync(stringsPath, strings)
+          NODE
+          grep -Eq "applicationId[[:space:]]+\"br\.com\.comunidadesantaluzia\.motionbeta\"" android/app/build.gradle
+          grep -Eq "versionCode[[:space:]]+20019" android/app/build.gradle
+          grep -Fq 'versionName "2.0.0-beta.19"' android/app/build.gradle
+          grep -Fq 'Santa Luzia Motion Beta' android/app/src/main/res/values/strings.xml
+
+      - name: Compilar, assinar e validar Beta 19
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd android && ./gradlew assembleRelease --no-daemon)
+          UNSIGNED="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$UNSIGNED"
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$ZIPALIGN" && test -x "$APKSIGNER" && test -x "$AAPT"
+          mkdir -p dist
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/beta19-aligned.apk"
+          "$APKSIGNER" sign \
+            --ks "$MOTION_BETA_KEYSTORE" \
+            --ks-pass "pass:$MOTION_BETA_STORE_PASSWORD" \
+            --ks-key-alias "$MOTION_BETA_KEY_ALIAS" \
+            --key-pass "pass:$MOTION_BETA_KEY_PASSWORD" \
+            --out dist/Santa-Luzia-Motion-2.0-beta19.apk \
+            "$RUNNER_TEMP/beta19-aligned.apk"
+          "$APKSIGNER" verify --verbose --print-certs dist/Santa-Luzia-Motion-2.0-beta19.apk | tee "$RUNNER_TEMP/cert.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/cert.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "$CERT" = "$EXPECTED_BETA_CERT"
+          "$AAPT" dump badging dist/Santa-Luzia-Motion-2.0-beta19.apk | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='br.com.comunidadesantaluzia.motionbeta' versionCode='20019' versionName='2.0.0-beta.19'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "launchable-activity: name='br.com.comunidadesantaluzia.app.MainActivity'" "$RUNNER_TEMP/badging.txt"
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0-beta19.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0-beta19.apk)"
+          cat > dist/RELATORIO-MOTION-BETA19.txt <<EOF
+          Santa Luzia Motion Beta Android
+          Versão: 2.0.0-beta.19
+          VersionCode: 20019
+          ApplicationId: br.com.comunidadesantaluzia.motionbeta
+          Nome: Santa Luzia Motion Beta
+          Tamanho: $SIZE bytes
+          SHA-256: $SHA
+          Certificado Beta SHA-256: $CERT
+          Canal oficial preservado: Santa Luzia 1.0.6 / code18 / br.com.comunidadesantaluzia.app
+          Esta Beta instala separadamente e não substitui o aplicativo oficial.
+          EOF
+
+      - name: Guardar APK Beta separado
+        uses: actions/upload-artifact@v4
+        with:
+          name: Santa-Luzia-Motion-Beta19-separada
+          path: |
+            dist/Santa-Luzia-Motion-2.0-beta19.apk
+            dist/RELATORIO-MOTION-BETA19.txt
+          if-no-files-found: error
+          retention-days: 7
