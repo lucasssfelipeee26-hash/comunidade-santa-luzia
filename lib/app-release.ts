@@ -6,4 +6,4 @@
  * público mostrado no ecossistema do aplicativo.
  */
 export const APP_AUTH_RELEASE = "0.11.0"
-export const APP_DISPLAY_VERSION = "1.0.7"
+export const APP_DISPLAY_VERSION = "1.0.6"
