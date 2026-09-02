@@ -38,6 +38,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs')
+          const p = 'config/android-build.json'
+          const b = JSON.parse(fs.readFileSync(p, 'utf8'))
+          b.versionCode = 19
+          b.versionName = '1.0.7'
+          fs.writeFileSync(p, JSON.stringify(b, null, 2) + '\n')
+          NODE
           npm install --no-audit --no-fund
           npx tsc --noEmit
           npm run audit:robustez
