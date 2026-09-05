@@ -76,7 +76,12 @@ const motionTags = [...html.matchAll(/<script\s+defer\s+src="\/motion\/([^"]+\.j
 if (motionTags.length !== 1 || motionTags[0] !== "android-motion-runtime-beta20.js") fail(`Stack Motion ainda fragmentada: ${motionTags.join(", ")}`)
 if (html.indexOf("/motion/android-motion-runtime-beta20.js") > html.indexOf("/local-app.js")) fail("Runtime Motion consolidado está depois do React local.")
 const consolidated = path.join(assets, "motion", "android-motion-runtime-beta20.js")
-requireAll(consolidated, ["android-beta19-regression-fix.js", "android-motion-beta.js", "SantaLuziaDeepAudit", "slR11Panel"], "Runtime Motion consolidado")
+requireAll(consolidated, [
+  "android-beta19-regression-fix.js",
+  "android-motion-beta.js",
+  "android-auditor-patch-beta16.js",
+  "android-auditor-count-fix-beta17.js",
+], "Runtime Motion consolidado")
 
 removeIfExists(path.join(assets, "cordova.js"))
 removeIfExists(path.join(assets, "cordova_plugins.js"))
