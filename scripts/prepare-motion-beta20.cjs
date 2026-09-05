@@ -22,27 +22,15 @@ if (config.versionName !== "2.0.0-beta.20" || config.versionCode !== 20020) fail
 if (config.applicationId !== "br.com.comunidadesantaluzia.motionbeta") fail("Pacote Motion Beta isolado incorreto.")
 if (stable.versionName !== "1.0.6" || stable.versionCode !== 18) fail(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}.`)
 
-const signing = {
-  keystore: process.env.MOTION_BETA_KEYSTORE,
-  storePassword: process.env.MOTION_BETA_STORE_PASSWORD,
-  keyAlias: process.env.MOTION_BETA_KEY_ALIAS,
-  keyPassword: process.env.MOTION_BETA_KEY_PASSWORD,
-}
-for (const [key, value] of Object.entries(signing)) if (!value) fail(`Variável de assinatura ausente: ${key}`)
-if (!fs.existsSync(signing.keystore) || fs.statSync(signing.keystore).size < 1000) fail("Keystore persistente da Motion Beta ausente ou inválido.")
-
 const gradle = path.join(root, "android", "app", "build.gradle")
 let gradleText = read(gradle)
 gradleText = gradleText.replace(/applicationId\s+["'][^"']+["']/, `applicationId "${config.applicationId}"`)
 gradleText = gradleText.replace(/versionCode\s+\d+/, `versionCode ${config.versionCode}`)
 gradleText = gradleText.replace(/versionName\s+["'][^"']+["']/, `versionName "${config.versionName}"`)
 
-const signingBlock = `    signingConfigs {\n        motionBeta {\n            storeFile file(System.getenv("MOTION_BETA_KEYSTORE"))\n            storePassword System.getenv("MOTION_BETA_STORE_PASSWORD")\n            keyAlias System.getenv("MOTION_BETA_KEY_ALIAS")\n            keyPassword System.getenv("MOTION_BETA_KEY_PASSWORD")\n        }\n    }\n`
-if (!gradleText.includes("signingConfigs {")) {
-  gradleText = gradleText.replace(/(\s+defaultConfig\s*\{)/, `\n${signingBlock}$1`)
-}
-
-const hardenedRelease = `release {\n            debuggable false\n            signingConfig signingConfigs.motionBeta\n            minifyEnabled true\n            shrinkResources true\n            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\n        }`
+// Esta Beta é somente de teste. O build release usa a assinatura de teste do Android,
+// mas mantém debuggable=false. A futura promoção oficial terá a assinatura oficial.
+const hardenedRelease = `release {\n            debuggable false\n            signingConfig signingConfigs.debug\n            minifyEnabled true\n            shrinkResources true\n            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\n        }`
 if (/release\s*\{[\s\S]*?\n\s*\}/m.test(gradleText)) {
   gradleText = gradleText.replace(/release\s*\{[\s\S]*?\n\s*\}/m, hardenedRelease)
 } else if (/buildTypes\s*\{/.test(gradleText)) {
@@ -62,7 +50,6 @@ write(strings, stringsText)
 
 const manifestFile = path.join(root, "android", "app", "src", "main", "AndroidManifest.xml")
 let manifest = read(manifestFile)
-// Somente a MainActivity deixa de disputar singleTask com o BrowserController do Capacitor.
 manifest = manifest.replace('android:launchMode="singleTask"', 'android:launchMode="singleTop"')
 manifest = manifest.replace(/<activity([\s\S]*?android:name="\.MainActivity"[\s\S]*?)>/m, (tag) => {
   let value = tag
@@ -91,7 +78,6 @@ if (html.indexOf("/motion/android-motion-runtime-beta20.js") > html.indexOf("/lo
 const consolidated = path.join(assets, "motion", "android-motion-runtime-beta20.js")
 requireAll(consolidated, ["android-beta19-regression-fix.js", "android-motion-beta.js", "SantaLuziaDeepAudit", "slR11Panel"], "Runtime Motion consolidado")
 
-// Cordova não é dependência do projeto; elimina arquivos vazios/legados do artefato final.
 removeIfExists(path.join(assets, "cordova.js"))
 removeIfExists(path.join(assets, "cordova_plugins.js"))
 const cordovaConfig = path.join(root, "android", "app", "src", "main", "res", "xml", "config.xml")
@@ -99,8 +85,6 @@ if (fs.existsSync(cordovaConfig)) {
   const text = fs.readFileSync(cordovaConfig, "utf8")
   if (/widget|access\s+origin/i.test(text)) removeIfExists(cordovaConfig)
 }
-
-// Resíduos de renomeação identificados pela auditoria do APK Beta 18.
 for (const image of ["_franciscoxavier.jpg", "_santaagueda.jpg", "_santoambrosio.jpg"]) removeIfExists(path.join(assets, image))
 
 const iliturgiaManifestFile = path.join(assets, "offline", "iliturgia", "manifest.json")
@@ -114,8 +98,6 @@ for (const pack of ["oficio-01.html.json.bin", "oficio-10.html.json.bin", "lecio
   if (!fs.existsSync(file) || fs.statSync(file).size < 1000) fail(`Pacote offline crítico ausente: ${pack}`)
 }
 
-// Alinha a identidade que o runtime Capacitor enxerga com o applicationId real do APK,
-// sem deslocar o namespace Java histórico dos plugins nativos.
 const capConfigFile = path.join(root, "android", "app", "src", "main", "assets", "capacitor.config.json")
 const capConfig = JSON.parse(read(capConfigFile))
 capConfig.appId = config.applicationId
@@ -137,7 +119,7 @@ for (const marker of [
   "versionCode 20020",
   'versionName "2.0.0-beta.20"',
   "debuggable false",
-  "signingConfig signingConfigs.motionBeta",
+  "signingConfig signingConfigs.debug",
   "minifyEnabled true",
   "shrinkResources true",
 ]) if (!finalGradle.includes(marker)) fail(`Gradle Beta 20 sem marcador: ${marker}`)
