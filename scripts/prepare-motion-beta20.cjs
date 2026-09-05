@@ -79,8 +79,8 @@ const consolidated = path.join(assets, "motion", "android-motion-runtime-beta20.
 requireAll(consolidated, [
   "android-beta19-regression-fix.js",
   "android-motion-beta.js",
-  "android-auditor-patch-beta16.js",
-  "android-auditor-count-fix-beta17.js",
+  "android-auditor-beta12.js",
+  "android-podium-beta12.js",
 ], "Runtime Motion consolidado")
 
 removeIfExists(path.join(assets, "cordova.js"))
