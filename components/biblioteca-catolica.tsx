@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { BookOpen, Download, ExternalLink, Search, ShieldCheck } from "lucide-react"
+import { BookOpen, Download, ExternalLink, Search } from "lucide-react"
 import { categoriasBiblioteca, livrosBiblioteca, type LivroBiblioteca } from "@/lib/biblioteca"
 
 function CoverFallback({ livro }: { livro: LivroBiblioteca }) {
@@ -109,21 +109,8 @@ export function BibliotecaCatolica() {
   }
 
   return (
-    <div>
-      <section className="rounded-2xl border border-[#d4af37]/35 bg-[#073b29] p-6 text-white shadow-lg sm:p-8">
-        <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#e9c75b]">Acervo para estudo e formação</p>
-            <h1 className="mt-2 font-serif text-4xl text-[#f2cf62] sm:text-5xl">Biblioteca Católica</h1>
-            <p className="mt-4 max-w-3xl leading-7 text-white/80">Agora com mais livros, capas menores e categorias organizadas. Quando uma obra não possui imagem original adequada, o site usa uma capa católica gerada localmente para manter o visual bonito e uniforme.</p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-lg border border-[#d4af37]/45 bg-white/5 px-4 py-3 text-sm text-white/80">
-            <ShieldCheck className="size-5 text-[#f2cf62]" /> Catálogo com referência à fonte original
-          </div>
-        </div>
-      </section>
-
-      <div className="mt-7 rounded-xl border border-[#d9cfb9] bg-white p-4 shadow-sm">
+    <div data-biblioteca-catalogo="beta20">
+      <div className="rounded-xl border border-[#d9cfb9] bg-white p-4 shadow-sm">
         <label className="relative block">
           <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-[#8b806a]" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar livro, autor, santo ou tema..." className="w-full rounded-lg border border-[#d9cfb9] bg-[#fffdf7] py-3 pl-11 pr-4 text-[#173d2d] outline-none transition focus:border-[#b98b22] focus:ring-2 focus:ring-[#d4af37]/20" />
