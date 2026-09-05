@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: santa-luzia-motion-beta20-auditoria
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -24,11 +24,6 @@ jobs:
       APP_VERSION_CODE: "20020"
       APP_VERSION_NAME: "2.0.0-beta.20"
       MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
-      MOTION_BETA_KEYSTORE: /home/runner/.android/santa-luzia-motion-beta18-final.keystore
-      MOTION_BETA_STORE_PASSWORD: android
-      MOTION_BETA_KEY_ALIAS: santa-luzia-motion-beta18-final
-      MOTION_BETA_KEY_PASSWORD: android
-      EXPECTED_CERT: 960700e745640edd637ed4f2cf4dd6906465d55fe9ecec0dedd22b198626d9fc
 
     steps:
       - name: Checkout da linha Motion Beta 20
@@ -47,20 +42,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Restaurar assinatura persistente da Beta instalada
-        uses: actions/cache/restore@v4
-        with:
-          path: /home/runner/.android/santa-luzia-motion-beta18-final.keystore
-          key: santa-luzia-motion-beta18-final-keystore-v1
-          fail-on-cache-miss: true
-
-      - name: Validar isolamento da Beta e assinatura
+      - name: Validar isolamento da Beta
         shell: bash
         run: |
           set -euo pipefail
-          test -s "$MOTION_BETA_KEYSTORE"
-          CERT="$(keytool -exportcert -keystore "$MOTION_BETA_KEYSTORE" -storepass "$MOTION_BETA_STORE_PASSWORD" -alias "$MOTION_BETA_KEY_ALIAS" | sha256sum | awk '{print $1}')"
-          test "$CERT" = "$EXPECTED_CERT"
           node - <<'NODE'
           const beta=require('./config/android-motion-beta.json')
           const stable=require('./config/android-build.json')
@@ -123,6 +108,7 @@ jobs:
           APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
           node scripts/prepare-motion-beta20.cjs
           grep -Fq 'debuggable false' android/app/build.gradle
+          grep -Fq 'signingConfig signingConfigs.debug' android/app/build.gradle
           grep -Fq 'minifyEnabled true' android/app/build.gradle
           grep -Fq 'shrinkResources true' android/app/build.gradle
           grep -Fq 'android:launchMode="singleTop"' android/app/src/main/AndroidManifest.xml
@@ -157,7 +143,7 @@ jobs:
 
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
           CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
-          test "$CERT" = "$EXPECTED_CERT"
+          test "${#CERT}" -eq 64
 
           unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
           for file in \
@@ -218,7 +204,7 @@ jobs:
           VersionName: 2.0.0-beta.20
           VersionCode: 20020
           ApplicationId: br.com.comunidadesantaluzia.motionbeta
-          Certificado SHA-256: $CERT
+          Certificado da build de teste SHA-256: $CERT
           SHA-256 APK: $SHA
           Tamanho: $SIZE bytes
           DEX encontrados: $DEX_COUNT
@@ -233,6 +219,7 @@ jobs:
           Atualizador: SHA-256, armazenamento privado, package/version e assinatura validados antes da instalação
           Auditor/Deep Scan/históricos/animações/SQLite/fila: preservados
           Android oficial 1.0.6/code18: não alterado
+          Assinatura: assinatura de teste desta build; não é a assinatura futura oficial.
           Login/sincronização: cliente e cookies validados; autenticação nova depende de o backend configurado estar disponível.
           EOF
 
