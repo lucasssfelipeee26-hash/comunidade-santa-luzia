@@ -137,12 +137,12 @@ const cssLinks = cssFiles.map((file) => {
 }).join("\n")
 
 const requiredScripts = [
+  "android-native-fetch-beta10.js",
   "windows-behavior-fixes.js",
   "windows-beta7-polish.js",
   "windows-preload-v5.js",
   "windows-beta-runtime.js",
   "android-motion-beta.js",
-  "android-native-fetch-beta10.js",
   "android-local-first-beta8.js",
   "android-member-state-beta8.js",
   "android-domain-bridge-beta10.js",

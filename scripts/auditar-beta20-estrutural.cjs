@@ -13,7 +13,7 @@ function ok(condition, message) {
 
 const config = JSON.parse(read("config/android-motion-beta.json"))
 const stable = JSON.parse(read("config/android-build.json"))
-ok(config.versionName === "2.0.0-beta.20" && config.versionCode === 20020, "identidade Motion Beta 20/code20020")
+ok(config.versionName === "2.0.0-beta.21" && config.versionCode === 20021, "identidade Motion Beta 20/code20021")
 ok(config.applicationId === "br.com.comunidadesantaluzia.motionbeta", "package Beta isolado")
 ok(stable.versionName === "1.0.6" && stable.versionCode === 18, "canal oficial permanece congelado")
 
@@ -52,7 +52,7 @@ const store = read("lib/store.tsx")
 const nativeFetch = read("android-web/motion/android-native-fetch-beta10.js")
 const sync = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/SyncHttpPlugin.java")
 ok(login.includes("router.replace") && login.includes("router.refresh()"), "retorno de login compatível com a navegação local")
-ok(store.includes('fetch("/api/auth/login"') && store.includes('globalMutate("/api/auth/me")'), "sessão é atualizada após autenticação")
+ok(store.includes("loginConfirmed(usuario, senha)") && store.includes('globalMutate("/api/auth/me", result.me'), "sessão é atualizada após autenticação")
 ok(nativeFetch.includes("SyncHttp") && nativeFetch.includes("/api/"), "requisições de autenticação/sincronização passam pela ponte nativa")
 ok(sync.includes("CookieManager") && sync.includes("set-cookie") && sync.includes("BASE_URL"), "cookies de sessão são preservados pela ponte nativa")
 

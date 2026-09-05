@@ -18,7 +18,7 @@ function normalizeMinifiedJs(text) {
 }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
-if (config.versionName !== "2.0.0-beta.20" || config.versionCode !== 20020) fail(`Beta 20/code20020 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
+if (config.versionName !== "2.0.0-beta.21" || config.versionCode !== 20021) fail(`Beta 20/code20021 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
 if (config.applicationId !== "br.com.comunidadesantaluzia.motionbeta") fail("Pacote Motion Beta isolado incorreto.")
 if (stable.versionName !== "1.0.6" || stable.versionCode !== 18) fail(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}.`)
 
@@ -121,8 +121,8 @@ requireAll(updater, ["expectedSha256", "getExternalFilesDir", "MessageDigest.isE
 const finalGradle = read(gradle)
 for (const marker of [
   `applicationId "${config.applicationId}"`,
-  "versionCode 20020",
-  'versionName "2.0.0-beta.20"',
+  "versionCode 20021",
+  'versionName "2.0.0-beta.21"',
   "debuggable false",
   "signingConfig signingConfigs.debug",
   "minifyEnabled true",

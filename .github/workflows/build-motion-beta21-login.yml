@@ -1,0 +1,238 @@
+name: Android — Santa Luzia Motion Beta 21 Auditoria Estrutural
+
+on:
+  push:
+    branches:
+      - fix/beta21-login
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: santa-luzia-motion-beta21-login
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      SANTA_LUZIA_MOTION_VERSION: "2.0.0-beta.21"
+      AUTH_SECRET: ci-motion-beta21-login-12345678901234567890
+      APP_VERSION_CODE: "20021"
+      APP_VERSION_NAME: "2.0.0-beta.21"
+      MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
+
+    steps:
+      - name: Checkout da linha Motion Beta 21
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Validar isolamento da Beta
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const beta=require('./config/android-motion-beta.json')
+          const stable=require('./config/android-build.json')
+          if(beta.versionName!=='2.0.0-beta.21'||beta.versionCode!==20021) throw new Error('Fonte não é Beta 21')
+          if(beta.applicationId!=='br.com.comunidadesantaluzia.motionbeta') throw new Error('Pacote Motion alterado')
+          if(stable.versionName!=='1.0.6'||stable.versionCode!==18) throw new Error('Canal oficial alterado')
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Restaurar runtime visual histórico da Windows Beta
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/fetch-windows-beta-stack.cjs
+          node scripts/patch-windows-polish-android-beta18.cjs
+
+      - name: Auditar fonte, herança funcional e regressões reportadas
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/auth-client.test.cjs
+          npx tsc --noEmit
+          node scripts/auditar-robustez.cjs
+          npm run audit:offline
+          node scripts/auditar-beta20-heranca-completa.cjs
+          node scripts/auditar-beta20-estrutural.cjs
+
+      - name: Compilar React local e iLiturgia offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/build-next.cjs
+          npm run build:android-local
+          node scripts/patch-beta19-offline-pack.cjs
+          node scripts/patch-beta19-android-web.cjs
+          node scripts/bundle-motion-beta20.cjs
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          test -s android-web/motion/android-motion-runtime-beta20.js
+          test "$(grep -o '<script defer src=\"/motion/[^\"]*\.js\"' android-web/index.html | wc -l)" -eq 1
+          grep -Fq '/motion/android-motion-runtime-beta20.js' android-web/index.html
+          grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
+          grep -Fq '"beta": "2.0.0-beta.21"' android-web/offline/iliturgia/manifest.json
+          test -s android-web/offline/iliturgia/oficio-01.html.json.bin
+          test -s android-web/offline/iliturgia/oficio-10.html.json.bin
+          test -s android-web/offline/iliturgia/lecionario.html.json.bin
+          test -s android-web/offline/iliturgia/missal.html.json.bin
+          test ! -e android-web/offline.html
+          test ! -e android-web/offline-bridge.html
+
+      - name: Preparar Android Motion Beta 21
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta20.cjs
+          grep -Fq 'debuggable false' android/app/build.gradle
+          grep -Fq 'signingConfig signingConfigs.debug' android/app/build.gradle
+          grep -Fq 'minifyEnabled true' android/app/build.gradle
+          grep -Fq 'shrinkResources true' android/app/build.gradle
+          grep -Fq 'android:launchMode="singleTop"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
+          test ! -e android/app/src/main/assets/public/cordova.js
+          test ! -e android/app/src/main/assets/public/cordova_plugins.js
+          test ! -e android/app/src/main/res/xml/config.xml
+
+      - name: Compilar APK Release
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Auditar APK final
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 15000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
+
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml > "$RUNNER_TEMP/manifest-tree.txt"
+          if grep -F 'android:debuggable' "$RUNNER_TEMP/manifest-tree.txt" | grep -Eq '0xffffffff|0x1([^0-9a-f]|$)'; then
+            echo 'ERRO: APK final continua depurável' >&2
+            exit 1
+          fi
+
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          CERT="$(awk -F': ' 'tolower($0) ~ /certificate sha-256 digest:/ {print $NF; exit}' "$RUNNER_TEMP/apksigner.txt" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')"
+          test "${#CERT}" -eq 64
+
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          for file in \
+            assets/public/index.html \
+            assets/public/local-app.js \
+            assets/public/motion/android-motion-runtime-beta20.js \
+            assets/public/offline/iliturgia/oficio-01.html.json.bin \
+            assets/public/offline/iliturgia/oficio-10.html.json.bin \
+            assets/public/offline/iliturgia/lecionario.html.json.bin \
+            assets/public/offline/iliturgia/missal.html.json.bin \
+            assets/capacitor.config.json; do
+              grep -Fq "$file" "$RUNNER_TEMP/apk-files.txt"
+          done
+
+          for forbidden in \
+            assets/public/cordova.js \
+            assets/public/cordova_plugins.js \
+            res/xml/config.xml \
+            assets/public/_franciscoxavier.jpg \
+            assets/public/_santaagueda.jpg \
+            assets/public/_santoambrosio.jpg; do
+              if grep -Fq "$forbidden" "$RUNNER_TEMP/apk-files.txt"; then
+                echo "ERRO: resíduo proibido no APK: $forbidden" >&2
+                exit 1
+              fi
+          done
+
+          unzip -p "$APK" assets/public/index.html > "$RUNNER_TEMP/index.html"
+          test "$(grep -o '<script defer src=\"/motion/[^\"]*\.js\"' "$RUNNER_TEMP/index.html" | wc -l)" -eq 1
+          grep -Fq '/motion/android-motion-runtime-beta20.js' "$RUNNER_TEMP/index.html"
+          if grep -Eq '/motion/(android-motion-beta|android-native-fetch-beta10|android-local-first-beta8|android-domain-bridge-beta10|android-auditor-beta12)\.js' "$RUNNER_TEMP/index.html"; then
+            echo 'ERRO: stack Motion fragmentada reapareceu no APK' >&2
+            exit 1
+          fi
+
+          unzip -p "$APK" assets/public/offline/iliturgia/manifest.json > "$RUNNER_TEMP/iliturgia-manifest.json"
+          grep -Fq '"androidAssetTransport": "binary-v1"' "$RUNNER_TEMP/iliturgia-manifest.json"
+          grep -Fq '"beta": "2.0.0-beta.21"' "$RUNNER_TEMP/iliturgia-manifest.json"
+
+          unzip -p "$APK" assets/capacitor.config.json > "$RUNNER_TEMP/capacitor-config.json"
+          node - "$RUNNER_TEMP/capacitor-config.json" <<'NODE'
+          const fs=require('fs')
+          const file=process.argv[2]
+          const cap=JSON.parse(fs.readFileSync(file,'utf8'))
+          if(cap.appId!=='br.com.comunidadesantaluzia.motionbeta') throw new Error(`Capacitor appId divergente: ${cap.appId}`)
+          if(cap.server) throw new Error('Motion Beta contém server.url')
+          if(!String(cap.android?.appendUserAgent||'').includes('2.0.0-beta.21')) throw new Error('User-Agent Beta 21 ausente')
+          NODE
+
+          DEX_COUNT="$(grep -Ec 'classes([0-9]+)?\.dex' "$RUNNER_TEMP/apk-files.txt" || true)"
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk
+          SHA="$(sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk | awk '{print $1}')"
+          SIZE="$(stat -c%s dist/Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk)"
+          printf '%s  Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk\n' "$SHA" > dist/Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk.sha256
+          cat > dist/RELATORIO-MOTION-BETA21-LOGIN.txt <<EOF
+          Santa Luzia Motion Beta 21 — auditoria estrutural e correções de aparelho real
+          VersionName: 2.0.0-beta.21
+          VersionCode: 20021
+          ApplicationId: br.com.comunidadesantaluzia.motionbeta
+          Certificado da build de teste SHA-256: $CERT
+          SHA-256 APK: $SHA
+          Tamanho: $SIZE bytes
+          DEX encontrados: $DEX_COUNT
+          Build: release, debuggable=false, R8/minify=true, shrinkResources=true
+          Home: quatro atalhos, sem Liturgia Diária duplicada e sem ícones duplicados
+          Hero: enquadramento móvel 1800x620 sem faixa vazia
+          Biblioteca: banner promocional removido na origem
+          Centro Litúrgico: pacotes internos binários validados e embutidos no APK
+          Capacitor: appId alinhado ao package Motion Beta no artefato final
+          Navegação Android: MainActivity singleTop e portrait
+          Cordova: resíduos removidos do artefato
+          Atualizador: SHA-256, armazenamento privado, package/version e assinatura validados antes da instalação
+          Auditor/Deep Scan/históricos/animações/SQLite/fila: preservados
+          Android oficial 1.0.6/code18: não alterado
+          Assinatura: assinatura de teste desta build; não é a assinatura futura oficial.
+          Login: sessão confirmada pela API antes de navegar; cookies aguardam persistência.
+          Testes de transporte e respostas executados com servidor simulado.
+          Servidor Railway retornava HTTP 404 Application not found durante a investigação. Login real depende da recuperação do backend e não foi validado com conta real.
+          EOF
+
+      - name: Guardar APK corrigido para teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta21-login
+          path: |
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-AUDITORIA.apk.sha256
+            dist/RELATORIO-MOTION-BETA21-LOGIN.txt
+          retention-days: 14
+          if-no-files-found: error

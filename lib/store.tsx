@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
+import { authJson, loginConfirmed, validSession } from "@/lib/auth-client"
 import { carregarSessaoOffline, limparDadosPrivadosOffline, salvarSessaoOffline } from "@/lib/offline-data"
 
 export type Registro = {
@@ -48,8 +49,10 @@ type MeResponse = {
 
 const fetcher = async (url: string) => {
   try {
-    const response = await fetch(url, { credentials: "same-origin" })
-    const json = await response.json()
+    const response = url === "/api/auth/me" ? null : await fetch(url, { credentials: "same-origin" })
+    if (response && !response.ok) throw new Error(`HTTP ${response.status}`)
+    const json = response ? await response.json() : await authJson(url)
+    if (url === "/api/auth/me" && !validSession(json)) throw new Error("Resposta de sessão inválida.")
     if (url === "/api/auth/me") {
       if (json?.sessao) salvarSessaoOffline(json)
       else limparDadosPrivadosOffline()
@@ -147,14 +150,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = useCallback<Ctx["login"]>(async (usuario, senha) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ usuario, senha }),
-    })
-    const json = (await res.json()) as ResultadoAcao
-    if (json.ok) await globalMutate("/api/auth/me")
-    return json
+    const result = await loginConfirmed(usuario, senha)
+    if (result.ok) {
+      salvarSessaoOffline(result.me)
+      await globalMutate("/api/auth/me", result.me, { revalidate: false })
+    }
+    return result
   }, [])
 
   const logout = useCallback(async () => {

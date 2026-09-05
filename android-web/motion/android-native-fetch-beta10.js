@@ -90,7 +90,7 @@
     if (result?.contentDisposition && !headers.has("content-disposition")) headers.set("content-disposition", String(result.contentDisposition));
     const status = Number(result?.status || 500);
     const body = result?.bodyBase64 ? base64ToBytes(String(result.bodyBase64)) : String(result?.body ?? "");
-    return new Response(body, { status: Math.min(599, Math.max(200, status)), headers });
+    return new Response([204, 205, 304].includes(status) ? null : body, { status: Math.min(599, Math.max(200, status)), headers });
   }
 
   window.fetch = async function santaLuziaNativeSyncFetch(input, init) {
@@ -114,4 +114,5 @@
     if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     return responseFromNative(result);
   };
+  window.__santaLuziaNativeApiFetch = window.fetch;
 })();

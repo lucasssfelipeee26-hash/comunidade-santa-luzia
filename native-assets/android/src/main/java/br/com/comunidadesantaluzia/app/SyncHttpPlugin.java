@@ -24,6 +24,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @CapacitorPlugin(name = "SyncHttp")
 public class SyncHttpPlugin extends Plugin {
@@ -66,16 +70,33 @@ public class SyncHttpPlugin extends Plugin {
         } catch (Exception ignored) {}
     }
 
-    private void reterCookies(HttpURLConnection conexao) {
-        try {
-            CookieManager manager = CookieManager.getInstance();
-            Map<String, List<String>> headers = conexao.getHeaderFields();
-            for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
-                if (entry.getKey() == null || !"set-cookie".equalsIgnoreCase(entry.getKey())) continue;
-                for (String cookie : entry.getValue()) if (cookie != null && !cookie.isEmpty()) manager.setCookie(BASE_URL, cookie);
+    private void reterCookies(HttpURLConnection conexao) throws Exception {
+        // setCookie is asynchronous. Do not release login until the cookie is
+        // visible to the next /auth/me request and persisted for a cold start.
+        List<String> cookies = new ArrayList<>();
+        for (Map.Entry<String, List<String>> entry : conexao.getHeaderFields().entrySet()) {
+            if (entry.getKey() != null && "set-cookie".equalsIgnoreCase(entry.getKey())) {
+                for (String cookie : entry.getValue()) if (cookie != null && !cookie.isEmpty()) cookies.add(cookie);
             }
-            manager.flush();
-        } catch (Exception ignored) {}
+        }
+        if (cookies.isEmpty()) return;
+        if (getActivity() == null) throw new IllegalStateException("Aplicativo indisponível para salvar a sessão.");
+        CountDownLatch saved = new CountDownLatch(cookies.size());
+        AtomicBoolean accepted = new AtomicBoolean(true);
+        getActivity().runOnUiThread(() -> {
+            CookieManager manager = CookieManager.getInstance();
+            manager.setAcceptCookie(true);
+            for (String cookie : cookies) {
+                manager.setCookie(BASE_URL, cookie, success -> {
+                    if (!Boolean.TRUE.equals(success)) accepted.set(false);
+                    saved.countDown();
+                });
+            }
+        });
+        if (!saved.await(10, TimeUnit.SECONDS) || !accepted.get()) {
+            throw new IllegalStateException("Não foi possível salvar a sessão no aparelho.");
+        }
+        CookieManager.getInstance().flush();
     }
 
     private void aplicarHeaders(HttpURLConnection conexao, String headersJson) {
@@ -234,7 +255,7 @@ public class SyncHttpPlugin extends Plugin {
                 conexao.setInstanceFollowRedirects(false);
                 conexao.setUseCaches(false);
                 conexao.setRequestProperty("Accept", "application/json, text/plain, */*");
-                conexao.setRequestProperty("User-Agent", "SantaLuziaAndroid SantaLuziaMotionBeta/2.0.0-beta.10 SantaLuziaOriginalUIOffline/2 SantaLuziaWindowsBeta/0.1.0-beta.19");
+                conexao.setRequestProperty("User-Agent", "SantaLuziaAndroid SantaLuziaMotionBeta/2.0.0-beta.21 SantaLuziaOriginalUIOffline/2 SantaLuziaWindowsBeta/0.1.0-beta.19");
                 conexao.setRequestProperty("X-Santa-Luzia-Windows-Beta", "1");
                 aplicarHeaders(conexao, headersJson);
                 aplicarCookies(conexao);
