@@ -5,9 +5,10 @@ const zlib = require("node:zlib")
 const root = path.resolve(__dirname, "..")
 const dir = path.join(root, "android-web", "offline", "iliturgia")
 const manifestFile = path.join(dir, "manifest.json")
+const config = require(path.join(root, "config", "android-motion-beta.json"))
 
 function fail(message) {
-  console.error(`[beta19-offline] ${message}`)
+  console.error(`[beta20-offline] ${message}`)
   process.exit(1)
 }
 
@@ -32,6 +33,8 @@ for (const categoria of manifest.categorias) {
       try {
         const aberto = zlib.gunzipSync(bytes)
         if (aberto.length < 10) fail(`Pacote vazio após descompactação: ${nome}`)
+        const parsed = JSON.parse(aberto.toString("utf8"))
+        if (!Array.isArray(parsed?.documents) || !parsed.documents.length) fail(`Pacote sem documentos: ${nome}`)
       } catch (error) {
         fail(`Pacote GZIP inválido ${nome}: ${error instanceof Error ? error.message : String(error)}`)
       }
@@ -45,7 +48,7 @@ for (const categoria of manifest.categorias) {
 
 manifest.androidAssetTransport = "binary-v1"
 manifest.androidAssetExtension = ".bin"
-manifest.beta = "2.0.0-beta.19"
+manifest.beta = config.versionName
 fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`)
 
 const arquivos = [...convertidos.values()]
@@ -54,4 +57,4 @@ for (const exigido of ["oficio-01.html.json.bin", "oficio-10.html.json.bin", "le
   if (!fs.existsSync(path.join(dir, exigido))) fail(`Pacote crítico Android ausente: ${exigido}`)
 }
 
-console.log(`[beta19-offline] ${arquivos.length} pacote(s) litúrgico(s) preparados como assets binários locais; nenhuma leitura depende do servidor.`)
+console.log(`[beta20-offline] ${arquivos.length} pacote(s) litúrgico(s) validados e preparados como assets binários locais (${config.versionName}).`)
