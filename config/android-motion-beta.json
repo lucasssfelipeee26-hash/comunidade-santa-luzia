@@ -1,7 +1,7 @@
 {
   "channel": "android-motion-beta",
-  "versionCode": 20019,
-  "versionName": "2.0.0-beta.19",
+  "versionCode": 20020,
+  "versionName": "2.0.0-beta.20",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
   "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
@@ -23,5 +23,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 19: parte da Beta 18 Recovery/Beta 16 auditada e corrige regressões observadas em aparelho real: atalhos e ícones duplicados da Home, enquadramento do hero, excesso de altura dos cards, banner promocional da Biblioteca, leitura 100% offline do acervo litúrgico empacotado e compatibilidade de retorno do login. Preserva Deep Scan, Auditor, históricos, barra inferior, animações originais, filas e SQLite. Android oficial 1.0.6/code18 e Windows permanecem intocados."
+  "notes": "Beta 20: preserva as correções de aparelho real da Beta 19 e fecha os achados estruturais da auditoria da Beta 18: APK assinado em release e não depurável, identidade Capacitor alinhada ao pacote Motion Beta no artefato final, R8/shrink habilitados, resíduos Cordova removidos, MainActivity sem singleTask concorrente, stack de scripts Motion consolidada mantendo a ordem histórica, assets órfãos removidos do pacote e verificações finais de segurança/estrutura. Home, hero, Biblioteca, iLiturgia offline, login/sincronização, Auditor/Deep Scan, históricos, animações, SQLite e filas permanecem preservados. Android oficial 1.0.6/code18 permanece intocado."
 }
