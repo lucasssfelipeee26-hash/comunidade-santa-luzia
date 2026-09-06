@@ -147,10 +147,8 @@
       try {
         return (await promise).clone();
       } finally {
-        window.setTimeout(() => {
-          const current = inflightGets.get(key);
-          if (current?.promise === promise) inflightGets.delete(key);
-        }, GET_COALESCE_MS);
+        const current = inflightGets.get(key);
+        if (current?.promise === promise) inflightGets.delete(key);
       }
     }
 
