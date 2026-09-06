@@ -7,9 +7,10 @@ const temp = path.join(dir, ".auditar-beta20-heranca.tmp.cjs")
 
 let source = fs.readFileSync(original, "utf8")
 source = source
-  .replace('if (beta.versionName !== "2.0.0-beta.18" || beta.versionCode !== 20018) throw new Error(`Beta 18 inválida: ${beta.versionName}/code${beta.versionCode}`)', 'if (beta.versionName !== "2.0.0-beta.21" || beta.versionCode !== 20021) throw new Error(`Beta 20 inválida: ${beta.versionName}/code${beta.versionCode}`)')
+  .replace('if (beta.versionName !== "2.0.0-beta.18" || beta.versionCode !== 20018) throw new Error(`Beta 18 inválida: ${beta.versionName}/code${beta.versionCode}`)', 'if (beta.versionName !== "2.0.0-beta.21" || beta.versionCode !== 20021) throw new Error(`Beta 21 inválida: ${beta.versionName}/code${beta.versionCode}`)')
   .replace('\'className="object-contain object-center"\'', '\'className="object-cover object-center"\'')
-  .replace('console.log("Beta 18 aprovada nas exigências visuais e funcionais:', 'console.log("Herança completa Beta 18 aprovada dentro da Beta 20:')
+  .replace('["2.0.0-beta.18", "unique-signatures", "occurrences", "santa-luzia-diagnostico-v4", "CLEAN_VERSION_KEY"]', '["2.0.0-beta.21", "unique-signatures", "occurrences", "santa-luzia-diagnostico-v5", "CLEAN_VERSION_KEY", "route-transition-v2"]')
+  .replace('console.log("Beta 18 aprovada nas exigências visuais e funcionais:', 'console.log("Herança completa Beta 18 aprovada dentro da Beta 21:')
 
 try {
   fs.writeFileSync(temp, source)
