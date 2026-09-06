@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react"
+import { useCallback, useMemo, useSyncExternalStore } from "react"
 
 const ROUTE_EVENT = "santa-luzia:local-route"
 
@@ -18,6 +18,17 @@ function resetScroll() {
   } catch {}
 }
 
+function settleScroll(url: URL) {
+  if (url.hash) {
+    try {
+      const id = decodeURIComponent(url.hash.slice(1))
+      document.getElementById(id)?.scrollIntoView({ block: "start" })
+    } catch {}
+    return
+  }
+  resetScroll()
+}
+
 export function navigate(value: string | URL, replace = false) {
   const href = hrefOf(value)
   const url = new URL(href, window.location.href)
@@ -27,20 +38,24 @@ export function navigate(value: string | URL, replace = false) {
   }
 
   const target = `${url.pathname}${url.search}${url.hash}`
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  if (!replace && target === current) return
+
   document.documentElement.dataset.slRouteTransition = "running"
   document.documentElement.dataset.slRouteTransitionSince = String(Date.now())
-  resetScroll()
+  window.dispatchEvent(new CustomEvent("santa-luzia:route-start", { detail: { target } }))
+  if (!url.hash) resetScroll()
 
   if (replace) history.replaceState(history.state, "", target)
   else history.pushState(history.state, "", target)
   notify()
 
-  // O React local troca a rota no mesmo WebView. Reforçamos o topo depois do
-  // commit para impedir que a tela nova herde a posição/altura da tela anterior.
+  // Mantém a tela nova no mesmo WebView, sem navegação duplicada. O segundo
+  // frame garante que layout/âncora já estejam montados antes de encerrar a transição.
   requestAnimationFrame(() => {
-    resetScroll()
+    settleScroll(url)
     requestAnimationFrame(() => {
-      resetScroll()
+      settleScroll(url)
       document.documentElement.dataset.slRouteTransition = "settled"
       window.dispatchEvent(new CustomEvent("santa-luzia:route-settled", { detail: { target } }))
     })
@@ -70,14 +85,15 @@ export function useRouter() {
     window.dispatchEvent(new Event("santa-luzia:server-sync"))
     notify()
   }, [])
-  return {
+
+  return useMemo(() => ({
     push: (href: string) => navigate(href, false),
     replace: (href: string) => navigate(href, true),
     back: () => history.back(),
     forward: () => history.forward(),
     refresh,
     prefetch: async (_href: string) => undefined,
-  }
+  }), [refresh])
 }
 
 export function redirect(href: string): never {
