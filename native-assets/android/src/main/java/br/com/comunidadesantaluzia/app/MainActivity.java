@@ -30,7 +30,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
         if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onStart", "");
     }
@@ -45,19 +45,19 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onPause() {
+    public void onPause() {
         if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onPause", "finishing=" + isFinishing());
         super.onPause();
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onStop", "finishing=" + isFinishing());
         super.onStop();
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         if (ehMotionBeta()) {
             DeepDiagnosticsPlugin.recordLifecycle(
                 this,
