@@ -82,6 +82,9 @@ jobs:
           npm run build:android-local
           node scripts/patch-beta19-offline-pack.cjs
           node scripts/patch-beta19-android-web.cjs
+          node scripts/patch-beta21-visual-forensics-lifecycle.cjs
+          grep -Fq 'incident.finishReason = "visibility-hidden"' android-web/motion/android-visual-forensics-beta21.js
+          grep -Fq 'baselineReset: true' android-web/motion/android-visual-forensics-beta21.js
           node scripts/bundle-motion-beta20.cjs
           test -s android-web/index.html
           test -s android-web/local-app.js
@@ -107,7 +110,7 @@ jobs:
           grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:name=".SantaLuziaApplication"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'setDefaultUncaughtExceptionHandler' android/app/src/main/java/br/com/comunidadesantaluzia/app/SantaLuziaApplication.java
-          grep -Fq 'fatalCrashes' android/app/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
+          grep -Fq 'fatalCrashes' android/app/src/main/java/br/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
 
       - name: Compilar APK Release
         working-directory: android
