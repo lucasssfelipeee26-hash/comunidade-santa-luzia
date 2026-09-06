@@ -31,6 +31,7 @@ export function SiteHeader() {
 
   const sessao = me?.sessao ?? sessaoOffline ?? null
   const autenticado = Boolean(sessao)
+  const destinoPerfil = sessao?.tipo === "moderador" ? "/area-restrita/moderador" : "/area-restrita/membro"
 
   return (
     <header className="app-safe-header sticky top-0 z-50 border-b border-[#d4af37]/60 bg-[#fffdf8] text-[#5f1020] shadow-[0_3px_14px_rgba(89,55,12,.08)]" data-no-pull-refresh>
@@ -50,7 +51,8 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           {autenticado ? (
             <Link
-              href="/area-restrita"
+              href={destinoPerfil}
+              prefetch={false}
               aria-label="Abrir meu perfil"
               title="Meu perfil"
               data-main-profile-access="hamburger"
