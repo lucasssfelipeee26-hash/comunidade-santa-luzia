@@ -38,11 +38,7 @@
     if ((type === "auditor-ready" || type === "scroll-stability") && event.version && event.version !== VERSION) return true;
     if (type === "fetch" && status === 401 && (route === "/" || route.startsWith("/area-restrita/login"))) return true;
     if (type === "fetch" && status === 404 && path === "/api/configuracao/diagnostico") return true;
-    // A medição antiga reutilizava um timestamp de uma navegação anterior e
-    // produzia falsos tempos de 2–3 minutos. A Beta 21 usa route-transition-v2.
     if (type === "route-transition") return true;
-    // Cancelamentos de verificações de atualização/status em segundo plano são
-    // esperados quando o timeout vence; não são falhas de tela nem de dados.
     if (type === "fetch-error" && isKnownBackgroundAbort(event)) return true;
     return false;
   }
@@ -81,7 +77,14 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: VERSION, updatedAt: Date.now(), events })); } catch {}
   }
 
-  function uniqueSummary(events, original, deepResult) {
+  function suspiciousExit(item) {
+    return ["CRASH", "CRASH_NATIVE", "ANR", "LOW_MEMORY", "INITIALIZATION_FAILURE", "EXCESSIVE_RESOURCE_USAGE", "SIGNALED"].includes(String(item?.reasonLabel || ""));
+  }
+
+  function uniqueSummary(events, original, deepResult, blackBox) {
+    const processExits = Array.isArray(blackBox?.native?.processExits) ? blackBox.native.processExits.filter((item) => item && !item.error) : [];
+    const blackEvents = Array.isArray(blackBox?.events) ? blackBox.events : [];
+    const recent = Array.isArray(blackBox?.lastFiveMinutes) ? blackBox.lastFiveMinutes : [];
     return {
       ...original,
       errors: events.filter((event) => event?.level === "error").length,
@@ -93,6 +96,13 @@
       deepFindings: Number(deepResult?.summary?.findings || 0),
       deepErrors: Number(deepResult?.summary?.errors || 0),
       deepWarnings: Number(deepResult?.summary?.warnings || 0),
+      blackBoxEvents: blackEvents.length,
+      blackBoxRecentEvents: recent.length,
+      processExits: processExits.length,
+      suspiciousProcessExits: processExits.filter(suspiciousExit).length,
+      crashlyticsAvailable: Boolean(blackBox?.capabilities?.crashlytics),
+      perfettoMarkersAvailable: Boolean(blackBox?.capabilities?.perfettoMarkers),
+      applicationExitInfoAvailable: Boolean(blackBox?.capabilities?.applicationExitInfo),
       countingMode: "unique-signatures",
     };
   }
@@ -174,22 +184,37 @@
     core.snapshot = async function beta21Snapshot() {
       const report = await originalSnapshot();
       const deepResult = deep.getLast?.() || null;
+      const blackBox = await window.SantaLuziaBlackBox?.snapshot?.().catch?.(() => null) || null;
       const events = compactEvents(report.events);
       persistCompacted(events);
-      const summary = uniqueSummary(events, report.summary || {}, deepResult);
+      const summary = uniqueSummary(events, report.summary || {}, deepResult, blackBox);
       return {
         ...report,
-        schema: "santa-luzia-diagnostico-v5",
+        schema: "santa-luzia-diagnostico-v6",
         app: { ...(report.app || {}), version: VERSION },
         summary,
         events,
         deepAudit: deepResult,
+        blackBox,
+        processDiagnostics: blackBox?.native || null,
         glitchTip: deep.getGlitchTipStatus?.() || null,
+        diagnosticsArchitecture: {
+          auditor: true,
+          deepScan: true,
+          blackBox: Boolean(window.SantaLuziaBlackBox),
+          applicationExitInfo: Boolean(blackBox?.capabilities?.applicationExitInfo),
+          perfettoTraceMarkers: Boolean(blackBox?.capabilities?.perfettoMarkers),
+          crashlyticsAdapter: true,
+          crashlyticsActive: Boolean(blackBox?.capabilities?.crashlytics),
+          crashlyticsNote: blackBox?.capabilities?.crashlytics
+            ? "Firebase Crashlytics detectado e recebendo breadcrumbs/non-fatals."
+            : "Adaptador pronto; ativação remota exige Firebase Crashlytics/google-services.json no build.",
+        },
         counting: {
           mode: "unique-signatures",
-          note: "Repetições do mesmo defeito incrementam occurrences e não aumentam o total de erros/alertas. Transições usam a medição precisa v2.",
+          note: "Repetições do mesmo defeito incrementam occurrences. A caixa-preta mantém cronologia bruta dos últimos eventos e ApplicationExitInfo informa por que o processo anterior morreu.",
         },
-        privacy: "Relatório técnico sem cookies, senhas, tokens, corpos de requisição ou conteúdo pessoal deliberadamente coletado. Deep Scan usa somente geometria, seletores técnicos e estado de componentes.",
+        privacy: "Relatório técnico sem cookies, senhas, tokens, corpos de requisição ou texto de campos. Caixa-preta registra apenas metadados técnicos, rotas, tempos, estados visuais e motivos de saída do processo.",
       };
     };
 
@@ -204,12 +229,29 @@
         saved = await native.saveReport({ fileName, content });
         saved = { ...saved, method: "android-native" };
       } else saved = await browserDownload(fileName, content);
-      core.add?.("report-exported", "info", { events: report.events.length, fileName, method: saved.method, beta21: true, uniqueErrors: report.summary.errors });
+      core.add?.("report-exported", "info", {
+        events: report.events.length,
+        blackBoxEvents: report.blackBox?.events?.length || 0,
+        processExits: report.processDiagnostics?.processExits?.length || 0,
+        fileName,
+        method: saved.method,
+        beta21: true,
+        uniqueErrors: report.summary.errors,
+      });
       return { ...report, export: saved };
     };
 
     core.version = VERSION;
-    core.add?.("auditor-beta21-patch-ready", "info", { version: VERSION, deepScan: true, uniqueCounting: true, preciseRouteTiming: true });
+    core.add?.("auditor-beta21-patch-ready", "info", {
+      version: VERSION,
+      deepScan: true,
+      uniqueCounting: true,
+      preciseRouteTiming: true,
+      blackBox: Boolean(window.SantaLuziaBlackBox),
+      applicationExitInfo: true,
+      perfettoTraceMarkers: true,
+      crashlyticsAdapter: true,
+    });
     window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta21-patch-ready" } }));
   }
 
