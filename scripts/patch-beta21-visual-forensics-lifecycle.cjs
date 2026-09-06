@@ -8,7 +8,11 @@ if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") {
   process.exit(0);
 }
 
-const file = path.join(process.cwd(), "android-web", "motion", "android-visual-forensics-beta21.js");
+const root = process.cwd();
+const file = path.join(root, "android-web", "motion", "android-visual-forensics-beta21.js");
+const indexFile = path.join(root, "android-web", "index.html");
+const deepAuditorFile = path.join(root, "android-web", "motion", "android-deep-auditor-beta16.js");
+const auditorPatchFile = path.join(root, "android-web", "motion", "android-auditor-patch-beta16.js");
 let source = fs.readFileSync(file, "utf8");
 
 const before = `  document.addEventListener("visibilitychange", () => {
@@ -55,16 +59,16 @@ const after = `  document.addEventListener("visibilitychange", () => {
     }
   });`;
 
-if (!source.includes(before)) {
-  if (source.includes('incident.finishReason = "visibility-hidden"')) {
-    console.log("[beta21-visual-forensics] patch de ciclo de vida já aplicado.");
-    process.exit(0);
-  }
+if (source.includes(before)) {
+  source = source.replace(before, after);
+  fs.writeFileSync(file, source);
+} else if (!source.includes('incident.finishReason = "visibility-hidden"')) {
   throw new Error("Bloco visibilitychange esperado não encontrado; patch não aplicado para evitar alteração insegura.");
 }
 
-source = source.replace(before, after);
-
+if (!source.includes('incident.finishReason = "visibility-hidden"')) {
+  source = fs.readFileSync(file, "utf8");
+}
 if (!source.includes('incident.finishReason = "visibility-hidden"')) {
   throw new Error("Validação falhou: encerramento de incidente ao ocultar não foi instalado.");
 }
@@ -72,5 +76,25 @@ if (!source.includes('baselineReset: true')) {
   throw new Error("Validação falhou: reset de baseline ao retomar não foi instalado.");
 }
 
-fs.writeFileSync(file, source);
-console.log("[beta21-visual-forensics] ciclo de vida corrigido: incidentes fecham ao ocultar e baseline reinicia ao retomar.");
+for (const required of [deepAuditorFile, auditorPatchFile]) {
+  if (!fs.existsSync(required) || fs.statSync(required).size < 5000) {
+    throw new Error(`Camada obrigatória do Auditor ausente ou truncada: ${path.basename(required)}`);
+  }
+}
+
+let html = fs.readFileSync(indexFile, "utf8");
+const baseAuditorTag = '    <script defer src="/motion/android-auditor-beta12.js"></script>';
+const deepTag = '    <script defer src="/motion/android-deep-auditor-beta16.js"></script>';
+const patchTag = '    <script defer src="/motion/android-auditor-patch-beta16.js"></script>';
+if (!html.includes(baseAuditorTag)) {
+  throw new Error("Auditor base não encontrado no index Android para inserir as camadas profundas.");
+}
+html = html.replace(deepTag, "").replace(patchTag, "");
+html = html.replace(baseAuditorTag, `${baseAuditorTag}\n${deepTag}\n${patchTag}`);
+fs.writeFileSync(indexFile, html);
+
+if (!(html.indexOf(baseAuditorTag) < html.indexOf(deepTag) && html.indexOf(deepTag) < html.indexOf(patchTag))) {
+  throw new Error("Ordem das camadas do Auditor profundo ficou inválida.");
+}
+
+console.log("[beta21-visual-forensics] ciclo de vida corrigido e Auditor profundo/exportador sem limite garantidos na stack Android.");
