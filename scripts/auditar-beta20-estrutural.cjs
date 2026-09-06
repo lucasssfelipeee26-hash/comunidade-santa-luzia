@@ -13,7 +13,7 @@ function ok(condition, message) {
 
 const config = JSON.parse(read("config/android-motion-beta.json"))
 const stable = JSON.parse(read("config/android-build.json"))
-ok(config.versionName === "2.0.0-beta.21" && config.versionCode === 20021, "identidade Motion Beta 20/code20021")
+ok(config.versionName === "2.0.0-beta.21" && config.versionCode === 20021, "identidade Motion Beta 21/code20021")
 ok(config.applicationId === "br.com.comunidadesantaluzia.motionbeta", "package Beta isolado")
 ok(stable.versionName === "1.0.6" && stable.versionCode === 18, "canal oficial permanece congelado")
 
@@ -62,15 +62,42 @@ ok(updater.includes("getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)"), "AP
 ok(updater.includes("MessageDigest.isEqual"), "hash recebido é comparado antes da instalação")
 ok(updater.includes("assinaturaInstalada.equals(assinaturaCandidata)"), "assinatura do APK é validada contra a instalada")
 
+const blackBox = read("android-web/motion/android-blackbox-beta21.js")
+ok(blackBox.includes("santaLuziaBlackBoxBeta21"), "caixa-preta Beta 21 possui trava de versão")
+ok(blackBox.includes("runtime-unclean-restart"), "caixa-preta detecta reinício sem encerramento limpo")
+ok(blackBox.includes("visual-blank-frame"), "caixa-preta detecta quadro visual vazio/oculto")
+ok(blackBox.includes("memory-sample"), "caixa-preta coleta tendência de memória")
+ok(blackBox.includes("fetch-start") && blackBox.includes("fetch-end"), "caixa-preta correlaciona requisições antes de falhas")
+ok(blackBox.includes("beginTrace") && blackBox.includes("endTrace"), "rotas recebem marcadores Perfetto")
+
+const deepNative = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java")
+ok(deepNative.includes("ApplicationExitInfo"), "diagnóstico nativo usa ApplicationExitInfo")
+ok(deepNative.includes("getHistoricalProcessExitReasons"), "histórico de encerramentos do processo é consultado")
+ok(deepNative.includes("getTraceInputStream"), "trace de ANR/saída é coletado quando disponível")
+ok(deepNative.includes("Debug.getPss"), "memória PSS do processo é coletada")
+ok(deepNative.includes("Trace.beginAsyncSection") && deepNative.includes("Trace.endAsyncSection"), "marcadores assíncronos Perfetto estão presentes")
+ok(deepNative.includes("FirebaseCrashlytics") && deepNative.includes("recordException"), "adaptador Crashlytics está preparado sem tornar Firebase obrigatório")
+
+const main = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/MainActivity.java")
+ok(main.includes("DeepDiagnosticsPlugin.class"), "plugin de diagnóstico profundo é registrado no Capacitor")
+ok(main.includes("onTrimMemory") && main.includes("onLowMemory"), "pressão de memória do Android entra na caixa-preta nativa")
+ok(main.includes("onDestroy") && main.includes("isChangingConfigurations"), "destruição/recriação da Activity é diferenciada")
+
+const auditorPatch = read("android-web/motion/android-auditor-patch-beta16.js")
+ok(auditorPatch.includes("santa-luzia-diagnostico-v6"), "relatório profundo usa schema v6")
+ok(auditorPatch.includes("blackBox") && auditorPatch.includes("processDiagnostics"), "Auditor consolida caixa-preta e diagnóstico do processo")
+ok(auditorPatch.includes("applicationExitInfo") && auditorPatch.includes("perfettoTraceMarkers"), "capacidades profundas são declaradas no relatório")
+
 const bundle = read("scripts/bundle-motion-beta20.cjs")
 ok(bundle.includes("android-motion-runtime-beta20.js"), "stack Motion será consolidada em um único runtime")
 ok(bundle.includes("document.currentScript"), "consolidação bloqueia scripts incompatíveis")
+ok(bundle.includes("android-blackbox-beta21.js"), "bundle injeta a caixa-preta antes do React local")
 const prepare = read("scripts/prepare-motion-beta20.cjs")
-for (const marker of ["debuggable false", "minifyEnabled true", "shrinkResources true", 'android:launchMode="singleTop"', "cordova.js", "cordova_plugins.js", "_franciscoxavier.jpg", "capConfig.appId = config.applicationId"]) {
+for (const marker of ["debuggable false", "minifyEnabled true", "shrinkResources true", 'android:launchMode="singleTop"', "cordova.js", "cordova_plugins.js", "_franciscoxavier.jpg", "capConfig.appId = config.applicationId", "DeepDiagnosticsPlugin.class", "android-blackbox-beta21.js"]) {
   ok(prepare.includes(marker), `trava estrutural presente: ${marker}`)
 }
 
 ok(!exists("cordova_plugins.js") || !read("cordova_plugins.js").trim(), "nenhum código Cordova ativo no fonte raiz")
 
 if (process.exitCode) process.exit(process.exitCode)
-console.log("Beta 20 aprovada na auditoria estática das regressões visuais, iLiturgia, login/sincronização e achados estruturais da Beta 18.")
+console.log("Beta 21 aprovada na auditoria estática: regressões visuais, iLiturgia, login/sincronização, caixa-preta, ApplicationExitInfo, memória, Perfetto e adaptador Crashlytics presentes.")
