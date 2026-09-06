@@ -1,10 +1,12 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.18";
-  const FLAG = "santaLuziaAuditorBeta18Patched";
+  const VERSION = "2.0.0-beta.21";
+  const FLAG = "santaLuziaAuditorBeta21Patched";
   const STORAGE_KEY = "santa-luzia:auditor:v1";
   const CLEAN_VERSION_KEY = "santa-luzia:auditor:last-clean-version";
+  let preciseRouteStart = 0;
+  let preciseRouteTarget = "";
 
   function eventSignature(event) {
     const type = String(event?.type || "unknown");
@@ -15,8 +17,15 @@
     if (type === "fps-sample") return `${type}|${route}|${Number(event?.fps || 0) < 45 ? "low" : "ok"}`;
     if (type === "scroll-jump" || type === "missing-icons" || type === "icon-audit") return `${type}|${route}`;
     if (type === "local-db-health") return `${type}|${event?.ok === false ? "bad" : "ok"}`;
-    if (type === "route-transition") return `${type}|${event?.pathname || route}`;
+    if (type === "route-transition" || type === "route-transition-v2") return `${type}|${event?.pathname || route}`;
     return `${type}|${event?.level || "info"}|${route}`;
+  }
+
+  function isKnownBackgroundAbort(event) {
+    if (!event || String(event?.name || "") !== "AbortError") return false;
+    const path = String(event?.path || "");
+    return path === "/api/app/status"
+      || path.includes("raw.githubusercontent.com/lucasssfelipeee26-hash/comunidade-santa-luzia/");
   }
 
   function isExpectedNoise(event) {
@@ -29,6 +38,12 @@
     if ((type === "auditor-ready" || type === "scroll-stability") && event.version && event.version !== VERSION) return true;
     if (type === "fetch" && status === 401 && (route === "/" || route.startsWith("/area-restrita/login"))) return true;
     if (type === "fetch" && status === 404 && path === "/api/configuracao/diagnostico") return true;
+    // A medição antiga reutilizava um timestamp de uma navegação anterior e
+    // produzia falsos tempos de 2–3 minutos. A Beta 21 usa route-transition-v2.
+    if (type === "route-transition") return true;
+    // Cancelamentos de verificações de atualização/status em segundo plano são
+    // esperados quando o timeout vence; não são falhas de tela nem de dados.
+    if (type === "fetch-error" && isKnownBackgroundAbort(event)) return true;
     return false;
   }
 
@@ -103,6 +118,38 @@
     } finally { setTimeout(() => URL.revokeObjectURL(url), 5000); }
   }
 
+  function installPreciseRouteAudit(core) {
+    if (window.__santaLuziaBeta21RouteAudit) return;
+    window.__santaLuziaBeta21RouteAudit = true;
+
+    const begin = (event) => {
+      preciseRouteStart = performance.now();
+      preciseRouteTarget = String(event?.detail?.target || `${location.pathname}${location.search}${location.hash}`);
+    };
+    const finish = () => {
+      if (!preciseRouteStart) return;
+      const started = preciseRouteStart;
+      const target = preciseRouteTarget;
+      preciseRouteStart = 0;
+      preciseRouteTarget = "";
+      const durationMs = Math.round(performance.now() - started);
+      core.add?.("route-transition-v2", durationMs > 700 ? "warning" : "info", {
+        durationMs,
+        pathname: location.pathname,
+        target,
+        precise: true,
+      });
+    };
+
+    window.addEventListener("santa-luzia:route-start", begin);
+    window.addEventListener("santa-luzia:route-settled", finish);
+    window.addEventListener("popstate", () => {
+      preciseRouteStart = performance.now();
+      preciseRouteTarget = `${location.pathname}${location.search}${location.hash}`;
+      requestAnimationFrame(() => requestAnimationFrame(finish));
+    });
+  }
+
   function patch() {
     const core = window.SantaLuziaAuditor;
     const deep = window.SantaLuziaDeepAudit;
@@ -118,8 +165,13 @@
       }
     } catch {}
 
+    installPreciseRouteAudit(core);
+
     const originalSnapshot = core.snapshot.bind(core);
-    core.snapshot = async function beta18Snapshot() {
+    const originalGetEvents = core.getEvents?.bind(core);
+    core.getEvents = () => compactEvents(originalGetEvents ? originalGetEvents() : []);
+
+    core.snapshot = async function beta21Snapshot() {
       const report = await originalSnapshot();
       const deepResult = deep.getLast?.() || null;
       const events = compactEvents(report.events);
@@ -127,7 +179,7 @@
       const summary = uniqueSummary(events, report.summary || {}, deepResult);
       return {
         ...report,
-        schema: "santa-luzia-diagnostico-v4",
+        schema: "santa-luzia-diagnostico-v5",
         app: { ...(report.app || {}), version: VERSION },
         summary,
         events,
@@ -135,13 +187,13 @@
         glitchTip: deep.getGlitchTipStatus?.() || null,
         counting: {
           mode: "unique-signatures",
-          note: "Repetições do mesmo defeito incrementam occurrences e não aumentam o total de erros/alertas.",
+          note: "Repetições do mesmo defeito incrementam occurrences e não aumentam o total de erros/alertas. Transições usam a medição precisa v2.",
         },
         privacy: "Relatório técnico sem cookies, senhas, tokens, corpos de requisição ou conteúdo pessoal deliberadamente coletado. Deep Scan usa somente geometria, seletores técnicos e estado de componentes.",
       };
     };
 
-    core.exportReport = async function beta18ExportReport() {
+    core.exportReport = async function beta21ExportReport() {
       try { await deep.run({ sendRemote: true }); } catch {}
       const report = await core.snapshot();
       const fileName = reportName();
@@ -152,13 +204,13 @@
         saved = await native.saveReport({ fileName, content });
         saved = { ...saved, method: "android-native" };
       } else saved = await browserDownload(fileName, content);
-      core.add?.("report-exported", "info", { events: report.events.length, fileName, method: saved.method, beta18: true, uniqueErrors: report.summary.errors });
+      core.add?.("report-exported", "info", { events: report.events.length, fileName, method: saved.method, beta21: true, uniqueErrors: report.summary.errors });
       return { ...report, export: saved };
     };
 
     core.version = VERSION;
-    core.add?.("auditor-beta18-patch-ready", "info", { version: VERSION, deepScan: true, uniqueCounting: true });
-    window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta18-patch-ready" } }));
+    core.add?.("auditor-beta21-patch-ready", "info", { version: VERSION, deepScan: true, uniqueCounting: true, preciseRouteTiming: true });
+    window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta21-patch-ready" } }));
   }
 
   patch();
