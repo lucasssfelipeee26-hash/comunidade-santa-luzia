@@ -31,6 +31,7 @@ public class DeepDiagnosticsPlugin extends Plugin {
     private static final Object LOCK = new Object();
     private static final String PREFS = "santa_luzia_deep_diagnostics_v1";
     private static final String KEY_BREADCRUMBS = "breadcrumbs";
+    private static final String KEY_FATAL_CRASHES = "fatal_crashes";
     private static final String KEY_CLEAR_CUTOFF = "clear_cutoff";
     private static final int MAX_BREADCRUMBS = 180;
     private static final int MAX_EXITS = 12;
@@ -214,6 +215,14 @@ public class DeepDiagnosticsPlugin extends Plugin {
         static void end(String name, int cookie) { Trace.endAsyncSection(name, cookie); }
     }
 
+    private JSArray readArray(String key) {
+        try {
+            return new JSArray(new JSONArray(prefs().getString(key, "[]")).toString());
+        } catch (Throwable ignored) {
+            return new JSArray();
+        }
+    }
+
     @PluginMethod
     public void recordBreadcrumb(PluginCall call) {
         String type = call.getString("type", "event");
@@ -253,16 +262,12 @@ public class DeepDiagnosticsPlugin extends Plugin {
         result.put("available", true);
         result.put("sdkInt", Build.VERSION.SDK_INT);
         result.put("applicationExitInfoAvailable", Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
+        result.put("fatalExceptionRecorderAvailable", true);
         result.put("perfettoTraceMarkersAvailable", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q);
         result.put("crashlyticsAvailable", crashlyticsAvailable());
         result.put("memory", memorySnapshot(getContext()));
-
-        try {
-            JSONArray breadcrumbs = new JSONArray(prefs().getString(KEY_BREADCRUMBS, "[]"));
-            result.put("breadcrumbs", new JSArray(breadcrumbs.toString()));
-        } catch (Throwable ignored) {
-            result.put("breadcrumbs", new JSArray());
-        }
+        result.put("breadcrumbs", readArray(KEY_BREADCRUMBS));
+        result.put("fatalCrashes", readArray(KEY_FATAL_CRASHES));
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             result.put("processExits", Api30.exits(getContext(), prefs().getLong(KEY_CLEAR_CUTOFF, 0L)));
@@ -301,6 +306,7 @@ public class DeepDiagnosticsPlugin extends Plugin {
         try {
             prefs().edit()
                 .putString(KEY_BREADCRUMBS, "[]")
+                .putString(KEY_FATAL_CRASHES, "[]")
                 .putLong(KEY_CLEAR_CUTOFF, System.currentTimeMillis())
                 .commit();
             call.resolve(new JSObject().put("ok", true));
