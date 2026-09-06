@@ -119,3 +119,45 @@ html[data-native-platform="android"] .app-mobile-shell select option:checked {
   --sl-selection-text: #302326;
   --sl-focus: var(--primary, #7b1326);
 }
+
+/*
+ * Beta 21 Android — estabilidade visual.
+ * O relatório forense mostrou saltos exatos de 1240px na página pública.
+ * A otimização antiga reservava 620px para cada seção fora da viewport; no
+ * WebView isso fazia a altura do documento mudar quando as seções passavam a
+ * ser renderizadas. No APK mantemos as seções sempre materializadas.
+ */
+html[data-native-platform="android"] .public-home main > section:not(#inicio) {
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}
+
+/*
+ * O painel das três barras foi capturado passando de opacity 0 para 1 mesmo
+ * já estando visível. O desenho não muda: removemos apenas a transição que
+ * causava a piscada no WebView Android.
+ */
+html[data-native-platform="android"] body.app-mobile-shell .app-nav-panel {
+  opacity: 1 !important;
+  animation: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
+
+/*
+ * Evita um segundo contexto de rolagem dentro da Área Restrita. A rolagem
+ * vertical fica exclusivamente no documento, impedindo saltos entre MAIN e
+ * BODY quando cards carregam ou o menu é aberto/fechado.
+ */
+html[data-native-platform="android"] .area-restrita-shell main,
+html[data-native-platform="android"] .moderador-painel main {
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+}
+
+/* Painéis fixos não participam da âncora de rolagem da página. */
+html[data-native-platform="android"] .app-nav-panel,
+html[data-native-platform="android"] .mobile-app-bottom-nav,
+html[data-native-platform="android"] .app-mobile-menu-layer {
+  overflow-anchor: none !important;
+}
