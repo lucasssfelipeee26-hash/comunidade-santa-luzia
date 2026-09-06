@@ -13,6 +13,7 @@
 
   function plugin() { return window.Capacitor?.Plugins?.SyncHttp || null; }
   function sameOrigin(url) { try { return new URL(url, location.href).origin === location.origin; } catch { return false; } }
+  function clockNow() { return globalThis.performance?.now?.() ?? Date.now(); }
   function dataCuiaba() {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Cuiaba", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
     const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
@@ -135,7 +136,7 @@
     const hasSignal = Boolean(init?.signal || request?.signal);
     if (method === "GET" && !hasSignal) {
       const key = `${parsed.pathname}${parsed.search}`;
-      const now = performance.now();
+      const now = clockNow();
       const previous = inflightGets.get(key);
       if (previous && now - previous.at <= GET_COALESCE_MS) {
         return (await previous.promise).clone();
