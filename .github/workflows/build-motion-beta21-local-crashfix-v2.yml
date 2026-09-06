@@ -85,11 +85,14 @@ jobs:
           node scripts/patch-beta21-visual-forensics-lifecycle.cjs
           grep -Fq 'incident.finishReason = "visibility-hidden"' android-web/motion/android-visual-forensics-beta21.js
           grep -Fq 'baselineReset: true' android-web/motion/android-visual-forensics-beta21.js
+          grep -Fq 'android-native-chunked' android-web/motion/android-auditor-patch-beta16.js
+          grep -Fq 'appByteLimit: false' android-web/motion/android-auditor-patch-beta16.js
           node scripts/bundle-motion-beta20.cjs
           test -s android-web/index.html
           test -s android-web/local-app.js
           test "$(stat -c%s android-web/local-app.js)" -gt 250000
           test -s android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'android-native-chunked' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
           grep -Fq '"beta": "2.0.0-beta.21"' android-web/offline/iliturgia/manifest.json
 
@@ -111,6 +114,15 @@ jobs:
           grep -Fq 'android:name=".SantaLuziaApplication"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'setDefaultUncaughtExceptionHandler' android/app/src/main/java/br/com/comunidadesantaluzia/app/SantaLuziaApplication.java
           grep -Fq 'fatalCrashes' android/app/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
+          REPORT_PLUGIN='android/app/src/main/java/br/com/comunidadesantaluzia/app/DiagnosticReportPlugin.java'
+          grep -Fq 'void beginReport' "$REPORT_PLUGIN"
+          grep -Fq 'void appendReport' "$REPORT_PLUGIN"
+          grep -Fq 'void finishReport' "$REPORT_PLUGIN"
+          grep -Fq 'appByteLimit' "$REPORT_PLUGIN"
+          if grep -Eq 'MAX_REPORT_BYTES|RELATORIO_GRANDE|limite de 8 MB' "$REPORT_PLUGIN"; then
+            echo 'ERRO: limite artificial de tamanho voltou ao exportador de diagnóstico.' >&2
+            exit 1
+          fi
 
       - name: Compilar APK Release
         working-directory: android
