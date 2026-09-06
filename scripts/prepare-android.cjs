@@ -13,6 +13,10 @@ const destinoJava = path.join(android, "app", "src", "main", "java")
 const manifestPath = path.join(android, "app", "src", "main", "AndroidManifest.xml")
 const origemLiturgiaOffline = path.join(raiz, "public", "offline", "liturgia-completa")
 const destinoLiturgiaOffline = path.join(android, "app", "src", "main", "assets", "public", "offline", "liturgia-completa")
+const motionBetaConfig = process.env.SANTA_LUZIA_MOTION_BETA === "1"
+  ? require(path.join(raiz, "config", "android-motion-beta.json"))
+  : null
+const motionServerUrl = String(motionBetaConfig?.serverUrl || "").trim()
 
 if (!fs.existsSync(appGradle)) throw new Error("Projeto Android ausente. Execute npm run android:add primeiro.")
 
@@ -36,6 +40,45 @@ if (!fs.existsSync(origemRecursos)) throw new Error("Recursos Android personaliz
 fs.cpSync(origemRecursos, destinoRecursos, { recursive: true, force: true })
 if (!fs.existsSync(origemJava)) throw new Error("Código nativo Android personalizado ausente.")
 fs.cpSync(origemJava, destinoJava, { recursive: true, force: true })
+
+if (motionServerUrl) {
+  const servidor = new URL(motionServerUrl)
+  if (!(servidor.protocol === "http:" || servidor.protocol === "https:")) {
+    throw new Error(`Servidor Motion Beta inválido: ${motionServerUrl}`)
+  }
+  const baseUrl = servidor.origin
+  const syncHttp = path.join(destinoJava, "br", "com", "comunidadesantaluzia", "app", "SyncHttpPlugin.java")
+  if (!fs.existsSync(syncHttp)) throw new Error("SyncHttpPlugin da Motion Beta ausente.")
+  let syncText = fs.readFileSync(syncHttp, "utf8")
+  if (!/private static final String BASE_URL = "[^"]+";/.test(syncText)) {
+    throw new Error("BASE_URL da SyncHttpPlugin não encontrado.")
+  }
+  syncText = syncText.replace(
+    /private static final String BASE_URL = "[^"]+";/,
+    `private static final String BASE_URL = "${baseUrl}";`,
+  )
+  if (servidor.protocol === "http:") {
+    syncText = syncText.replace(
+      "santa_luzia_sessao=; Max-Age=0; Path=/; Secure; SameSite=Lax",
+      "santa_luzia_sessao=; Max-Age=0; Path=/; SameSite=Lax",
+    )
+
+    const networkSecurity = path.join(destinoRecursos, "xml", "network_security_config.xml")
+    if (!fs.existsSync(networkSecurity)) throw new Error("network_security_config.xml ausente.")
+    let networkText = fs.readFileSync(networkSecurity, "utf8")
+    if (!networkText.includes('cleartextTrafficPermitted="false"')) {
+      throw new Error("Política HTTPS base não encontrada antes da liberação local.")
+    }
+    networkText = networkText.replace(
+      'cleartextTrafficPermitted="false"',
+      'cleartextTrafficPermitted="true"',
+    )
+    fs.writeFileSync(networkSecurity, networkText)
+  }
+  fs.writeFileSync(syncHttp, syncText)
+  console.log(`Motion Beta: sincronização online direcionada para ${baseUrl}.`)
+}
+
 if (!fs.existsSync(origemLiturgiaOffline)) throw new Error("Pacote anual da Liturgia offline ausente.")
 fs.mkdirSync(destinoLiturgiaOffline, { recursive: true })
 fs.cpSync(origemLiturgiaOffline, destinoLiturgiaOffline, { recursive: true, force: true })
@@ -127,4 +170,4 @@ if (fs.existsSync(manifestPath)) {
   }
 }
 
-console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede HTTPS, núcleo offline, relatório nativo, Liturgia anual, Joias da Luz e Whatajong original adaptado local.`)
+console.log(`Android preparado: versionCode ${versionCode}, versionName ${versionName}, targetSdk 36, notificações Android 13+, ícones adaptativos, rede segura com exceção HTTP somente na Motion Beta local quando configurada, núcleo offline, relatório nativo, Liturgia anual, Joias da Luz e Whatajong original adaptado local.`)
