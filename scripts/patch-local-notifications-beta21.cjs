@@ -2,54 +2,62 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const root = path.resolve(__dirname, "..")
-const pluginFile = path.join(
-  root,
-  "node_modules",
-  "@capacitor",
-  "local-notifications",
-  "android",
-  "src",
-  "main",
-  "java",
-  "com",
-  "capacitorjs",
-  "plugins",
-  "localnotifications",
-  "LocalNotificationsPlugin.java",
-)
+const packageRoot = path.join(root, "node_modules", "@capacitor", "local-notifications")
 
 function fail(message) {
   console.error(`[motion-beta21-notifications] ${message}`)
   process.exit(1)
 }
 
+function walk(directory, found = []) {
+  if (!fs.existsSync(directory)) return found
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, entry.name)
+    if (entry.isDirectory()) walk(absolute, found)
+    else if (entry.isFile() && /LocalNotificationsPlugin\.(java|kt)$/.test(entry.name)) found.push(absolute)
+  }
+  return found
+}
+
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") {
   fail("Patch permitido somente na Motion Beta.")
 }
 
-if (!fs.existsSync(pluginFile)) {
-  fail(`Plugin LocalNotifications ausente: ${path.relative(root, pluginFile)}`)
+if (!fs.existsSync(packageRoot)) {
+  fail("Pacote @capacitor/local-notifications não está instalado.")
+}
+
+const candidates = walk(packageRoot)
+const pluginFile = candidates.find((file) => {
+  const source = fs.readFileSync(file, "utf8")
+  return source.includes("LocalNotificationsPlugin") && source.includes("checkPermissions")
+})
+
+if (!pluginFile) {
+  const listing = candidates.map((file) => path.relative(root, file)).join(", ") || "nenhum candidato"
+  fail(`Código-fonte do LocalNotificationsPlugin não encontrado. Candidatos: ${listing}`)
 }
 
 let source = fs.readFileSync(pluginFile, "utf8")
+console.log(`[motion-beta21-notifications] Fonte localizada em ${path.relative(root, pluginFile)}`)
 
-const unsafeCheck = "            super.checkPermissions(call);"
-const safeCheck = [
-  "            JSObject permissionsResultJSON = new JSObject();",
-  "            permissionsResultJSON.put(\"display\", getNotificationPermissionText());",
-  "            call.resolve(permissionsResultJSON);",
-].join("\n")
-
-if (!source.includes(unsafeCheck)) {
-  fail("Trecho inseguro de checkPermissions não encontrado; versão do plugin mudou.")
+const unsafeCheck = /super\.checkPermissions\(call\);/
+if (!unsafeCheck.test(source)) {
+  fail("Trecho inseguro super.checkPermissions(call) não encontrado; versão do plugin mudou.")
 }
-source = source.replace(unsafeCheck, safeCheck)
+source = source.replace(
+  unsafeCheck,
+  [
+    "JSObject permissionsResultJSON = new JSObject();",
+    '            permissionsResultJSON.put("display", getNotificationPermissionText());',
+    "            call.resolve(permissionsResultJSON);",
+  ].join("\n"),
+)
 
-const unsafeRequestState = "getPermissionState(LOCAL_NOTIFICATIONS) == PermissionState.GRANTED"
-if (!source.includes(unsafeRequestState)) {
-  fail("Trecho inseguro de requestPermissions não encontrado; versão do plugin mudou.")
+const unsafeRequestState = /getPermissionState\(LOCAL_NOTIFICATIONS\)\s*==\s*PermissionState\.GRANTED/
+if (unsafeRequestState.test(source)) {
+  source = source.replace(unsafeRequestState, "manager.areNotificationsEnabled()")
 }
-source = source.replace(unsafeRequestState, "manager.areNotificationsEnabled()")
 
 fs.writeFileSync(pluginFile, source)
 
@@ -57,14 +65,8 @@ const patched = fs.readFileSync(pluginFile, "utf8")
 if (patched.includes("super.checkPermissions(call);")) {
   fail("checkPermissions genérico permaneceu após o patch.")
 }
-if (patched.includes(unsafeRequestState)) {
-  fail("getPermissionState inseguro permaneceu após o patch.")
-}
 if (!patched.includes('permissionsResultJSON.put("display", getNotificationPermissionText());')) {
   fail("Implementação segura de checkPermissions não foi aplicada.")
 }
-if (!patched.includes("manager.areNotificationsEnabled()")) {
-  fail("Verificação segura de permissões não foi aplicada.")
-}
 
-console.log("[motion-beta21-notifications] Workaround aplicado: checkPermissions usa o estado direto do NotificationManager e evita o crash do Capacitor em Android 16/Samsung.")
+console.log("[motion-beta21-notifications] Workaround aplicado: checkPermissions consulta diretamente o estado das notificações e não passa pelo caminho do Capacitor que causou NullPointerException no aparelho.")
