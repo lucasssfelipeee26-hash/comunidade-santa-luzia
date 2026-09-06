@@ -8,6 +8,7 @@ const motionDir = path.join(web, "motion")
 const outputName = "android-motion-runtime-beta20.js"
 const outputFile = path.join(motionDir, outputName)
 const blackBoxName = "android-blackbox-beta21.js"
+const scrollWatchdogName = "android-scroll-watchdog-beta21.js"
 
 function fail(message) {
   console.error(`[beta20-runtime] ${message}`)
@@ -17,14 +18,21 @@ function fail(message) {
 if (!fs.existsSync(indexFile)) fail("index.html Android ausente.")
 const blackBoxFile = path.join(motionDir, blackBoxName)
 if (!fs.existsSync(blackBoxFile) || fs.statSync(blackBoxFile).size < 5000) fail("Caixa-preta Beta 21 ausente ou truncada.")
+const scrollWatchdogFile = path.join(motionDir, scrollWatchdogName)
+if (!fs.existsSync(scrollWatchdogFile) || fs.statSync(scrollWatchdogFile).size < 5000) fail("Scroll Watchdog Beta 21 ausente ou truncado.")
 let html = fs.readFileSync(indexFile, "utf8")
 const blackBoxTag = `    <script defer src="/motion/${blackBoxName}"></script>`
+const scrollWatchdogTag = `    <script defer src="/motion/${scrollWatchdogName}"></script>`
 if (!html.includes(blackBoxTag)) {
   const nativeFetchTag = '    <script defer src="/motion/android-native-fetch-beta10.js"></script>'
   const localTag = '    <script defer src="/local-app.js"></script>'
   if (html.includes(nativeFetchTag)) html = html.replace(nativeFetchTag, `${nativeFetchTag}\n${blackBoxTag}`)
   else if (html.includes(localTag)) html = html.replace(localTag, `${blackBoxTag}\n${localTag}`)
   else fail("Ponto de inserção da caixa-preta não encontrado.")
+}
+if (!html.includes(scrollWatchdogTag)) {
+  if (html.includes(blackBoxTag)) html = html.replace(blackBoxTag, `${blackBoxTag}\n${scrollWatchdogTag}`)
+  else fail("Ponto de inserção do Scroll Watchdog não encontrado.")
 }
 
 const re = /\s*<script\s+defer\s+src="\/motion\/([^"]+\.js)"\s*><\/script>/g
@@ -36,6 +44,8 @@ if (scripts.length < 10) fail(`Stack Motion incompleta: somente ${scripts.length
 if (!scripts.includes("android-beta19-regression-fix.js")) fail("Correção visual Beta 19 não entrou na stack.")
 if (!scripts.includes("android-motion-beta.js")) fail("Runtime Motion histórico ausente.")
 if (!scripts.includes(blackBoxName)) fail("Caixa-preta Beta 21 não entrou na stack.")
+if (!scripts.includes(scrollWatchdogName)) fail("Scroll Watchdog Beta 21 não entrou na stack.")
+if (scripts.indexOf(scrollWatchdogName) !== scripts.indexOf(blackBoxName) + 1) fail("Scroll Watchdog deve carregar imediatamente depois da caixa-preta.")
 
 const unique = new Set()
 const parts = []
@@ -50,7 +60,7 @@ for (const name of scripts) {
   parts.push(`\n/* ---- ${name} ---- */\n;${source.trim()}\n;`)
 }
 
-const bundle = `"use strict";\n/* Santa Luzia Motion Beta 21 — runtime consolidado com caixa-preta. Ordem histórica preservada. */\n${parts.join("\n")}`
+const bundle = `"use strict";\n/* Santa Luzia Motion Beta 21 — runtime consolidado com caixa-preta e Scroll Watchdog. Ordem histórica preservada. */\n${parts.join("\n")}`
 fs.writeFileSync(outputFile, bundle)
 
 const firstIndex = html.search(re)
@@ -65,6 +75,7 @@ fs.writeFileSync(indexFile, html)
 const loadedMotion = [...html.matchAll(/<script\s+defer\s+src="\/motion\/([^"]+\.js)"/g)].map((m) => m[1])
 if (loadedMotion.length !== 1 || loadedMotion[0] !== outputName) fail("HTML ainda carrega scripts Motion avulsos.")
 if (html.indexOf(`/motion/${outputName}`) > html.indexOf("/local-app.js")) fail("Runtime consolidado deve carregar antes do React local.")
+if (!bundle.includes("santaLuziaScrollWatchdogBeta21") || !bundle.includes("unexpected-scroll-burst") || !bundle.includes("document-growth-burst") || !bundle.includes("resize-loop-burst")) fail("Marcadores do Scroll Watchdog não foram consolidados.")
 
 for (const name of scripts) {
   if (name === outputName) continue
@@ -72,4 +83,4 @@ for (const name of scripts) {
   if (fs.existsSync(file)) fs.rmSync(file, { force: true })
 }
 
-console.log(`[beta20-runtime] ${scripts.length} scripts consolidados em ${outputName} (${bundle.length} bytes), incluindo caixa-preta Beta 21.`)
+console.log(`[beta20-runtime] ${scripts.length} scripts consolidados em ${outputName} (${bundle.length} bytes), incluindo caixa-preta e Scroll Watchdog Beta 21.`)
