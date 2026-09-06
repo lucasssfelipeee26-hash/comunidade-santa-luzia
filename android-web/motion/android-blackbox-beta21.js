@@ -6,6 +6,7 @@
   const EVENTS_KEY = "santa-luzia:blackbox:v1";
   const RUNTIME_KEY = "santa-luzia:blackbox:runtime:v1";
   const LAST_EXIT_KEY = "santa-luzia:blackbox:last-exit:v1";
+  const LAST_FATAL_KEY = "santa-luzia:blackbox:last-fatal:v1";
   const MAX_EVENTS = 500;
   const FIVE_MINUTES = 5 * 60 * 1000;
   const SLOW_FETCH_MS = 1200;
@@ -37,6 +38,7 @@
       const out = {};
       for (const [key, item] of Object.entries(value).slice(0, 30)) {
         if (/password|senha|token|authorization|cookie|body|payload|content/i.test(key)) out[key] = "[redigido]";
+        else if (/stack/i.test(key)) out[key] = clamp(item, 3200);
         else out[key] = safeValue(item, depth + 1);
       }
       return out;
@@ -81,7 +83,7 @@
   async function nativeBreadcrumb(event) {
     const native = plugin();
     if (!native?.recordBreadcrumb) return;
-    const important = event.level !== "info" || ["blackbox-start", "route-start", "route-settled", "visibility", "runtime-unclean-restart"].includes(event.type);
+    const important = event.level !== "info" || ["blackbox-start", "route-start", "route-settled", "visibility", "runtime-unclean-restart", "previous-fatal-exception"].includes(event.type);
     if (!important) return;
     try {
       await native.recordBreadcrumb({
@@ -172,15 +174,24 @@
       line: event.lineno || null,
       column: event.colno || null,
       name: event.error?.name || "Error",
-      stack: clamp(event.error?.stack || "", 1800),
+      stack: clamp(event.error?.stack || "", 3200),
     }, event.message || event.error?.message || "Erro JavaScript");
   });
 
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
+    const name = String(reason?.name || "UnhandledPromiseRejection");
+    if (name === "AbortError") {
+      record("request-cancelled", "info", {
+        name,
+        stack: clamp(reason?.stack || "", 1800),
+      }, reason?.message || "Requisição cancelada durante transição de tela.");
+      event.preventDefault();
+      return;
+    }
     record("unhandled-rejection", "error", {
-      name: reason?.name || "UnhandledPromiseRejection",
-      stack: clamp(reason?.stack || "", 1800),
+      name,
+      stack: clamp(reason?.stack || "", 3200),
     }, reason?.message || String(reason || "Promise rejeitada sem tratamento"));
   });
 
@@ -215,7 +226,7 @@
       return response;
     } catch (error) {
       const durationMs = Math.round(performance.now() - started);
-      if (apiLike) record("fetch-throw", error?.name === "AbortError" ? "warning" : "error", {
+      if (apiLike) record("fetch-throw", error?.name === "AbortError" ? "info" : "error", {
         method, path, durationMs, name: error?.name || "Error", stack: clamp(error?.stack || "", 1500),
       }, error?.message || `${method} ${path} falhou`);
       throw error;
@@ -282,6 +293,16 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", observeRoot, { once: true });
   else observeRoot();
 
+  let layoutShiftBucket = null;
+  let layoutShiftTimer = 0;
+  function flushLayoutShifts() {
+    if (!layoutShiftBucket) return;
+    const bucket = layoutShiftBucket;
+    layoutShiftBucket = null;
+    layoutShiftTimer = 0;
+    record("layout-shift-burst", "warning", bucket, `Mudanças visuais agrupadas: ${bucket.count} ocorrência(s).`);
+  }
+
   try {
     const supported = PerformanceObserver.supportedEntryTypes || [];
     if (supported.includes("longtask")) {
@@ -293,8 +314,19 @@
     if (supported.includes("layout-shift")) {
       const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          if (entry.hadRecentInput || Number(entry.value || 0) < 0.08) continue;
-          record("layout-shift", "warning", { value: Number(entry.value || 0), startTime: Math.round(entry.startTime) }, "Mudança visual inesperada detectada.");
+          const value = Number(entry.value || 0);
+          if (entry.hadRecentInput || value < 0.08) continue;
+          const now = performance.now();
+          if (!layoutShiftBucket) {
+            layoutShiftBucket = { count: 0, totalValue: 0, maxValue: 0, firstStartTime: Math.round(entry.startTime), lastStartTime: Math.round(entry.startTime) };
+          }
+          layoutShiftBucket.count += 1;
+          layoutShiftBucket.totalValue = Number((layoutShiftBucket.totalValue + value).toFixed(4));
+          layoutShiftBucket.maxValue = Math.max(layoutShiftBucket.maxValue, value);
+          layoutShiftBucket.lastStartTime = Math.round(entry.startTime);
+          layoutShiftBucket.lastObservedAt = Math.round(now);
+          if (layoutShiftTimer) window.clearTimeout(layoutShiftTimer);
+          layoutShiftTimer = window.setTimeout(flushLayoutShifts, 1200);
         }
       });
       observer.observe({ type: "layout-shift", buffered: true });
@@ -330,6 +362,26 @@
     if (!native?.getSnapshot) return null;
     try {
       const snapshot = await native.getSnapshot();
+      const fatals = Array.isArray(snapshot?.fatalCrashes) ? snapshot.fatalCrashes : [];
+      const latestFatal = fatals[fatals.length - 1];
+      if (latestFatal?.timestamp) {
+        let lastFatalSeen = 0;
+        try { lastFatalSeen = Number(localStorage.getItem(LAST_FATAL_KEY) || 0); } catch {}
+        if (Number(latestFatal.timestamp) > lastFatalSeen) {
+          record("previous-fatal-exception", "error", {
+            timestamp: latestFatal.timestamp,
+            pid: latestFatal.pid,
+            threadName: latestFatal.threadName,
+            threadId: latestFatal.threadId,
+            exceptionClass: latestFatal.exceptionClass,
+            message: latestFatal.message,
+            stackTrace: clamp(latestFatal.stackTrace || "", 3200),
+            ageMs: Math.max(0, Date.now() - Number(latestFatal.timestamp)),
+          }, `${latestFatal.exceptionClass || "Exceção fatal"}: ${latestFatal.message || "sem mensagem"}`);
+          try { localStorage.setItem(LAST_FATAL_KEY, String(latestFatal.timestamp)); } catch {}
+        }
+      }
+
       const exits = Array.isArray(snapshot?.processExits) ? snapshot.processExits : [];
       const latest = exits.find((item) => item && !item.error);
       if (latest?.timestamp) {
@@ -346,7 +398,7 @@
       }
       return snapshot;
     } catch (error) {
-      record("native-diagnostics-error", "warning", { name: error?.name || "Error" }, error?.message || "Falha ao consultar ApplicationExitInfo.");
+      record("native-diagnostics-error", "warning", { name: error?.name || "Error" }, error?.message || "Falha ao consultar diagnóstico nativo.");
       return null;
     }
   }
@@ -368,6 +420,7 @@
       native,
       capabilities: {
         applicationExitInfo: Boolean(native?.applicationExitInfoAvailable),
+        fatalExceptionRecorder: Boolean(native?.fatalExceptionRecorderAvailable),
         perfettoMarkers: Boolean(native?.perfettoTraceMarkersAvailable),
         crashlytics: Boolean(native?.crashlyticsAvailable),
       },
@@ -379,12 +432,14 @@
     events = [];
     persist();
     try { localStorage.removeItem(LAST_EXIT_KEY); } catch {}
+    try { localStorage.removeItem(LAST_FATAL_KEY); } catch {}
     try { await plugin()?.clearHistory?.(); } catch {}
     record("blackbox-cleared", "info", {}, "Histórico da caixa-preta reiniciado.");
   }
 
   window.SantaLuziaBlackBox = { version: VERSION, record, snapshot, clear, memorySample, collectNativeStartup };
   window.addEventListener("unload", () => {
+    flushLayoutShifts();
     window.clearInterval(heartbeat);
     window.clearInterval(memoryTimer);
   });
