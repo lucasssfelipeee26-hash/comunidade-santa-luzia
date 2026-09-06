@@ -39,20 +39,30 @@ if (!pluginFile) {
 }
 
 let source = fs.readFileSync(pluginFile, "utf8")
-console.log(`[motion-beta21-notifications] Fonte localizada em ${path.relative(root, pluginFile)}`)
+const isKotlin = pluginFile.endsWith(".kt")
+console.log(`[motion-beta21-notifications] Fonte localizada em ${path.relative(root, pluginFile)} (${isKotlin ? "Kotlin" : "Java"})`)
 
-const unsafeCheck = /super\.checkPermissions\(call\);/
+const unsafeCheck = /super\.checkPermissions\(call\);?/
 if (!unsafeCheck.test(source)) {
-  fail("Trecho inseguro super.checkPermissions(call) não encontrado; versão do plugin mudou.")
+  const pos = source.indexOf("checkPermissions")
+  const excerpt = pos >= 0 ? source.slice(Math.max(0, pos - 500), pos + 1400) : source.slice(0, 1800)
+  console.error("[motion-beta21-notifications] Trecho de checkPermissions encontrado para diagnóstico:\n" + excerpt)
+  fail("Chamada genérica super.checkPermissions(call) não encontrada; implementação mudou.")
 }
-source = source.replace(
-  unsafeCheck,
-  [
-    "JSObject permissionsResultJSON = new JSObject();",
-    '            permissionsResultJSON.put("display", getNotificationPermissionText());',
-    "            call.resolve(permissionsResultJSON);",
-  ].join("\n"),
-)
+
+const safeCheck = isKotlin
+  ? [
+      "val permissionsResultJSON = JSObject()",
+      '            permissionsResultJSON.put("display", getNotificationPermissionText())',
+      "            call.resolve(permissionsResultJSON)",
+    ].join("\n")
+  : [
+      "JSObject permissionsResultJSON = new JSObject();",
+      '            permissionsResultJSON.put("display", getNotificationPermissionText());',
+      "            call.resolve(permissionsResultJSON);",
+    ].join("\n")
+
+source = source.replace(unsafeCheck, safeCheck)
 
 const unsafeRequestState = /getPermissionState\(LOCAL_NOTIFICATIONS\)\s*==\s*PermissionState\.GRANTED/
 if (unsafeRequestState.test(source)) {
@@ -62,11 +72,11 @@ if (unsafeRequestState.test(source)) {
 fs.writeFileSync(pluginFile, source)
 
 const patched = fs.readFileSync(pluginFile, "utf8")
-if (patched.includes("super.checkPermissions(call);")) {
+if (/super\.checkPermissions\(call\);?/.test(patched)) {
   fail("checkPermissions genérico permaneceu após o patch.")
 }
-if (!patched.includes('permissionsResultJSON.put("display", getNotificationPermissionText());')) {
+if (!patched.includes('permissionsResultJSON.put("display", getNotificationPermissionText())')) {
   fail("Implementação segura de checkPermissions não foi aplicada.")
 }
 
-console.log("[motion-beta21-notifications] Workaround aplicado: checkPermissions consulta diretamente o estado das notificações e não passa pelo caminho do Capacitor que causou NullPointerException no aparelho.")
+console.log("[motion-beta21-notifications] Workaround aplicado: checkPermissions consulta diretamente o estado das notificações e evita o caminho do Capacitor que causou NullPointerException no aparelho.")
