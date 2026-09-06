@@ -5,6 +5,7 @@
   const FLAG = "santaLuziaAuditorBeta21Patched";
   const STORAGE_KEY = "santa-luzia:auditor:v1";
   const CLEAN_VERSION_KEY = "santa-luzia:auditor:last-clean-version";
+  const REPORT_CHUNK_CHARS = 128 * 1024;
   let preciseRouteStart = 0;
   let preciseRouteTarget = "";
 
@@ -124,8 +125,45 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
-      return { ok: true, fileName, location: "download-browser", method: "browser" };
+      return { ok: true, fileName, location: "download-browser", method: "browser", bytes: blob.size, appByteLimit: false, lossless: true };
     } finally { setTimeout(() => URL.revokeObjectURL(url), 5000); }
+  }
+
+  function nextChunkEnd(content, start) {
+    let end = Math.min(content.length, start + REPORT_CHUNK_CHARS);
+    if (end < content.length && end > start) {
+      const lastCode = content.charCodeAt(end - 1);
+      if (lastCode >= 0xD800 && lastCode <= 0xDBFF) end -= 1;
+    }
+    return end > start ? end : Math.min(content.length, start + 1);
+  }
+
+  async function saveNativeChunked(native, fileName, content) {
+    const started = await native.beginReport({ fileName });
+    const exportId = String(started?.exportId || "");
+    if (!exportId) throw new Error("O Android não iniciou a exportação em blocos do relatório.");
+    let offset = 0;
+    let chunks = 0;
+    try {
+      while (offset < content.length) {
+        const end = nextChunkEnd(content, offset);
+        await native.appendReport({ exportId, chunk: content.slice(offset, end) });
+        offset = end;
+        chunks += 1;
+      }
+      const result = await native.finishReport({ exportId });
+      return {
+        ...result,
+        method: "android-native-chunked",
+        chunks,
+        chunkChars: REPORT_CHUNK_CHARS,
+        appByteLimit: false,
+        lossless: true,
+      };
+    } catch (error) {
+      try { await native.abortReport?.({ exportId }); } catch {}
+      throw error;
+    }
   }
 
   function installPreciseRouteAudit(core) {
@@ -222,23 +260,40 @@
       try { await deep.run({ sendRemote: true }); } catch {}
       const report = await core.snapshot();
       const fileName = reportName();
-      const content = JSON.stringify(report, null, 2);
+      const exportReport = {
+        ...report,
+        reportExport: {
+          format: "json",
+          encoding: "utf-8",
+          serialization: "compact-lossless",
+          lossless: true,
+          appByteLimit: false,
+          chunkChars: REPORT_CHUNK_CHARS,
+        },
+      };
+      const content = JSON.stringify(exportReport);
       const native = window.Capacitor?.Plugins?.DiagnosticReport;
       let saved;
-      if (native?.saveReport) {
+      if (native?.beginReport && native?.appendReport && native?.finishReport) {
+        saved = await saveNativeChunked(native, fileName, content);
+      } else if (native?.saveReport) {
         saved = await native.saveReport({ fileName, content });
-        saved = { ...saved, method: "android-native" };
+        saved = { ...saved, method: "android-native", appByteLimit: false, lossless: true };
       } else saved = await browserDownload(fileName, content);
       core.add?.("report-exported", "info", {
-        events: report.events.length,
-        blackBoxEvents: report.blackBox?.events?.length || 0,
-        processExits: report.processDiagnostics?.processExits?.length || 0,
+        events: exportReport.events.length,
+        blackBoxEvents: exportReport.blackBox?.events?.length || 0,
+        processExits: exportReport.processDiagnostics?.processExits?.length || 0,
         fileName,
         method: saved.method,
+        bytes: saved.bytes || null,
+        chunks: saved.chunks || null,
         beta21: true,
-        uniqueErrors: report.summary.errors,
+        uniqueErrors: exportReport.summary.errors,
+        lossless: true,
+        appByteLimit: false,
       });
-      return { ...report, export: saved };
+      return { ...exportReport, export: saved };
     };
 
     core.version = VERSION;
@@ -251,6 +306,8 @@
       applicationExitInfo: true,
       perfettoTraceMarkers: true,
       crashlyticsAdapter: true,
+      losslessChunkedReportExport: true,
+      reportAppByteLimit: false,
     });
     window.dispatchEvent(new CustomEvent("santa-luzia:diagnostico-updated", { detail: { type: "auditor-beta21-patch-ready" } }));
   }
