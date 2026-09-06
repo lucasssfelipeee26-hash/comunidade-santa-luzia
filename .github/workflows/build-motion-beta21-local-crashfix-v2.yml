@@ -110,7 +110,7 @@ jobs:
           grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:name=".SantaLuziaApplication"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'setDefaultUncaughtExceptionHandler' android/app/src/main/java/br/com/comunidadesantaluzia/app/SantaLuziaApplication.java
-          grep -Fq 'fatalCrashes' android/app/src/main/java/br/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
+          grep -Fq 'fatalCrashes' android/app/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
 
       - name: Compilar APK Release
         working-directory: android
