@@ -1,7 +1,7 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.12";
+  const VERSION = "2.0.0-beta.12.1";
   const FLAG = "performanceBeta12";
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
@@ -73,23 +73,21 @@
     try { window.scrollTo(0, 0); } catch {}
   }
 
-  function animateMain() {
+  // A versão anterior aplicava opacity .86 -> 1 e translateY a cada troca de
+  // rota. No WebView Android isso aparecia como uma piscada real e também
+  // produzia layout/compositor churn no gravador forense. Agora apenas
+  // cancelamos animações de entrada antigas e garantimos o MAIN estável.
+  function stabilizeMain() {
     const main = document.querySelector("main");
-    if (!main || typeof main.animate !== "function") return;
+    if (!main) return;
     try {
-      main.getAnimations().forEach((animation) => {
-        if (/route|page|enter/i.test(animation.id || "")) animation.cancel();
-      });
-      const animation = main.animate([
-        { opacity:.86, transform:"translate3d(0,3px,0)" },
-        { opacity:1, transform:"translate3d(0,0,0)" },
-      ], { duration:180, easing:"cubic-bezier(.2,.78,.2,1)", fill:"both" });
-      animation.id = "sl-b12-route-enter";
-      animation.finished.finally(() => {
-        if (!main.isConnected) return;
-        main.style.removeProperty("opacity");
-        main.style.removeProperty("transform");
-      });
+      if (typeof main.getAnimations === "function") {
+        main.getAnimations().forEach((animation) => {
+          if (/route|page|enter/i.test(animation.id || "")) animation.cancel();
+        });
+      }
+      main.style.removeProperty("opacity");
+      main.style.removeProperty("transform");
     } catch {}
   }
 
@@ -102,7 +100,7 @@
     resetScroll();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        animateMain();
+        stabilizeMain();
         routeLock = false;
       });
     });
