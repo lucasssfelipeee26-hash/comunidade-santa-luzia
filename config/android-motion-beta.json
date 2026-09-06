@@ -4,7 +4,7 @@
   "versionName": "2.0.0-beta.21",
   "applicationId": "br.com.comunidadesantaluzia.motionbeta",
   "appName": "Santa Luzia Motion Beta",
-  "serverUrl": "https://comunidade-santa-luzia-production.up.railway.app",
+  "serverUrl": "http://192.168.1.7:3000",
   "windowsBeta": {
     "repository": "lucasssfelipeee26-hash/santa-luzia-windows-beta",
     "commit": "1c798019ebcb7ace6fbaa762fab398b92385a361",
@@ -23,5 +23,5 @@
     "size": 54911,
     "sha256": "a548eebe6506aac2de3efa3ab5540d935b4cad85788f963469ebf7a75d20c637"
   },
-  "notes": "Beta 20: preserva as correções de aparelho real da Beta 19 e fecha os achados estruturais da auditoria da Beta 18: APK assinado em release e não depurável, identidade Capacitor alinhada ao pacote Motion Beta no artefato final, R8/shrink habilitados, resíduos Cordova removidos, MainActivity sem singleTask concorrente, stack de scripts Motion consolidada mantendo a ordem histórica, assets órfãos removidos do pacote e verificações finais de segurança/estrutura. Home, hero, Biblioteca, iLiturgia offline, login/sincronização, Auditor/Deep Scan, históricos, animações, SQLite e filas permanecem preservados. Android oficial 1.0.6/code18 permanece intocado."
+  "notes": "Beta 21 local: preserva integralmente a interface e o núcleo offline da Beta 21 e direciona somente a sincronização online para o servidor de desenvolvimento em http://192.168.1.7:3000. Android oficial 1.0.6/code18 permanece intocado."
 }
