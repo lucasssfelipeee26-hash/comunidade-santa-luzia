@@ -54,6 +54,7 @@ const sync = read("native-assets/android/src/main/java/br/com/comunidadesantaluz
 ok(login.includes("router.replace") && login.includes("router.refresh()"), "retorno de login compatível com a navegação local")
 ok(store.includes("loginConfirmed(usuario, senha)") && store.includes('globalMutate("/api/auth/me", result.me'), "sessão é atualizada após autenticação")
 ok(nativeFetch.includes("SyncHttp") && nativeFetch.includes("/api/"), "requisições de autenticação/sincronização passam pela ponte nativa")
+ok(nativeFetch.includes("inflightGets") && nativeFetch.includes("GET_COALESCE_MS") && nativeFetch.includes(".clone()"), "GETs idênticos simultâneos são coalescidos sem compartilhar o mesmo corpo Response")
 ok(sync.includes("CookieManager") && sync.includes("set-cookie") && sync.includes("BASE_URL"), "cookies de sessão são preservados pela ponte nativa")
 
 const updater = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/AppUpdaterPlugin.java")
@@ -69,6 +70,14 @@ ok(blackBox.includes("visual-blank-frame"), "caixa-preta detecta quadro visual v
 ok(blackBox.includes("memory-sample"), "caixa-preta coleta tendência de memória")
 ok(blackBox.includes("fetch-start") && blackBox.includes("fetch-end"), "caixa-preta correlaciona requisições antes de falhas")
 ok(blackBox.includes("beginTrace") && blackBox.includes("endTrace"), "rotas recebem marcadores Perfetto")
+
+const scrollWatchdog = read("android-web/motion/android-scroll-watchdog-beta21.js")
+ok(scrollWatchdog.includes("santaLuziaScrollWatchdogBeta21"), "Scroll Watchdog Beta 21 possui trava de versão")
+ok(scrollWatchdog.includes("unexpected-scroll-burst"), "watchdog registra rolagem sem interação humana")
+ok(scrollWatchdog.includes("document-growth-burst"), "watchdog registra crescimento/oscilação da altura da página")
+ok(scrollWatchdog.includes("resize-loop-burst") && scrollWatchdog.includes("ResizeObserver"), "watchdog registra loops de redimensionamento")
+ok(scrollWatchdog.includes("lastHumanAt") && scrollWatchdog.includes("touchstart") && scrollWatchdog.includes("wheel"), "watchdog diferencia rolagem humana de automática")
+ok(!/textContent|innerText|\.value\b/.test(scrollWatchdog), "watchdog não coleta texto ou conteúdo de campos")
 
 const deepNative = read("native-assets/android/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java")
 ok(deepNative.includes("ApplicationExitInfo"), "diagnóstico nativo usa ApplicationExitInfo")
@@ -92,12 +101,13 @@ const bundle = read("scripts/bundle-motion-beta20.cjs")
 ok(bundle.includes("android-motion-runtime-beta20.js"), "stack Motion será consolidada em um único runtime")
 ok(bundle.includes("document.currentScript"), "consolidação bloqueia scripts incompatíveis")
 ok(bundle.includes("android-blackbox-beta21.js"), "bundle injeta a caixa-preta antes do React local")
+ok(bundle.includes("android-scroll-watchdog-beta21.js") && bundle.includes("scrollWatchdogTag"), "bundle injeta Scroll Watchdog imediatamente após a caixa-preta")
 const prepare = read("scripts/prepare-motion-beta20.cjs")
-for (const marker of ["debuggable false", "minifyEnabled true", "shrinkResources true", 'android:launchMode="singleTop"', "cordova.js", "cordova_plugins.js", "_franciscoxavier.jpg", "capConfig.appId = config.applicationId", "DeepDiagnosticsPlugin.class", "android-blackbox-beta21.js"]) {
+for (const marker of ["debuggable false", "minifyEnabled true", "shrinkResources true", 'android:launchMode="singleTop"', "cordova.js", "cordova_plugins.js", "_franciscoxavier.jpg", "capConfig.appId = config.applicationId", "DeepDiagnosticsPlugin.class", "android-blackbox-beta21.js", "android-scroll-watchdog-beta21.js", "unexpected-scroll-burst", "document-growth-burst", "resize-loop-burst"]) {
   ok(prepare.includes(marker), `trava estrutural presente: ${marker}`)
 }
 
 ok(!exists("cordova_plugins.js") || !read("cordova_plugins.js").trim(), "nenhum código Cordova ativo no fonte raiz")
 
 if (process.exitCode) process.exit(process.exitCode)
-console.log("Beta 21 aprovada na auditoria estática: regressões visuais, iLiturgia, login/sincronização, caixa-preta, ApplicationExitInfo, memória, Perfetto e adaptador Crashlytics presentes.")
+console.log("Beta 21 aprovada na auditoria estática: regressões visuais, iLiturgia, login/sincronização, caixa-preta, Scroll Watchdog, GET coalescido, ApplicationExitInfo, memória, Perfetto e adaptador Crashlytics presentes.")
