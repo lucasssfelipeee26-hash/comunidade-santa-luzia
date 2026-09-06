@@ -90,7 +90,7 @@ jobs:
           grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
           grep -Fq '"beta": "2.0.0-beta.21"' android-web/offline/iliturgia/manifest.json
 
-      - name: Preparar Android e aplicar crashfix
+      - name: Preparar Android e aplicar crashfix profundo
         shell: bash
         run: |
           set -euo pipefail
@@ -100,10 +100,14 @@ jobs:
           APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
           node scripts/prepare-motion-beta20.cjs
           node scripts/patch-local-notifications-beta21.cjs
+          node scripts/patch-beta21-deep-crash-recorder.cjs
           grep -Fq 'debuggable false' android/app/build.gradle
           grep -Fq 'signingConfig signingConfigs.debug' android/app/build.gradle
           grep -Fq 'android:launchMode="singleTop"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:name=".SantaLuziaApplication"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'setDefaultUncaughtExceptionHandler' android/app/src/main/java/br/com/comunidadesantaluzia/app/SantaLuziaApplication.java
+          grep -Fq 'fatalCrashes' android/app/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
 
       - name: Compilar APK Release
         working-directory: android
