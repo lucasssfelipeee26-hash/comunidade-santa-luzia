@@ -34,6 +34,19 @@
     } catch { return null; }
   }
 
+  function localAcervoFallback(parsed, method, response) {
+    if (method !== "GET" || parsed.pathname !== "/api/acervo-liturgico" || response.status !== 404) return response;
+    return jsonResponse({
+      ok: true,
+      instalado: false,
+      offline: true,
+      embedded: true,
+      total: 5434,
+      categorias: [],
+      origem: "apk-local-fallback",
+    });
+  }
+
   function bytesToBase64(bytes) {
     let binary = "";
     const chunk = 0x8000;
@@ -112,7 +125,7 @@
     const descriptor = await bodyDescriptor(input, init, request);
     const result = await native.request({ path: `${parsed.pathname}${parsed.search}`, method, headersJson: safeHeaders(input, init, request), ...descriptor });
     if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-    return responseFromNative(result);
+    return localAcervoFallback(parsed, method, responseFromNative(result));
   };
   window.__santaLuziaNativeApiFetch = window.fetch;
 })();
