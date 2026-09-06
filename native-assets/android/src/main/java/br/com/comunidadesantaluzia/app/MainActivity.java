@@ -20,15 +20,64 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(OfflineStorePlugin.class);
         registerPlugin(SyncHttpPlugin.class);
         registerPlugin(DiagnosticReportPlugin.class);
+        registerPlugin(DeepDiagnosticsPlugin.class);
         super.onCreate(savedInstanceState);
 
-        if (ehMotionBeta()) prepararWebViewLocal();
+        if (ehMotionBeta()) {
+            DeepDiagnosticsPlugin.recordLifecycle(this, "onCreate", "savedState=" + (savedInstanceState != null));
+            prepararWebViewLocal();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onStart", "");
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (ehMotionBeta()) prepararWebViewLocal();
+        if (ehMotionBeta()) {
+            DeepDiagnosticsPlugin.recordLifecycle(this, "onResume", "");
+            prepararWebViewLocal();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onPause", "finishing=" + isFinishing());
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onStop", "finishing=" + isFinishing());
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (ehMotionBeta()) {
+            DeepDiagnosticsPlugin.recordLifecycle(
+                this,
+                "onDestroy",
+                "finishing=" + isFinishing() + ",changingConfigurations=" + isChangingConfigurations()
+            );
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onTrimMemory", "level=" + level);
+        super.onTrimMemory(level);
+    }
+
+    @Override
+    public void onLowMemory() {
+        if (ehMotionBeta()) DeepDiagnosticsPlugin.recordLifecycle(this, "onLowMemory", "");
+        super.onLowMemory();
     }
 
     private boolean ehMotionBeta() {
