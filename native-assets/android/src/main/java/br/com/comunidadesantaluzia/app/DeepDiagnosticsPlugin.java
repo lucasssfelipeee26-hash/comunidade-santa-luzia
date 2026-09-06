@@ -279,7 +279,7 @@ public class DeepDiagnosticsPlugin extends Plugin {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Api29.begin(name, cookie);
             call.resolve(new JSObject().put("ok", true).put("available", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q));
-        } catch (Throwable error) {
+        } catch (Exception error) {
             call.reject("Falha ao iniciar marcador Perfetto.", "TRACE_BEGIN", error);
         }
     }
@@ -291,7 +291,7 @@ public class DeepDiagnosticsPlugin extends Plugin {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Api29.end(name, cookie);
             call.resolve(new JSObject().put("ok", true).put("available", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q));
-        } catch (Throwable error) {
+        } catch (Exception error) {
             call.reject("Falha ao encerrar marcador Perfetto.", "TRACE_END", error);
         }
     }
@@ -304,7 +304,7 @@ public class DeepDiagnosticsPlugin extends Plugin {
                 .putLong(KEY_CLEAR_CUTOFF, System.currentTimeMillis())
                 .commit();
             call.resolve(new JSObject().put("ok", true));
-        } catch (Throwable error) {
+        } catch (Exception error) {
             call.reject("Falha ao limpar histórico profundo.", "DEEP_CLEAR", error);
         }
     }
