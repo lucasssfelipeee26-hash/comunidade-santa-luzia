@@ -3,10 +3,12 @@
 (() => {
   const VERSION = "2.0.0-beta.10";
   const FLAG = "motionNativeFetchBeta10";
+  const GET_COALESCE_MS = 300;
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
 
   const browserFetch = window.fetch.bind(window);
+  const inflightGets = new Map();
   window.__santaLuziaBrowserFetch = browserFetch;
 
   function plugin() { return window.Capacitor?.Plugins?.SyncHttp || null; }
@@ -106,6 +108,14 @@
     return new Response([204, 205, 304].includes(status) ? null : body, { status: Math.min(599, Math.max(200, status)), headers });
   }
 
+  async function executeNativeRequest(input, init, request, parsed, method, native) {
+    if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    const descriptor = await bodyDescriptor(input, init, request);
+    const result = await native.request({ path: `${parsed.pathname}${parsed.search}`, method, headersJson: safeHeaders(input, init, request), ...descriptor });
+    if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    return localAcervoFallback(parsed, method, responseFromNative(result));
+  }
+
   window.fetch = async function santaLuziaNativeSyncFetch(input, init) {
     const request = input instanceof Request ? input : null;
     const url = request?.url || String(input);
@@ -121,11 +131,29 @@
 
     const native = plugin();
     if (!native?.request) throw new TypeError("Sincronizador nativo indisponível.");
-    if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-    const descriptor = await bodyDescriptor(input, init, request);
-    const result = await native.request({ path: `${parsed.pathname}${parsed.search}`, method, headersJson: safeHeaders(input, init, request), ...descriptor });
-    if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-    return localAcervoFallback(parsed, method, responseFromNative(result));
+
+    const hasSignal = Boolean(init?.signal || request?.signal);
+    if (method === "GET" && !hasSignal) {
+      const key = `${parsed.pathname}${parsed.search}`;
+      const now = performance.now();
+      const previous = inflightGets.get(key);
+      if (previous && now - previous.at <= GET_COALESCE_MS) {
+        return (await previous.promise).clone();
+      }
+
+      const promise = executeNativeRequest(input, init, request, parsed, method, native);
+      inflightGets.set(key, { at: now, promise });
+      try {
+        return (await promise).clone();
+      } finally {
+        window.setTimeout(() => {
+          const current = inflightGets.get(key);
+          if (current?.promise === promise) inflightGets.delete(key);
+        }, GET_COALESCE_MS);
+      }
+    }
+
+    return executeNativeRequest(input, init, request, parsed, method, native);
   };
   window.__santaLuziaNativeApiFetch = window.fetch;
 })();
