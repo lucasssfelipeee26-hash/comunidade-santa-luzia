@@ -6,15 +6,20 @@
   const SAMPLE_MS = 350;
   const HUMAN_WINDOW_MS = 1400;
   const QUIET_FLUSH_MS = 2200;
+  const ROUTE_GRACE_MS = 2600;
   const MIN_AUTO_SCROLL_PX = 44;
   const MIN_GROWTH_PX = 56;
+  const RESIZE_MEANINGFUL_PX = 3;
   const RESIZE_LOOP_THRESHOLD = 18;
+  const RESIZE_DIRECTION_THRESHOLD = 4;
 
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
 
   let lastHumanAt = performance.now();
   let lastSample = null;
+  let lastRoute = currentRoute();
+  let routeGraceUntil = performance.now() + ROUTE_GRACE_MS;
   let autoScrollBucket = null;
   let growthBucket = null;
   let resizeBucket = null;
@@ -22,6 +27,7 @@
   let growthTimer = 0;
   let resizeTimer = 0;
   let observer = null;
+  let resizeState = new WeakMap();
   const observed = new WeakSet();
 
   function blackBox() {
@@ -33,6 +39,10 @@
       const box = blackBox();
       if (box?.record) box.record(type, level, detail, message);
     } catch {}
+  }
+
+  function currentRoute() {
+    return `${location.pathname}${location.search}${location.hash}`;
   }
 
   function markHumanInput() {
@@ -51,10 +61,15 @@
     return {
       tag: element.tagName.toLowerCase(),
       id: String(element.id || "").slice(0, 100),
-      className: String(element.className || "").slice(0, 180),
+      className: String(typeof element.className === "string" ? element.className : element.getAttribute("class") || "").slice(0, 180),
       role: String(element.getAttribute("role") || "").slice(0, 80),
       dataAction: String(element.getAttribute("data-action") || element.getAttribute("data-sl-nav-motion") || "").slice(0, 100),
     };
+  }
+
+  function elementKey(element) {
+    if (!(element instanceof Element)) return "";
+    return `${element.tagName}:${element.id || ""}:${String(typeof element.className === "string" ? element.className : element.getAttribute("class") || "").slice(0, 80)}`;
   }
 
   function geometry() {
@@ -69,17 +84,41 @@
     };
   }
 
+  function clearTimer(timer) {
+    if (timer) window.clearTimeout(timer);
+  }
+
+  function resetTransientBuckets() {
+    clearTimer(autoScrollTimer);
+    clearTimer(growthTimer);
+    clearTimer(resizeTimer);
+    autoScrollTimer = 0;
+    growthTimer = 0;
+    resizeTimer = 0;
+    autoScrollBucket = null;
+    growthBucket = null;
+    resizeBucket = null;
+    resizeState = new WeakMap();
+  }
+
+  function beginRouteGrace() {
+    routeGraceUntil = Math.max(routeGraceUntil, performance.now() + ROUTE_GRACE_MS);
+    lastRoute = currentRoute();
+    lastSample = geometry();
+    resetTransientBuckets();
+  }
+
   function scheduleFlush(kind) {
-    const setter = (timer) => window.setTimeout(() => flush(kind), QUIET_FLUSH_MS);
+    const setter = () => window.setTimeout(() => flush(kind), QUIET_FLUSH_MS);
     if (kind === "scroll") {
       if (autoScrollTimer) clearTimeout(autoScrollTimer);
-      autoScrollTimer = setter(autoScrollTimer);
+      autoScrollTimer = setter();
     } else if (kind === "growth") {
       if (growthTimer) clearTimeout(growthTimer);
-      growthTimer = setter(growthTimer);
+      growthTimer = setter();
     } else {
       if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setter(resizeTimer);
+      resizeTimer = setter();
     }
   }
 
@@ -97,7 +136,17 @@
         const bucket = growthBucket;
         growthBucket = null;
         growthTimer = 0;
-        record("document-growth-burst", "warning", bucket, `Altura da página oscilou ${bucket.count} vez(es), variação acumulada ${bucket.totalDeltaPx}px.`);
+        const giantStep = bucket.maxStepPx >= Math.max(420, Math.round(bucket.viewportHeight * 0.78));
+        const oscillating = bucket.count >= 2 && bucket.directionChanges >= 1;
+        const suspicious = oscillating || giantStep;
+        record(
+          "document-growth-burst",
+          suspicious ? "warning" : "info",
+          { ...bucket, suspicious, classification: suspicious ? "same-route-oscillation" : "single-direction-layout-settle" },
+          suspicious
+            ? `Altura da página oscilou ${bucket.count} vez(es), variação acumulada ${bucket.totalDeltaPx}px.`
+            : `Mudança de altura estabilizada: ${bucket.count} alteração(ões), ${bucket.totalDeltaPx}px.`,
+        );
       }
     }
     if (!kind || kind === "resize") {
@@ -105,7 +154,17 @@
         const bucket = resizeBucket;
         resizeBucket = null;
         resizeTimer = 0;
-        record("resize-loop-burst", "warning", bucket, `Redimensionamento repetitivo detectado: ${bucket.count} alteração(ões).`);
+        const repeatedElement = bucket.maxElementChanges >= RESIZE_LOOP_THRESHOLD;
+        const oscillatingElement = bucket.maxElementDirectionChanges >= RESIZE_DIRECTION_THRESHOLD;
+        const suspicious = repeatedElement && oscillatingElement;
+        record(
+          "resize-loop-burst",
+          suspicious ? "warning" : "info",
+          { ...bucket, suspicious, classification: suspicious ? "repeated-element-oscillation" : "layout-settle" },
+          suspicious
+            ? `Redimensionamento repetitivo detectado: ${bucket.count} alteração(ões).`
+            : `Redimensionamentos de estabilização agrupados: ${bucket.count} alteração(ões).`,
+        );
       }
     }
   }
@@ -114,7 +173,17 @@
     if (document.visibilityState !== "visible") return;
     const now = performance.now();
     const current = geometry();
-    if (!lastSample) {
+    const routeNow = currentRoute();
+
+    if (routeNow !== lastRoute) {
+      lastRoute = routeNow;
+      routeGraceUntil = now + ROUTE_GRACE_MS;
+      lastSample = { ...current, at: now };
+      resetTransientBuckets();
+      return;
+    }
+
+    if (!lastSample || now < routeGraceUntil) {
       lastSample = { ...current, at: now };
       return;
     }
@@ -137,6 +206,7 @@
           lastScrollY: current.scrollY,
           viewportHeight: current.viewportHeight,
           scrollHeight: current.scrollHeight,
+          route: routeNow,
         };
       }
       const direction = Math.sign(scrollDelta);
@@ -166,6 +236,7 @@
           firstScrollHeight: lastSample.scrollHeight,
           lastScrollHeight: current.scrollHeight,
           viewportHeight: current.viewportHeight,
+          route: routeNow,
         };
       }
       const direction = Math.sign(heightDelta);
@@ -194,28 +265,59 @@
     if (typeof ResizeObserver === "undefined") return;
     observer = new ResizeObserver((entries) => {
       const now = performance.now();
+      if (document.visibilityState !== "visible" || now < routeGraceUntil) return;
+
       for (const entry of entries) {
         const element = entry.target;
         const rect = entry.contentRect;
-        const key = `${element.tagName}:${element.id || ""}:${String(element.className || "").slice(0, 80)}`;
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        const previous = resizeState.get(element);
+        resizeState.set(element, {
+          width,
+          height,
+          lastDirection: previous?.lastDirection || 0,
+          changes: previous?.changes || 0,
+          directionChanges: previous?.directionChanges || 0,
+        });
+        if (!previous) continue;
+
+        const widthDelta = width - previous.width;
+        const heightDelta = height - previous.height;
+        if (Math.abs(widthDelta) < RESIZE_MEANINGFUL_PX && Math.abs(heightDelta) < RESIZE_MEANINGFUL_PX) continue;
+
+        const primaryDelta = Math.abs(heightDelta) >= Math.abs(widthDelta) ? heightDelta : widthDelta;
+        const direction = Math.sign(primaryDelta);
+        const changes = Number(previous.changes || 0) + 1;
+        const directionChanges = Number(previous.directionChanges || 0) + (previous.lastDirection && direction && direction !== previous.lastDirection ? 1 : 0);
+        resizeState.set(element, { width, height, lastDirection: direction, changes, directionChanges });
+
+        const key = elementKey(element);
         if (!resizeBucket) {
           resizeBucket = {
             count: 0,
             distinctElements: [],
             maxWidth: 0,
             maxHeight: 0,
+            maxStepPx: 0,
+            maxElementChanges: 0,
+            maxElementDirectionChanges: 0,
             firstAt: Math.round(now),
             lastAt: Math.round(now),
             lastElement: null,
+            route: currentRoute(),
           };
         }
         resizeBucket.count += 1;
         resizeBucket.lastAt = Math.round(now);
-        resizeBucket.maxWidth = Math.max(resizeBucket.maxWidth, Math.round(rect.width));
-        resizeBucket.maxHeight = Math.max(resizeBucket.maxHeight, Math.round(rect.height));
+        resizeBucket.maxWidth = Math.max(resizeBucket.maxWidth, width);
+        resizeBucket.maxHeight = Math.max(resizeBucket.maxHeight, height);
+        resizeBucket.maxStepPx = Math.max(resizeBucket.maxStepPx, Math.abs(widthDelta), Math.abs(heightDelta));
+        resizeBucket.maxElementChanges = Math.max(resizeBucket.maxElementChanges, changes);
+        resizeBucket.maxElementDirectionChanges = Math.max(resizeBucket.maxElementDirectionChanges, directionChanges);
         resizeBucket.lastElement = elementMeta(element);
         if (resizeBucket.distinctElements.length < 8 && !resizeBucket.distinctElements.includes(key)) resizeBucket.distinctElements.push(key);
-        if (resizeBucket.count >= RESIZE_LOOP_THRESHOLD) scheduleFlush("resize");
+        scheduleFlush("resize");
       }
     });
 
@@ -239,14 +341,24 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", installResizeObserver, { once: true });
   else installResizeObserver();
 
+  window.addEventListener("santa-luzia:route-start", beginRouteGrace);
+  window.addEventListener("santa-luzia:route-settled", beginRouteGrace);
+
   window.addEventListener("pagehide", () => {
     flush();
     clearInterval(interval);
     try { observer?.disconnect(); } catch {}
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") flush();
-    else lastSample = geometry();
+    if (document.visibilityState !== "visible") {
+      flush();
+      lastSample = null;
+    } else {
+      lastRoute = currentRoute();
+      routeGraceUntil = performance.now() + ROUTE_GRACE_MS;
+      lastSample = geometry();
+      resetTransientBuckets();
+    }
   });
 
   window.SantaLuziaScrollWatchdog = {
@@ -255,6 +367,8 @@
       return {
         version: VERSION,
         current: geometry(),
+        currentRoute: currentRoute(),
+        routeGraceRemainingMs: Math.max(0, Math.round(routeGraceUntil - performance.now())),
         lastHumanInputAgeMs: Math.round(Math.max(0, performance.now() - lastHumanAt)),
         pending: {
           unexpectedScroll: autoScrollBucket,
