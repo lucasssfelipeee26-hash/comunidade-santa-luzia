@@ -79,6 +79,11 @@ requireAll(consolidated, [
   "android-motion-beta.js",
   "android-blackbox-beta21.js",
   "santaLuziaBlackBoxBeta21",
+  "android-scroll-watchdog-beta21.js",
+  "santaLuziaScrollWatchdogBeta21",
+  "unexpected-scroll-burst",
+  "document-growth-burst",
+  "resize-loop-burst",
   "android-auditor-beta12.js",
   "android-podium-beta12.js",
 ], "Runtime Motion consolidado")
@@ -149,4 +154,4 @@ if (finalCap.server) fail("Motion Beta não pode conter server.url no Capacitor.
 if (!String(finalCap.android?.appendUserAgent || "").includes(config.versionName)) fail("User-Agent Motion Beta 21 não aplicado.")
 if (fs.existsSync(path.join(assets, "cordova.js")) || fs.existsSync(path.join(assets, "cordova_plugins.js")) || fs.existsSync(cordovaConfig)) fail("Resíduo Cordova permaneceu no projeto Android.")
 
-console.log("[motion-beta20] Beta 21 preparada: release não depurável, runtime consolidado, caixa-preta persistente, ApplicationExitInfo, memória, marcadores Perfetto e adaptador Crashlytics validados; acervo offline preservado.")
+console.log("[motion-beta20] Beta 21 preparada: release não depurável, runtime consolidado, caixa-preta persistente, Scroll Watchdog, ApplicationExitInfo, memória, marcadores Perfetto e adaptador Crashlytics validados; acervo offline preservado.")
