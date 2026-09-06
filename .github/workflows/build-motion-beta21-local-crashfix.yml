@@ -20,7 +20,6 @@ jobs:
     env:
       SANTA_LUZIA_MOTION_BETA: "1"
       SANTA_LUZIA_MOTION_VERSION: "2.0.0-beta.21"
-      AUTH_SECRET: ci-motion-beta21-local-crashfix-12345678901234567890
       APP_VERSION_CODE: "20021"
       APP_VERSION_NAME: "2.0.0-beta.21"
       MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
@@ -106,8 +105,10 @@ jobs:
           grep -Fq 'signingConfig signingConfigs.debug' android/app/build.gradle
           grep -Fq 'android:launchMode="singleTop"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'permissionsResultJSON.put("display", getNotificationPermissionText());' node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationsPlugin.java
-          if grep -Fq 'super.checkPermissions(call);' node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationsPlugin.java; then
+          PLUGIN_KT="node_modules/@capacitor/local-notifications/android/src/main/kotlin/com/capacitorjs/plugins/localnotifications/LocalNotificationsPlugin.kt"
+          test -s "$PLUGIN_KT"
+          grep -Fq 'permissionsResultJSON.put("display", getNotificationPermissionText())' "$PLUGIN_KT"
+          if grep -Fq 'super.checkPermissions(call)' "$PLUGIN_KT"; then
             echo 'ERRO: checkPermissions inseguro permaneceu no plugin' >&2
             exit 1
           fi
