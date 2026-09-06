@@ -5,12 +5,57 @@ import { Download, RefreshCw, ScanSearch, Send, ShieldCheck, Trash2, Wifi, WifiO
 import { Button } from "@/components/ui/button"
 
 type EventoDiagnostico = { id: string; at: number; type: string; level: "info" | "warning" | "error"; [key: string]: unknown }
+type ProcessExit = { timestamp?: number; reason?: number; reasonLabel?: string; status?: number; description?: string; trace?: string; [key: string]: unknown }
+type BlackBoxSnapshot = {
+  version?: string
+  events?: Array<Record<string, unknown>>
+  lastFiveMinutes?: Array<Record<string, unknown>>
+  capabilities?: { applicationExitInfo?: boolean; perfettoMarkers?: boolean; crashlytics?: boolean }
+  native?: {
+    applicationExitInfoAvailable?: boolean
+    perfettoTraceMarkersAvailable?: boolean
+    crashlyticsAvailable?: boolean
+    processExits?: ProcessExit[]
+    memory?: { systemLowMemory?: boolean; pssKb?: number; runtimeUsedBytes?: number; runtimeMaxBytes?: number }
+    breadcrumbs?: Array<Record<string, unknown>>
+  }
+}
 type SnapshotDiagnostico = {
   network: { physical: string; native?: { connected?: boolean; connectionType?: string } }
   database?: { ok?: boolean }
   queue?: { pending?: number; blocked?: number }
-  summary: { errors: number; warnings: number; slowRequests: number; lowFpsSamples: number; scrollJumps: number; missingIconAudits: number; blockedMutations?: number; deepFindings?: number; deepErrors?: number; deepWarnings?: number }
+  summary: {
+    errors: number
+    warnings: number
+    slowRequests: number
+    lowFpsSamples: number
+    scrollJumps: number
+    missingIconAudits: number
+    blockedMutations?: number
+    deepFindings?: number
+    deepErrors?: number
+    deepWarnings?: number
+    blackBoxEvents?: number
+    blackBoxRecentEvents?: number
+    processExits?: number
+    suspiciousProcessExits?: number
+    applicationExitInfoAvailable?: boolean
+    perfettoMarkersAvailable?: boolean
+    crashlyticsAvailable?: boolean
+  }
   events: EventoDiagnostico[]
+  blackBox?: BlackBoxSnapshot | null
+  processDiagnostics?: BlackBoxSnapshot["native"] | null
+  diagnosticsArchitecture?: {
+    auditor?: boolean
+    deepScan?: boolean
+    blackBox?: boolean
+    applicationExitInfo?: boolean
+    perfettoTraceMarkers?: boolean
+    crashlyticsAdapter?: boolean
+    crashlyticsActive?: boolean
+    crashlyticsNote?: string
+  }
   export?: { ok?: boolean; fileName?: string; location?: string; uri?: string; method?: string }
 }
 type AuditorApi = {
@@ -29,6 +74,7 @@ type DeepResult = {
   glitchTip?: { configured?: boolean; connected?: boolean; sent?: boolean; reason?: string; lastError?: string | null }
 }
 type DeepApi = { version: string; run(options?: { sendRemote?: boolean }): Promise<DeepResult>; getLast(): DeepResult | null; getGlitchTipStatus?(): Record<string, unknown> }
+type BlackBoxApi = { version: string; snapshot(): Promise<BlackBoxSnapshot>; clear(): Promise<void> | void }
 
 function auditor(): AuditorApi | null {
   if (typeof window === "undefined") return null
@@ -38,9 +84,18 @@ function deepAuditor(): DeepApi | null {
   if (typeof window === "undefined") return null
   return (window as unknown as { SantaLuziaDeepAudit?: DeepApi }).SantaLuziaDeepAudit ?? null
 }
+function blackBox(): BlackBoxApi | null {
+  if (typeof window === "undefined") return null
+  return (window as unknown as { SantaLuziaBlackBox?: BlackBoxApi }).SantaLuziaBlackBox ?? null
+}
 function diagnosticNative() {
   if (typeof window === "undefined") return null
-  return (window as unknown as { Capacitor?: { Plugins?: { DiagnosticReport?: { deleteLastReport?: () => Promise<unknown> } } } }).Capacitor?.Plugins?.DiagnosticReport ?? null
+  return (window as unknown as {
+    Capacitor?: { Plugins?: {
+      DiagnosticReport?: { deleteLastReport?: () => Promise<unknown> }
+      DeepDiagnostics?: { clearHistory?: () => Promise<unknown> }
+    } }
+  }).Capacitor?.Plugins ?? null
 }
 function ensureScript(src: string, marker: string, onload?: () => void) {
   if (document.querySelector(`script[data-${marker}]`)) return
@@ -113,13 +168,21 @@ export function DiagnosticoSantaLuzia() {
     const api = auditor()
     if (!api || executando) return
     setExecutando(true)
-    setMensagem("Executando Auditor + varredura profunda da interface…")
+    setMensagem("Executando Auditor + Deep Scan + caixa-preta + diagnóstico do processo Android…")
     try {
       await api.runSelfAudit()
       const deepResult = await rodarDeepScan(true)
-      setSnapshot(await api.snapshot())
+      const result = await api.snapshot()
+      setSnapshot(result)
       const count = deepResult?.summary.findings ?? 0
-      setMensagem(count > 0 ? `Auditoria concluída. A varredura profunda encontrou ${count} ponto(s) para o relatório técnico.` : "Auditoria concluída. A varredura profunda não encontrou inconsistências visuais nesta tela.")
+      const exits = Number(result.summary.suspiciousProcessExits || 0)
+      setMensagem(
+        exits > 0
+          ? `Auditoria concluída. Foram encontrados ${exits} encerramento(s) anormal(is) do processo Android; o relatório contém motivo e trace quando o sistema disponibilizou.`
+          : count > 0
+            ? `Auditoria concluída. A varredura profunda encontrou ${count} ponto(s) para o relatório técnico.`
+            : "Auditoria concluída. Caixa-preta, memória, rede, transições, ApplicationExitInfo e interface foram consolidados no relatório.",
+      )
     } catch (error) {
       setMensagem(error instanceof Error ? `A auditoria registrou uma falha: ${error.message}` : "A auditoria registrou uma falha interna.")
       await atualizar()
@@ -130,14 +193,14 @@ export function DiagnosticoSantaLuzia() {
     const api = auditor()
     if (!api || exportando) return
     setExportando(true)
-    setMensagem("Gerando o relatório completo…")
+    setMensagem("Gerando o relatório profundo completo…")
     try {
       await rodarDeepScan(true)
       const result = await api.exportReport()
       setSnapshot(result)
       const exp = result.export
       setUltimoArquivo(exp?.fileName || null)
-      setMensagem(`Relatório gerado com sucesso: ${exp?.location || exp?.fileName || "Downloads"}.`)
+      setMensagem(`Relatório profundo gerado com sucesso: ${exp?.location || exp?.fileName || "Downloads"}.`)
     } catch (error) {
       setMensagem(error instanceof Error ? `Não foi possível gerar o relatório: ${error.message}` : "Não foi possível gerar o relatório técnico.")
     } finally { setExportando(false) }
@@ -157,39 +220,52 @@ export function DiagnosticoSantaLuzia() {
 
   async function limpar() {
     const api = auditor()
-    if (!api || !window.confirm("Limpar o histórico técnico e remover o último arquivo de relatório gerado neste aparelho?")) return
-    try { await diagnosticNative()?.deleteLastReport?.() } catch {}
+    if (!api || !window.confirm("Limpar o histórico técnico, a caixa-preta e remover o último arquivo de relatório gerado neste aparelho?")) return
+    const native = diagnosticNative()
+    try { await native?.DiagnosticReport?.deleteLastReport?.() } catch {}
+    try { await blackBox()?.clear?.() } catch {}
+    try { await native?.DeepDiagnostics?.clearHistory?.() } catch {}
     api.clear()
     try { localStorage.removeItem("santa-luzia:deep-audit:last:v1") } catch {}
     setSnapshot(null)
     setDeep(null)
     setUltimoArquivo(null)
-    setMensagem("Histórico técnico e último relatório removidos.")
+    setMensagem("Histórico técnico, caixa-preta e último relatório removidos.")
   }
 
   const rede = snapshot?.network?.native?.connected ?? snapshot?.network?.physical !== "offline"
   const bancoOk = snapshot?.database?.ok !== false
   const filaPendente = Number(snapshot?.queue?.pending || 0)
   const deepFindings = deep?.summary.findings ?? snapshot?.summary.deepFindings ?? 0
+  const blackEvents = Number(snapshot?.summary.blackBoxEvents || snapshot?.blackBox?.events?.length || 0)
+  const suspiciousExits = Number(snapshot?.summary.suspiciousProcessExits || 0)
+  const memoryLow = Boolean(snapshot?.processDiagnostics?.memory?.systemLowMemory)
+  const exitInfo = Boolean(snapshot?.summary.applicationExitInfoAvailable ?? snapshot?.blackBox?.capabilities?.applicationExitInfo)
+  const perfetto = Boolean(snapshot?.summary.perfettoMarkersAvailable ?? snapshot?.blackBox?.capabilities?.perfettoMarkers)
+  const crashlytics = Boolean(snapshot?.summary.crashlyticsAvailable ?? snapshot?.blackBox?.capabilities?.crashlytics)
   const glitchTipConfigured = Boolean(deep?.glitchTip?.configured)
 
   return (
-    <section data-auditor-santa-luzia="beta18" data-deep-auditor-ui="true">
+    <section data-auditor-santa-luzia="beta21" data-deep-auditor-ui="true" data-blackbox-auditor="beta21">
       <div className="rounded-3xl border border-primary/15 bg-[linear-gradient(145deg,#fffaf3,#fff)] p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 18 · Auditor + Deep Scan</p>
+            <p className="text-[10px] font-black uppercase tracking-[.16em] text-[#9a731d]">Beta 21 · Auditor Profundo</p>
             <h2 className="mt-1 flex items-center gap-2 font-serif text-2xl font-semibold text-primary"><Wrench className="size-5" /> Auditor Santa Luzia</h2>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Auditoria online/offline com contagem por defeitos únicos e varredura detalhada de ícones, elementos cortados, modais, imagens, overflow, navegação e interface.</p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">Auditoria unificada com Deep Scan, caixa-preta persistente do WebView, motivo de encerramento do processo Android (ApplicationExitInfo), memória, rede, transições e marcadores para Perfetto. O adaptador do Crashlytics fica ativo automaticamente quando o Firebase estiver configurado no build.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Status ok={rede} icon={rede ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />} label={rede ? "Rede disponível" : "Modo offline"} />
             <Status ok={auditorPronto} icon={<ShieldCheck className="size-3.5" />} label={auditorPronto ? "Auditor ativo" : "Auditor indisponível"} />
-            <Status ok={deepPronto} icon={<ScanSearch className="size-3.5" />} label={deepPronto ? `Deep Scan ativo${glitchTipConfigured ? " + GlitchTip" : " · GlitchTip preparado"}` : "Deep Scan carregando"} />
+            <Status ok={Boolean(blackBox())} icon={<ShieldCheck className="size-3.5" />} label={blackBox() ? "Caixa-preta ativa" : "Caixa-preta indisponível"} />
+            <Status ok={exitInfo} icon={<ScanSearch className="size-3.5" />} label={exitInfo ? "ExitInfo ativo" : "ExitInfo indisponível"} />
+            <Status ok={perfetto} icon={<ScanSearch className="size-3.5" />} label={perfetto ? "Perfetto marcado" : "Perfetto indisponível"} />
+            <Status ok={deepPronto} icon={<ScanSearch className="size-3.5" />} label={deepPronto ? `Deep Scan ativo${glitchTipConfigured ? " + GlitchTip" : ""}` : "Deep Scan carregando"} />
+            <Status ok icon={<ShieldCheck className="size-3.5" />} label={crashlytics ? "Crashlytics ativo" : "Crashlytics preparado"} />
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-12">
           <Indicador label="Erros" value={snapshot?.summary.errors ?? 0} danger={(snapshot?.summary.errors ?? 0) > 0} />
           <Indicador label="Alertas" value={snapshot?.summary.warnings ?? 0} warning={(snapshot?.summary.warnings ?? 0) > 0} />
           <Indicador label="Req. lentas" value={snapshot?.summary.slowRequests ?? 0} warning={(snapshot?.summary.slowRequests ?? 0) > 0} />
@@ -199,10 +275,13 @@ export function DiagnosticoSantaLuzia() {
           <Indicador label="Interface" value={deepFindings} warning={deepFindings > 0} />
           <Indicador label="Fila" value={filaPendente} warning={filaPendente > 0} />
           <Indicador label="Banco" value={bancoOk ? 1 : 0} danger={!bancoOk} />
+          <Indicador label="Caixa-preta" value={blackEvents} />
+          <Indicador label="Saídas proc." value={suspiciousExits} danger={suspiciousExits > 0} />
+          <Indicador label="Memória" value={memoryLow ? 0 : 1} danger={memoryLow} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" onClick={() => void executarAuditoria()} disabled={executando || !auditorPronto} className="gap-2"><RefreshCw className={`size-4 ${executando ? "animate-spin" : ""}`} />{executando ? "Auditando…" : "Executar auditoria"}</Button>
+          <Button type="button" onClick={() => void executarAuditoria()} disabled={executando || !auditorPronto} className="gap-2"><RefreshCw className={`size-4 ${executando ? "animate-spin" : ""}`} />{executando ? "Auditando…" : "Executar auditoria profunda"}</Button>
           <Button type="button" variant="outline" onClick={() => void exportar()} disabled={exportando || !auditorPronto} className="gap-2"><Download className="size-4" />{exportando ? "Gerando…" : "Gerar relatório"}</Button>
           {ultimoArquivo && <Button type="button" variant="outline" onClick={() => void compartilhar()} disabled={compartilhando} className="gap-2"><Send className="size-4" />{compartilhando ? "Abrindo…" : "Compartilhar"}</Button>}
           <Button type="button" variant="outline" onClick={() => void limpar()} disabled={!auditorPronto} className="gap-2 text-destructive"><Trash2 className="size-4" />Limpar histórico</Button>
