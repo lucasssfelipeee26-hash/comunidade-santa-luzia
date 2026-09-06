@@ -1,17 +1,54 @@
 "use strict";
 
 (() => {
-  const VERSION = "2.0.0-beta.10";
+  const VERSION = "2.0.0-beta.21";
   const FLAG = "motionLocalNavigationBeta10";
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
 
+  function resetScroll(url) {
+    if (url.hash) return;
+    try { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }
+    catch { window.scrollTo(0, 0); }
+    try {
+      const scrolling = document.scrollingElement;
+      if (scrolling) { scrolling.scrollTop = 0; scrolling.scrollLeft = 0; }
+    } catch {}
+  }
+
+  function settleScroll(url) {
+    if (url.hash) {
+      try {
+        const id = decodeURIComponent(url.hash.slice(1));
+        document.getElementById(id)?.scrollIntoView({ block: "start" });
+      } catch {}
+      return;
+    }
+    resetScroll(url);
+  }
+
   function navigate(url, replace = false) {
     const target = `${url.pathname}${url.search}${url.hash}`;
+    const current = `${location.pathname}${location.search}${location.hash}`;
+    if (!replace && target === current) return;
+
+    document.documentElement.dataset.slRouteTransition = "running";
+    document.documentElement.dataset.slRouteTransitionSince = String(Date.now());
+    window.dispatchEvent(new CustomEvent("santa-luzia:route-start", { detail: { target } }));
+    resetScroll(url);
+
     if (replace) history.replaceState(history.state, "", target);
     else history.pushState(history.state, "", target);
     window.dispatchEvent(new Event("santa-luzia:local-route"));
-    window.scrollTo({ top: 0, behavior: "instant" });
+
+    requestAnimationFrame(() => {
+      settleScroll(url);
+      requestAnimationFrame(() => {
+        settleScroll(url);
+        document.documentElement.dataset.slRouteTransition = "settled";
+        window.dispatchEvent(new CustomEvent("santa-luzia:route-settled", { detail: { target } }));
+      });
+    });
   }
 
   function filenameFromDisposition(value, fallback) {
@@ -59,7 +96,10 @@
       return;
     }
     if (url.pathname.startsWith("/api/")) return;
+
+    // Rodamos na fase de bubble. Links React/Next já terão feito preventDefault
+    // e navegado pelo shim local; links HTML simples continuam funcionando aqui.
     event.preventDefault();
     navigate(url, false);
-  }, true);
+  });
 })();
