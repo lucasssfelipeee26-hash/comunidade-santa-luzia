@@ -18,7 +18,7 @@ function normalizeMinifiedJs(text) {
 }
 
 if (process.env.SANTA_LUZIA_MOTION_BETA !== "1") fail("SANTA_LUZIA_MOTION_BETA=1 é obrigatório.")
-if (config.versionName !== "2.0.0-beta.21" || config.versionCode !== 20021) fail(`Beta 20/code20021 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
+if (config.versionName !== "2.0.0-beta.21" || config.versionCode !== 20021) fail(`Beta 21/code20021 esperada, encontrado ${config.versionName}/code${config.versionCode}.`)
 if (config.applicationId !== "br.com.comunidadesantaluzia.motionbeta") fail("Pacote Motion Beta isolado incorreto.")
 if (stable.versionName !== "1.0.6" || stable.versionCode !== 18) fail(`Android oficial alterado: ${stable.versionName}/code${stable.versionCode}.`)
 
@@ -28,8 +28,6 @@ gradleText = gradleText.replace(/applicationId\s+["'][^"']+["']/, `applicationId
 gradleText = gradleText.replace(/versionCode\s+\d+/, `versionCode ${config.versionCode}`)
 gradleText = gradleText.replace(/versionName\s+["'][^"']+["']/, `versionName "${config.versionName}"`)
 
-// Esta Beta é somente de teste. O build release usa a assinatura de teste do Android,
-// mas mantém debuggable=false. A futura promoção oficial terá a assinatura oficial.
 const hardenedRelease = `release {\n            debuggable false\n            signingConfig signingConfigs.debug\n            minifyEnabled true\n            shrinkResources true\n            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\n        }`
 if (/release\s*\{[\s\S]*?\n\s*\}/m.test(gradleText)) {
   gradleText = gradleText.replace(/release\s*\{[\s\S]*?\n\s*\}/m, hardenedRelease)
@@ -65,9 +63,9 @@ const localText = normalizeMinifiedJs(read(localApp))
 for (const marker of [
   "Centro Litúrgico", "Escala do Dia", "Biblioteca", "Liturgia Diária",
   "data-home-public-shortcuts", "data-original-home-icon", "data-hero-mobile-framed",
-  "data-auditor-santa-luzia", "data-deep-auditor-ui", "data-team-profile-status-rail",
+  "data-auditor-santa-luzia", "data-deep-auditor-ui", "data-blackbox-auditor", "data-team-profile-status-rail",
   "data-escala-history-search", "data-standard-logout", "Deseja sair?", "Sim, sair",
-]) if (!localText.includes(marker)) fail(`Bundle React Beta 20 sem marcador obrigatório: ${marker}`)
+]) if (!localText.includes(marker)) fail(`Bundle React Beta 21 sem marcador obrigatório: ${marker}`)
 for (const forbidden of ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene"]) if (localText.includes(forbidden)) fail(`Regressão de animação antiga reapareceu: ${forbidden}`)
 
 const index = path.join(assets, "index.html")
@@ -79,6 +77,8 @@ const consolidated = path.join(assets, "motion", "android-motion-runtime-beta20.
 requireAll(consolidated, [
   "android-beta19-regression-fix.js",
   "android-motion-beta.js",
+  "android-blackbox-beta21.js",
+  "santaLuziaBlackBoxBeta21",
   "android-auditor-beta12.js",
   "android-podium-beta12.js",
 ], "Runtime Motion consolidado")
@@ -112,10 +112,21 @@ if (!capConfig.android) capConfig.android = {}
 capConfig.android.appendUserAgent = ` SantaLuziaAndroid SantaLuziaMotionBeta/${config.versionName} SantaLuziaOriginalUIOffline/2 SantaLuziaWindowsBeta/0.1.0-beta.20`
 write(capConfigFile, `${JSON.stringify(capConfig, null, 2)}\n`)
 
-const main = path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", "MainActivity.java")
-requireAll(main, ["OfflineStorePlugin.class", "SyncHttpPlugin.class", "DiagnosticReportPlugin.class", "LOAD_DEFAULT"], "MainActivity")
-requireAll(path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", "OfflineStorePlugin.java"), ["DB_VERSION = 2", "setWriteAheadLoggingEnabled(true)", "PRAGMA integrity_check", "recoverDocument"], "SQLite")
-const updater = path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app", "AppUpdaterPlugin.java")
+const javaDir = path.join(root, "android", "app", "src", "main", "java", "br", "com", "comunidadesantaluzia", "app")
+const main = path.join(javaDir, "MainActivity.java")
+requireAll(main, ["OfflineStorePlugin.class", "SyncHttpPlugin.class", "DiagnosticReportPlugin.class", "DeepDiagnosticsPlugin.class", "recordLifecycle", "onTrimMemory", "LOAD_DEFAULT"], "MainActivity")
+requireAll(path.join(javaDir, "DeepDiagnosticsPlugin.java"), [
+  "ApplicationExitInfo",
+  "getHistoricalProcessExitReasons",
+  "getTraceInputStream",
+  "memorySnapshot",
+  "Trace.beginAsyncSection",
+  "recordBreadcrumb",
+  "recordNonFatal",
+  "crashlyticsAvailable",
+], "DeepDiagnostics")
+requireAll(path.join(javaDir, "OfflineStorePlugin.java"), ["DB_VERSION = 2", "setWriteAheadLoggingEnabled(true)", "PRAGMA integrity_check", "recoverDocument"], "SQLite")
+const updater = path.join(javaDir, "AppUpdaterPlugin.java")
 requireAll(updater, ["expectedSha256", "getExternalFilesDir", "MessageDigest.isEqual", "GET_SIGNING_CERTIFICATES", "assinaturaInstalada.equals(assinaturaCandidata)"], "Atualizador seguro")
 
 const finalGradle = read(gradle)
@@ -127,7 +138,7 @@ for (const marker of [
   "signingConfig signingConfigs.debug",
   "minifyEnabled true",
   "shrinkResources true",
-]) if (!finalGradle.includes(marker)) fail(`Gradle Beta 20 sem marcador: ${marker}`)
+]) if (!finalGradle.includes(marker)) fail(`Gradle Beta 21 sem marcador: ${marker}`)
 const finalManifest = read(manifestFile)
 if (!finalManifest.includes('android:launchMode="singleTop"')) fail("MainActivity não foi corrigida para singleTop.")
 if (!finalManifest.includes('android:screenOrientation="portrait"')) fail("Orientação da MainActivity não foi fixada em portrait.")
@@ -135,7 +146,7 @@ if (!finalManifest.includes('android:screenOrientation="portrait"')) fail("Orien
 const finalCap = JSON.parse(read(capConfigFile))
 if (finalCap.appId !== config.applicationId) fail(`Capacitor appId divergente: ${finalCap.appId}`)
 if (finalCap.server) fail("Motion Beta não pode conter server.url no Capacitor.")
-if (!String(finalCap.android?.appendUserAgent || "").includes(config.versionName)) fail("User-Agent Motion Beta 20 não aplicado.")
+if (!String(finalCap.android?.appendUserAgent || "").includes(config.versionName)) fail("User-Agent Motion Beta 21 não aplicado.")
 if (fs.existsSync(path.join(assets, "cordova.js")) || fs.existsSync(path.join(assets, "cordova_plugins.js")) || fs.existsSync(cordovaConfig)) fail("Resíduo Cordova permaneceu no projeto Android.")
 
-console.log("[motion-beta20] Auditoria estrutural aplicada: release não depurável, pacote alinhado, R8/shrink, Cordova removido, singleTask corrigido, runtime Motion consolidado e acervo offline preservado.")
+console.log("[motion-beta20] Beta 21 preparada: release não depurável, runtime consolidado, caixa-preta persistente, ApplicationExitInfo, memória, marcadores Perfetto e adaptador Crashlytics validados; acervo offline preservado.")
