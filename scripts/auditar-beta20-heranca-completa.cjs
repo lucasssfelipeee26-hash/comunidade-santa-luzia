@@ -11,6 +11,7 @@ source = source
   .replace('\'className="object-contain object-center"\'', '\'className="object-cover object-center"\'')
   .replace('\'data-auditor-santa-luzia="beta18"\'', '\'data-auditor-santa-luzia="beta21"\'')
   .replace('"Beta 18 · Auditor + Deep Scan"', '"Beta 21 · Auditor Profundo"')
+  .replace('"contagem por defeitos únicos"', '"caixa-preta persistente"')
   .replace('["2.0.0-beta.18", "unique-signatures", "occurrences", "santa-luzia-diagnostico-v4", "CLEAN_VERSION_KEY"]', '["2.0.0-beta.21", "unique-signatures", "occurrences", "santa-luzia-diagnostico-v6", "CLEAN_VERSION_KEY", "route-transition-v2", "blackBox", "applicationExitInfo", "perfettoTraceMarkers"]')
   .replace('console.log("Beta 18 aprovada nas exigências visuais e funcionais:', 'console.log("Herança completa Beta 18 aprovada dentro da Beta 21 com Auditor Profundo:')
 
