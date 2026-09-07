@@ -136,11 +136,11 @@ export function MobileBottomNav() {
                 event.preventDefault()
                 requestNavigation(item.href)
               }}
-              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold active:opacity-100 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`}
+              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 font-bold transition-colors duration-100 active:opacity-100 ${active ? "text-[#7b1326]" : "text-[#786b68]"}`}
             >
               <span
                 data-bottom-nav-static-icon="true"
-                className={`flex size-8 items-center justify-center rounded-xl ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white text-[#7b1326]"}`}
+                className={`flex size-8 items-center justify-center rounded-xl transition-colors duration-100 ${active ? "bg-[#7b1326] text-white shadow-md" : "bg-white text-[#7b1326]"}`}
               >
                 <Icon className="size-[18px]" />
               </span>
