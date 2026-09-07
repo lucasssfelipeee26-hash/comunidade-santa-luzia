@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { SWRConfig } from "swr"
 import { PullToRefresh } from "@/components/pull-to-refresh"
@@ -16,6 +16,7 @@ import { AppChangelogRuntime } from "@/components/app-changelog-runtime"
 import { AuthSessionProvider, useAuthSession } from "@/components/auth-session-runtime"
 
 const AUTH_SCREEN_PATHS = ["/area-restrita/login", "/area-restrita/cadastro", "/area-restrita/recuperar-senha"]
+const BACKGROUND_START_DELAY = 1_800
 
 function NavigationAbortGuard() {
   useEffect(() => {
@@ -36,8 +37,18 @@ function NavigationAbortGuard() {
 function RuntimeContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { ready, liveAuthenticated } = useAuthSession()
+  const [backgroundReady, setBackgroundReady] = useState(false)
   const authScreen = AUTH_SCREEN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
   const protectedRuntimeReady = Boolean(ready && liveAuthenticated && !authScreen)
+
+  useEffect(() => {
+    if (!protectedRuntimeReady) {
+      setBackgroundReady(false)
+      return
+    }
+    const timer = window.setTimeout(() => setBackgroundReady(true), BACKGROUND_START_DELAY)
+    return () => window.clearTimeout(timer)
+  }, [protectedRuntimeReady])
 
   return (
     <>
@@ -46,12 +57,12 @@ function RuntimeContent({ children }: { children: React.ReactNode }) {
       <MobilePolishRuntime />
       <NativePlatformRuntime />
       <GameRankingRefreshRuntime />
-      {protectedRuntimeReady ? <NativeNotificationRuntime /> : null}
-      {protectedRuntimeReady ? <AndroidOfflineSnapshotRuntime /> : null}
+      {backgroundReady ? <NativeNotificationRuntime /> : null}
+      {backgroundReady ? <AndroidOfflineSnapshotRuntime /> : null}
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />
       <AndroidUpdateGithubRuntime />
-      {ready ? <ServerSyncRuntime authenticated={protectedRuntimeReady} /> : null}
+      {ready ? <ServerSyncRuntime authenticated={backgroundReady} /> : null}
       <PullToRefresh />
     </>
   )
