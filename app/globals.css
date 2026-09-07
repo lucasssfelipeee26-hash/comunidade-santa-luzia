@@ -714,3 +714,24 @@ html[data-native-platform="android"] [data-native-installed-only] {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* ==========================================================
+   BETA 21 — RANKING/TROFÉUS REACT + TRANSIÇÕES LEVES
+   Sem injeção DOM; anima somente transform/opacity e respeita
+   prefers-reduced-motion.
+   ========================================================== */
+.sl-ranking-trophy { position:relative; display:inline-grid; place-items:center; width:42px; height:42px; margin:0 auto 4px; transform:translateZ(0); will-change:transform,opacity; animation:slTrophyFloat 3.4s ease-in-out infinite; filter:drop-shadow(0 4px 8px rgba(61,34,22,.16)); }
+.sl-ranking-trophy svg { width:100%; height:100%; display:block; }
+.sl-ranking-trophy--1 { --sl-trophy-glow:#f2cf62; animation-duration:3.2s; }
+.sl-ranking-trophy--2 { --sl-trophy-glow:#d7d9df; animation-duration:3.6s; }
+.sl-ranking-trophy--3 { --sl-trophy-glow:#d5955f; animation-duration:4s; }
+.sl-ranking-trophy--1::after { content:""; position:absolute; inset:-4px; z-index:-1; border-radius:999px; background:radial-gradient(circle at 30% 30%,var(--sl-trophy-glow),transparent 70%); opacity:.28; transform:translateZ(0); animation:slTrophyGlow 2.4s ease-in-out infinite; pointer-events:none; }
+@keyframes slTrophyFloat { 0%,100%{transform:translateY(0) scale(1) translateZ(0);opacity:.95} 50%{transform:translateY(-5px) scale(1.035) translateZ(0);opacity:1} }
+@keyframes slTrophyGlow { 0%,100%{transform:scale(1) translateZ(0);opacity:.18} 50%{transform:scale(1.09) translateZ(0);opacity:.42} }
+.sl-ranking-tab-content { transform:translateZ(0); will-change:transform,opacity; animation:slRankingTabEnter 280ms cubic-bezier(.2,.78,.2,1) both; }
+.sl-ranking-tab-content--reverse { animation-name:slRankingTabEnterReverse; }
+@keyframes slRankingTabEnter { from{opacity:0;transform:translateY(10px) translateZ(0)} to{opacity:1;transform:translateY(0) translateZ(0)} }
+@keyframes slRankingTabEnterReverse { from{opacity:0;transform:translateY(-10px) translateZ(0)} to{opacity:1;transform:translateY(0) translateZ(0)} }
+.sl-presencas-stability-zone { min-height:min(46rem,80svh); overflow-anchor:none; }
+@media (prefers-reduced-motion:reduce) { .sl-ranking-trophy,.sl-ranking-trophy--1::after,.sl-ranking-tab-content { animation:none!important; transform:none!important; will-change:auto!important; } }

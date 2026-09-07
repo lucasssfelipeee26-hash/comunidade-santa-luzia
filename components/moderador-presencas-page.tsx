@@ -26,7 +26,9 @@ export function ModeradorPresencasPage() {
           <ClipboardCheck className="size-4 shrink-0" />
           Cada moderador registra apenas a própria presença; acólitos e coroinhas podem ser corrigidos pela moderação.
         </div>
-        <ControlePresencasFormacao />
+        <div className="sl-presencas-stability-zone" data-presencas-layout-stable="true">
+          <ControlePresencasFormacao />
+        </div>
       </main>
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   AlertCircle,
   CalendarDays,
@@ -107,8 +107,12 @@ export function ControlePresencasFormacao() {
   const [situacao, setSituacao] = useState("todas")
   const [data, setData] = useState("")
   const [relatorioAberto, setRelatorioAberto] = useState(false)
+  const ultimaCargaRef = useRef(0)
 
-  async function carregar() {
+  async function carregar(forcar = false) {
+    const agora = Date.now()
+    if (!forcar && agora - ultimaCargaRef.current < 60_000) return
+    ultimaCargaRef.current = agora
     setCarregando(true)
     try {
       const response = await fetch("/api/formacoes/presencas/resumo", {
@@ -131,10 +135,17 @@ export function ControlePresencasFormacao() {
 
   useEffect(() => {
     setWindowsBeta(navigator.userAgent.includes("SantaLuziaWindowsBeta/"))
-    void carregar()
-    const sincronizar = () => void carregar()
+    void carregar(true)
+    let timer: number | undefined
+    const sincronizar = () => {
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => void carregar(false), 900)
+    }
     window.addEventListener("santa-luzia:server-sync", sincronizar)
-    return () => window.removeEventListener("santa-luzia:server-sync", sincronizar)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener("santa-luzia:server-sync", sincronizar)
+    }
   }, [])
 
   if (carregando && !dados) {
@@ -145,7 +156,7 @@ export function ControlePresencasFormacao() {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
         <p className="flex items-center gap-2"><AlertCircle className="size-5" /> {erro}</p>
-        <button type="button" onClick={carregar} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-bold">
+        <button type="button" onClick={() => void carregar(true)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-bold">
           <RefreshCw className="size-4" /> Tentar novamente
         </button>
       </div>

@@ -96,7 +96,6 @@ for (const name of [
   "android-db-health-beta12.js",
   "android-performance-beta12.js",
   "android-scroll-stability-beta12.js",
-  "android-podium-beta12.js",
 ]) ensure(path.join(out, "motion", name), `motion/${name}`)
 
 fs.mkdirSync(out, { recursive: true })
@@ -156,9 +155,10 @@ const requiredScripts = [
   "android-db-health-beta12.js",
   "android-performance-beta12.js",
   "android-scroll-stability-beta12.js",
-  "android-podium-beta12.js",
 ]
 for (const file of requiredScripts) ensure(path.join(out, "motion", file), `motion/${file}`)
+const legacyPodium = path.join(out, "motion", "android-podium-beta12.js")
+if (fs.existsSync(legacyPodium)) fs.rmSync(legacyPodium, { force: true })
 const scriptTags = requiredScripts.map((file) => `    <script defer src="/motion/${file}"></script>`).join("\n")
 
 const html = `<!doctype html>
@@ -186,9 +186,10 @@ for (const marker of mandatory) if (!entryText.includes(marker)) fail(`Rota/comp
 const outputJs = fs.readFileSync(path.join(out, "local-app.js"), "utf8")
 if (outputJs.length < 250_000) fail(`Bundle local parece incompleto (${outputJs.length} bytes).`)
 if (/offline\.html|offline-bridge\.html/.test(html)) fail("Interface paralela offline reapareceu no HTML local.")
+for (const marker of ["data-ranking-trophy-react", "data-menu-pruned-beta21", "sl-ranking-tab-content"]) if (!outputJs.includes(marker)) fail(`Bundle React Beta 21 sem marcador: ${marker}`)
 for (const marker of [
   "android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js",
   "android-constancia-luz-beta11.js", "android-report-bridge-beta11.js", "android-motion-parity-beta11.js", "android-auditor-beta12.js",
   "android-db-health-beta12.js", "android-performance-beta12.js", "android-scroll-stability-beta12.js", "android-podium-beta12.js", "/local-app.js",
 ]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
-console.log(`[android-local] Beta 12 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next; histórico, Auditor, integridade SQLite, performance, scroll estável e pódio incluídos.`)
+console.log(`[android-local] Beta 21 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next; pódio React, menu saneado, Auditor, integridade SQLite, performance e scroll estável incluídos.`)

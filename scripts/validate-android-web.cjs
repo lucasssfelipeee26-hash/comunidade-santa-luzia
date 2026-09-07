@@ -18,7 +18,6 @@ const required = {
   auditor: path.join(root, "android-web", "motion", "android-auditor-beta12.js"),
   performance: path.join(root, "android-web", "motion", "android-performance-beta12.js"),
   scroll: path.join(root, "android-web", "motion", "android-scroll-stability-beta12.js"),
-  podium: path.join(root, "android-web", "motion", "android-podium-beta12.js"),
   motion: path.join(root, "android-web", "motion", "android-motion-beta.js"),
   entry: path.join(root, "android-local", "entry.tsx"),
   scales: path.join(root, "components", "escala-publica.tsx"),
@@ -66,7 +65,6 @@ const versioned = [
   [required.auditor, "Auditor Santa Luzia", "2.0.0-beta.14"],
   [required.performance, "performance Android", "2.0.0-beta.12"],
   [required.scroll, "rolagem Android", "2.0.0-beta.14"],
-  [required.podium, "pódio atual", "2.0.0-beta.12"],
   [required.motion, "camada Motion atual", "2.0.0-beta.14"],
 ]
 for (const [file, label, version] of versioned) {
@@ -82,7 +80,8 @@ requireMarkers(required.navigation, "Navegação local", ["santa-luzia:local-rou
 
 const parity = requireMarkers(required.parity, "Compatibilidade Android", ["motionClockCompatibilityBeta12", "sl-b11-live-clock", ".sl-b11-card-trophy", "santa-luzia:local-route"])
 if (parity.includes("function trophyMarkup") || parity.includes("slB11CupFloat")) throw new Error("A camada de compatibilidade voltou a desenhar o troféu antigo.")
-requireMarkers(required.podium, "Pódio", [".sl-r5-card-trophy", "viewBox=\"0 0 64 64\"", "sl-b11-card-trophy", "Pódio da equipe", "normalizeCard", "valid.slice(1)"])
+requireMarkers(path.join(root, "components", "ranking-trophy.tsx"), "Troféu React", ["data-ranking-trophy-react", "RankingTrophy", "viewBox=\"0 0 64 64\""])
+if (fs.existsSync(path.join(root, "android-web", "motion", "android-podium-beta12.js"))) throw new Error("Injetor legado android-podium-beta12.js não deve permanecer no pacote Android gerado.")
 requireMarkers(required.performance, "Performance", ["scroll-behavior:auto", "overflow-anchor:none", "duration:180", "slMotionPerformance", "fps", "sl-b7-route-shield"])
 
 const scroll = requireMarkers(required.scroll, "Rolagem Beta 14", ["native-free-scroll", "touchmove", "scroll-jump", "touch-action:pan-y", "overflow-y:auto!important"])

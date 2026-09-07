@@ -109,5 +109,21 @@ for (const marker of ["debuggable false", "minifyEnabled true", "shrinkResources
 
 ok(!exists("cordova_plugins.js") || !read("cordova_plugins.js").trim(), "nenhum código Cordova ativo no fonte raiz")
 
+const menuArea = read("components/area-menu.tsx")
+ok(menuArea.includes('data-menu-pruned-beta21="true"'), "menu de ferramentas registra saneamento Beta 21")
+for (const removido of ['curto: "Jornada"', 'curto: "Quizzes"', 'curto: "Cores"']) ok(!menuArea.includes(removido), `atalho removido não voltou ao menu: ${removido}`)
+for (const mantido of ['curto: "Perfis"', 'curto: "Atrasos"', 'curto: "Escalas"', 'curto: "Formação"', 'curto: "Presenças"', 'curto: "Registro"', 'curto: "Dados"', 'curto: "Diagnóstico"']) ok(menuArea.includes(mantido), `atalho mantido continua no menu: ${mantido}`)
+const trophyReact = read("components/ranking-trophy.tsx")
+ok(trophyReact.includes("data-ranking-trophy-react") && trophyReact.includes("RankingTrophy"), "troféus do ranking são renderizados por React")
+ok(trophyReact.includes("memo") && trophyReact.includes("useMemo"), "troféu React é memoizado")
+ok(!trophyReact.includes("dangerouslySetInnerHTML") && !trophyReact.includes("MutationObserver") && !trophyReact.includes("innerHTML"), "troféu React não usa injeção DOM")
+const rankingUi = read("components/ranking-interativo.tsx")
+ok(rankingUi.includes("sl-ranking-tab-content") && rankingUi.includes("trocarAba"), "abas do ranking usam transição leve controlada")
+ok(rankingUi.includes("ultimaCargaRanking") && rankingUi.includes("60_000"), "ranking limita sincronizações repetidas")
+const notifications = read("components/notification-center.tsx")
+ok(notifications.includes("AbortSignal.timeout(6_000)") && notifications.includes("dedupingInterval: 60_000"), "notificações têm timeout e deduplicação de 1 minuto")
+const presencasUi = read("components/controle-presencas-formacao.tsx")
+ok(presencasUi.includes("ultimaCargaRef") && presencasUi.includes("window.setTimeout(() => void carregar(false), 900)"), "presenças desacoplam rajadas de sincronização")
+
 if (process.exitCode) process.exit(process.exitCode)
-console.log("Beta 21 aprovada na auditoria estática: regressões visuais, iLiturgia, login/sincronização, caixa-preta, Scroll Watchdog, GET coalescido, ApplicationExitInfo, memória, Perfetto e adaptador Crashlytics presentes.")
+console.log("Beta 21 aprovada na auditoria estática: menu saneado, troféus React, transições leves, notificações/presenças deduplicadas, iLiturgia, login/sincronização e diagnósticos profundos presentes.")

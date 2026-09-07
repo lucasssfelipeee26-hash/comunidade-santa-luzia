@@ -20,7 +20,7 @@ type Dados = { autenticado?: boolean; usuario?: { id?: string }; notificacoes?: 
 
 const fetcher = async (url: string): Promise<Dados> => {
   try {
-    const response = await fetch(url, { cache: "no-store", credentials: "same-origin" })
+    const response = await fetch(url, { cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(6_000) })
     if (response.ok) {
       const dados = await response.json() as Dados
       const usuarioId = String(dados.usuario?.id || "")
@@ -64,10 +64,11 @@ export function NotificationCenter() {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const { data, mutate } = useSWR<Dados>("/api/notificacoes", fetcher, {
-    refreshInterval: 2 * 60_000,
-    revalidateOnFocus: true,
+    refreshInterval: 60_000,
+    revalidateOnFocus: false,
     revalidateOnReconnect: true,
-    dedupingInterval: 30_000,
+    dedupingInterval: 60_000,
+    keepPreviousData: true,
   })
   const notificacoes = data?.notificacoes || []
   const naoLidas = Number(data?.naoLidas || 0)

@@ -102,12 +102,12 @@ requireAll("components/equipe-no-painel.tsx", [
   "santa-luzia:perfis-publicos:v1",
 ], "Perfis horizontais")
 
-requireAll("android-web/motion/android-podium-beta12.js", [
-  ".sl-r5-card-trophy",
-  "normalizeCard",
-  "valid.slice(1)",
-  ".sl-b11-card-trophy",
-], "Pódio sem troféu duplicado")
+requireAll("components/ranking-trophy.tsx", [
+  "RankingTrophy",
+  "data-ranking-trophy-react",
+  "viewBox=\"0 0 64 64\"",
+  "memo",
+], "Pódio React sem injeção duplicada")
 
 requireAll("android-web/motion/android-scroll-stability-beta12.js", [
   "touchmove",

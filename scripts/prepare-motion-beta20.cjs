@@ -65,6 +65,7 @@ for (const marker of [
   "data-home-public-shortcuts", "data-original-home-icon", "data-hero-mobile-framed",
   "data-auditor-santa-luzia", "data-deep-auditor-ui", "data-blackbox-auditor", "data-team-profile-status-rail",
   "data-escala-history-search", "data-standard-logout", "Deseja sair?", "Sim, sair",
+  "data-ranking-trophy-react", "data-menu-pruned-beta21", "sl-ranking-tab-content",
 ]) if (!localText.includes(marker)) fail(`Bundle React Beta 21 sem marcador obrigatório: ${marker}`)
 for (const forbidden of ["DoorTransitionScene", "ProfileDoorIcon", "data-door-scene"]) if (localText.includes(forbidden)) fail(`Regressão de animação antiga reapareceu: ${forbidden}`)
 
@@ -85,8 +86,8 @@ requireAll(consolidated, [
   "document-growth-burst",
   "resize-loop-burst",
   "android-auditor-beta12.js",
-  "android-podium-beta12.js",
 ], "Runtime Motion consolidado")
+if (read(consolidated).includes("android-podium-beta12.js")) fail("Runtime final ainda contém injetor legado de troféus.")
 
 removeIfExists(path.join(assets, "cordova.js"))
 removeIfExists(path.join(assets, "cordova_plugins.js"))
