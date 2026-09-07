@@ -190,6 +190,6 @@ for (const marker of ["data-ranking-trophy-react", "data-menu-pruned-beta21", "s
 for (const marker of [
   "android-native-fetch-beta10.js", "android-domain-bridge-beta10.js", "android-quiz-offline-beta10.js", "android-local-navigation-beta10.js",
   "android-constancia-luz-beta11.js", "android-report-bridge-beta11.js", "android-motion-parity-beta11.js", "android-auditor-beta12.js",
-  "android-db-health-beta12.js", "android-performance-beta12.js", "android-scroll-stability-beta12.js", "android-podium-beta12.js", "/local-app.js",
+  "android-db-health-beta12.js", "android-performance-beta12.js", "android-scroll-stability-beta12.js", "/local-app.js",
 ]) if (!html.includes(marker)) fail(`HTML local sem camada: ${marker}`)
 console.log(`[android-local] Beta 21 empacotada: ${outputJs.length} bytes JS, ${cssFiles.length} CSS Next; pódio React, menu saneado, Auditor, integridade SQLite, performance e scroll estável incluídos.`)
