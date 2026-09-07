@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { SWRConfig } from "swr"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { NativeNotificationRuntime } from "@/components/native-notification-runtime"
@@ -13,6 +14,8 @@ import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snap
 import { MobilePolishRuntime } from "@/components/mobile-polish-runtime"
 import { AppChangelogRuntime } from "@/components/app-changelog-runtime"
 import { AuthSessionProvider, useAuthSession } from "@/components/auth-session-runtime"
+
+const AUTH_SCREEN_PATHS = ["/area-restrita/login", "/area-restrita/cadastro", "/area-restrita/recuperar-senha"]
 
 function NavigationAbortGuard() {
   useEffect(() => {
@@ -31,7 +34,11 @@ function NavigationAbortGuard() {
 }
 
 function RuntimeContent({ children }: { children: React.ReactNode }) {
-  const { liveAuthenticated } = useAuthSession()
+  const pathname = usePathname()
+  const { ready, liveAuthenticated } = useAuthSession()
+  const authScreen = AUTH_SCREEN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+  const protectedRuntimeReady = Boolean(ready && liveAuthenticated && !authScreen)
+
   return (
     <>
       {children}
@@ -39,12 +46,12 @@ function RuntimeContent({ children }: { children: React.ReactNode }) {
       <MobilePolishRuntime />
       <NativePlatformRuntime />
       <GameRankingRefreshRuntime />
-      {liveAuthenticated ? <NativeNotificationRuntime /> : null}
-      {liveAuthenticated ? <AndroidOfflineSnapshotRuntime /> : null}
+      {protectedRuntimeReady ? <NativeNotificationRuntime /> : null}
+      {protectedRuntimeReady ? <AndroidOfflineSnapshotRuntime /> : null}
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />
       <AndroidUpdateGithubRuntime />
-      <ServerSyncRuntime authenticated={liveAuthenticated} />
+      {ready ? <ServerSyncRuntime authenticated={protectedRuntimeReady} /> : null}
       <PullToRefresh />
     </>
   )
