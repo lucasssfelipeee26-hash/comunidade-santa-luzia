@@ -97,9 +97,28 @@ if (source.includes('{ opacity:.32, transform:"translate3d(0,6px,0) scale(.998)"
 if (source.includes('animate(shield, [{opacity:0},{opacity:.72}]')) throw new Error("Route shield ainda anima no runtime Android.")
 fs.writeFileSync(polishFile, source)
 
+// A Windows Beta também injeta um segundo cover específico para cliques na barra
+// inferior. Ele não era coberto pelo patch anterior e é exatamente o tipo de flash
+// que reaparece quando o usuário toca rapidamente entre Início/Escala/Formação/Quiz.
+let runtime = fs.readFileSync(runtimeFile, "utf8")
+const oldRuntimeCoverCss = '.sl-runtime-route-cover { position:fixed; inset:0; z-index:244; pointer-events:none; background:rgba(255,250,240,.28); opacity:0; backdrop-filter:blur(.6px); }'
+const newRuntimeCoverCss = '.sl-runtime-route-cover { display:none !important; pointer-events:none !important; opacity:0 !important; backdrop-filter:none !important; }'
+if (runtime.includes(oldRuntimeCoverCss)) runtime = runtime.replace(oldRuntimeCoverCss, newRuntimeCoverCss)
+else if (!runtime.includes(newRuntimeCoverCss)) throw new Error("CSS do runtime route cover mudou; correção da barra inferior não aplicada.")
+
+const coverFunction = /  function coverRouteTransition\(anchor\) \{[\s\S]*?\n  \}\n\n  function ensureQuizVisible\(\) \{/
+if (coverFunction.test(runtime)) {
+  runtime = runtime.replace(coverFunction, `  function coverRouteTransition(_anchor) {
+    document.querySelectorAll(".sl-runtime-route-cover,.sl-b7-route-shield").forEach((element) => element.remove());
+  }
+
+  function ensureQuizVisible() {`)
+} else if (!runtime.includes('function coverRouteTransition(_anchor)')) {
+  throw new Error("Função do route cover mudou; correção contra piscada rápida não aplicada.")
+}
+
 // Apenas os ícones da barra inferior devem permanecer estáticos. As animações do
 // painel, ferramentas, atalhos e conteúdo interno continuam herdadas normalmente.
-let runtime = fs.readFileSync(runtimeFile, "utf8")
 const motionAnchor = '    @media(prefers-reduced-motion:reduce){.sl-r7-books-icon i,.sl-r7-liturgy-icon::after,.sl-r7-panel-icon i,.sl-r7-animated-nav-source,[data-sl-nav-motion] svg{animation:none!important}}'
 const androidBottomNavOverride = `    .mobile-app-bottom-nav [data-bottom-nav-static-icon="true"],
     .mobile-app-bottom-nav [data-bottom-nav-static-icon="true"] svg {
@@ -114,9 +133,10 @@ if (!runtime.includes(androidBottomNavOverride.trim())) {
   runtime = runtime.replace(motionAnchor, `${androidBottomNavOverride}${motionAnchor}`)
 }
 if (!runtime.includes('.mobile-app-bottom-nav [data-bottom-nav-static-icon="true"]')) throw new Error("Override estático da barra inferior ausente.")
+if (runtime.includes('cover.animate([{ opacity:0 },{ opacity:.42')) throw new Error("Cover visual da barra inferior ainda está animando.")
 if (runtime.includes('.app-mobile-shell .sl-r7-animate-panel,') || runtime.includes('.app-mobile-shell .sl-home-shortcut-icon svg { animation:none')) {
   throw new Error("Override amplo de animações internas reapareceu no Android.")
 }
 fs.writeFileSync(runtimeFile, runtime)
 
-console.log("[beta21] WebView estabilizado: sem route shield/fade; barra inferior estática e animações internas preservadas.")
+console.log("[beta21] WebView estabilizado: sem route shield/cover/fade; barra inferior estática e animações internas preservadas.")
