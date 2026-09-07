@@ -10,7 +10,6 @@
 
   let warming = null;
   const COMMON_APIS = [
-    "/api/auth/me",
     "/api/escalas",
     "/api/formacoes",
     "/api/ranking",
@@ -92,6 +91,15 @@
   window.addEventListener("santa-luzia:server-sync", () => void warm(true));
   window.addEventListener("santa-luzia:offline-snapshot-sync", () => void warm(true));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void warm(false); });
-  setTimeout(() => void warm(false), 800);
-  setTimeout(() => void warm(false), 3500);
+  function beta21IdleInitialWarm() {
+    const run = () => {
+      if (document.visibilityState === "visible") void warm(false);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(run, { timeout: 4500 });
+    } else {
+      setTimeout(run, 3000);
+    }
+  }
+  beta21IdleInitialWarm();
 })();

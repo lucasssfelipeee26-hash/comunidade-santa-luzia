@@ -3,7 +3,7 @@ export type AuthSession = { sessao: null | { tipo: "moderador" | "membro"; usuar
 const unavailable = "O servidor de acesso está indisponível. Tente novamente mais tarde."
 let authMeInFlight: Promise<unknown> | null = null
 let authMeRecent: { at: number; value: unknown } | null = null
-const AUTH_ME_RECENT_MS = 1_200
+const AUTH_ME_RECENT_MS = 5_000
 
 function transport(): typeof fetch {
   const native = typeof window !== "undefined" && (window as unknown as {

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { BookOpenText, CalendarDays, KeyRound, Library, Loader2, ScrollText, UserPlus } from "lucide-react"
 import { AppRuntime } from "@/components/app-runtime"
+import { useAuthSession } from "@/components/auth-session-runtime"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { NavigationProgress } from "@/components/navigation-progress"
 import { OfflineLiturgiaRuntime } from "@/components/offline-liturgia-runtime"
@@ -160,18 +161,14 @@ function FormacaoRoute() {
   return <div className="min-h-screen bg-[#fffaf0]"><AreaHeader titulo="Formação" subtitulo="Conteúdos, temas e avisos para acólitos e coroinhas" voltarHref={sessao.tipo === "moderador" ? "/area-restrita/moderador" : "/area-restrita/membro"} /><main className="mx-auto max-w-6xl px-4 py-10"><div className="mb-8 rounded-xl border border-[#d4af37]/35 bg-[#073b29] p-6 text-white"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#e9c75b]">Acólitos e Coroinhas São Padre Pio</p><h1 className="mt-2 font-serif text-4xl text-[#f2cf62]">Central de Formação</h1><p className="mt-3 max-w-3xl text-white/80">Veja o tema da próxima formação, eventuais avisos de cancelamento e baixe os materiais disponibilizados pelo moderador.</p></div><FormacaoMembros /></main></div>
 }
 
-type AuthMe = { sessao: null | { tipo: "membro" | "moderador"; usuario: { id: string; nome: string } } }
 function RankingRoute() {
   const store = useGuard()
-  const [usuario, setUsuario] = useState<{ id: string; nome: string; tipo: "membro" | "moderador" } | null>(null)
-  useEffect(() => {
-    if (!store.sessao) return
-    let ativo = true
-    void fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" }).then(r => r.json()).then((j: AuthMe) => { if (ativo && j?.sessao?.usuario?.id) setUsuario({ ...j.sessao.usuario, tipo: j.sessao.tipo }) }).catch(() => {})
-    return () => { ativo = false }
-  }, [store.sessao])
+  const { liveSession } = useAuthSession()
+  const usuario = liveSession?.usuario?.id
+    ? { id: liveSession.usuario.id, nome: liveSession.usuario.nome, tipo: liveSession.tipo }
+    : null
   if (!store.sessao || !usuario) return <Loading texto="Abrindo Jornada Litúrgica…" />
-  return <RankingInterativo usuarioInicial={usuario} />
+  return <div data-auth-ranking-session-shared="true"><RankingInterativo usuarioInicial={usuario} /></div>
 }
 function PerfisRoute() {
   const { sessao } = useGuard()

@@ -127,3 +127,14 @@ ok(presencasUi.includes("ultimaCargaRef") && presencasUi.includes("window.setTim
 
 if (process.exitCode) process.exit(process.exitCode)
 console.log("Beta 21 aprovada na auditoria estática: menu saneado, troféus React, transições leves, notificações/presenças deduplicadas, iLiturgia, login/sincronização e diagnósticos profundos presentes.")
+
+const androidEntryFinal = read("android-local/entry.tsx")
+ok(androidEntryFinal.includes('data-auth-ranking-session-shared="true"'), "ranking Android reutiliza sessão central sem novo auth/me")
+ok(androidEntryFinal.includes("useAuthSession") && !androidEntryFinal.includes('void fetch("/api/auth/me"'), "ranking Android não dispara fetch direto de auth/me")
+const originalUiFinal = read("android-web/motion/android-original-ui-beta10.js")
+ok(originalUiFinal.includes("beta21IdleInitialWarm"), "warmup inicial pesado foi adiado para período ocioso")
+ok(!originalUiFinal.includes('setTimeout(() => void warm(false), 800)'), "warmup de 800 ms não voltou ao startup")
+const commonBlock = originalUiFinal.slice(originalUiFinal.indexOf("const COMMON_APIS"), originalUiFinal.indexOf("const MODERATOR_APIS"))
+ok(!commonBlock.includes('/api/auth/me'), "warmup não consulta auth/me duas vezes")
+const authClientFinal = read("lib/auth-client.ts")
+ok(authClientFinal.includes("AUTH_ME_RECENT_MS = 5_000"), "janela compartilhada de deduplicação auth/me ampliada")
