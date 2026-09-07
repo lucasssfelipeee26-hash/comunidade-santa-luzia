@@ -12,6 +12,7 @@ import { GameRankingRefreshRuntime } from "@/components/game-ranking-refresh-run
 import { AndroidOfflineSnapshotRuntime } from "@/components/android-offline-snapshot-runtime"
 import { MobilePolishRuntime } from "@/components/mobile-polish-runtime"
 import { AppChangelogRuntime } from "@/components/app-changelog-runtime"
+import { AuthSessionProvider, useAuthSession } from "@/components/auth-session-runtime"
 
 function NavigationAbortGuard() {
   useEffect(() => {
@@ -29,21 +30,32 @@ function NavigationAbortGuard() {
   return null
 }
 
-export function AppRuntime({ children }: { children: React.ReactNode }) {
+function RuntimeContent({ children }: { children: React.ReactNode }) {
+  const { liveAuthenticated } = useAuthSession()
   return (
-    <SWRConfig value={{ dedupingInterval: 30_000, focusThrottleInterval: 60_000, revalidateOnFocus: false, revalidateOnReconnect: true, keepPreviousData: true, errorRetryCount: 1, errorRetryInterval: 2_500, loadingTimeout: 8_000 }}>
+    <>
       {children}
       <NavigationAbortGuard />
       <MobilePolishRuntime />
       <NativePlatformRuntime />
-      <NativeNotificationRuntime />
       <GameRankingRefreshRuntime />
-      <AndroidOfflineSnapshotRuntime />
+      {liveAuthenticated ? <NativeNotificationRuntime /> : null}
+      {liveAuthenticated ? <AndroidOfflineSnapshotRuntime /> : null}
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />
       <AndroidUpdateGithubRuntime />
-      <ServerSyncRuntime />
+      <ServerSyncRuntime authenticated={liveAuthenticated} />
       <PullToRefresh />
+    </>
+  )
+}
+
+export function AppRuntime({ children }: { children: React.ReactNode }) {
+  return (
+    <SWRConfig value={{ dedupingInterval: 60_000, focusThrottleInterval: 60_000, revalidateOnFocus: false, revalidateOnReconnect: true, keepPreviousData: true, errorRetryCount: 1, errorRetryInterval: 2_500, loadingTimeout: 8_000 }}>
+      <AuthSessionProvider>
+        <RuntimeContent>{children}</RuntimeContent>
+      </AuthSessionProvider>
     </SWRConfig>
   )
 }
