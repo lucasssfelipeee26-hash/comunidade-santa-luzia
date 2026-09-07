@@ -23,6 +23,7 @@ const SNAPSHOT_REVISION_KEY = "santa-luzia:local-first:snapshot-revision"
 const SNAPSHOT_USER_KEY = "santa-luzia:local-first:snapshot-user"
 const SERVER_REVISION_KEY = "santa-luzia:ultima-revisao-servidor"
 const INTERVALO_SNAPSHOT = 5 * 60_000
+const SNAPSHOT_AFTER_ROUTE_MS = 700
 
 function lerLocal(chave: string) {
   try { return window.localStorage.getItem(chave) } catch { return null }
@@ -34,6 +35,10 @@ function salvarLocal(chave: string, valor: string) {
 
 function removerLocal(chave: string) {
   try { window.localStorage.removeItem(chave) } catch {}
+}
+
+function rotaEmTransicao() {
+  return document.documentElement.dataset.slRouteTransition === "running"
 }
 
 async function jsonComTimeout(url: string) {
@@ -63,6 +68,7 @@ export function AndroidOfflineSnapshotRuntime() {
     let bridgePronto = false
     let salvando = false
     let drenando = false
+    let snapshotTimer: number | null = null
     const usaNativo = Capacitor.isPluginAvailable("OfflineStore")
     const beta10Local = navigator.userAgent.includes("SantaLuziaOriginalUIOffline/2")
 
@@ -116,7 +122,7 @@ export function AndroidOfflineSnapshotRuntime() {
     }
 
     async function salvarSnapshot() {
-      if (encerrado || salvando || !navigator.onLine) return
+      if (encerrado || salvando || !navigator.onLine || rotaEmTransicao()) return
       if (!usaNativo && !bridgePronto) return
       salvando = true
       try {
@@ -126,17 +132,26 @@ export function AndroidOfflineSnapshotRuntime() {
         const mesmoUsuario = lerLocal(SNAPSHOT_USER_KEY) === usuarioId
         if (mesmaRevisao && mesmoUsuario) return
 
-        const [perfilResposta, perfisResposta, formacoes, ranking, escalas, biblioteca] = await Promise.all([
+        // Evita o thundering herd observado na auditoria. O snapshot continua completo,
+        // mas coleta em pequenos lotes para não disputar CPU/rede com a tela recém-aberta.
+        const [perfilResposta, perfisResposta] = await Promise.all([
           jsonComTimeout("/api/perfil"),
           jsonComTimeout("/api/perfis"),
+        ])
+        if (encerrado || rotaEmTransicao()) return
+        const [formacoes, escalas] = await Promise.all([
           jsonComTimeout("/api/formacoes"),
-          jsonComTimeout("/api/ranking"),
           jsonComTimeout("/api/escalas"),
+        ])
+        if (encerrado || rotaEmTransicao()) return
+        const [ranking, biblioteca] = await Promise.all([
+          jsonComTimeout("/api/ranking"),
           jsonComTimeout("/api/biblioteca"),
         ])
+        if (encerrado || rotaEmTransicao()) return
+
         const usuario = sessao.usuario
         const perfil = perfilResposta?.perfil
-
         const snapshot = {
           versao: 4,
           atualizadoEm: Date.now(),
@@ -181,6 +196,19 @@ export function AndroidOfflineSnapshotRuntime() {
       }
     }
 
+    function agendarSnapshot(delay = SNAPSHOT_AFTER_ROUTE_MS) {
+      if (encerrado) return
+      if (snapshotTimer !== null) window.clearTimeout(snapshotTimer)
+      snapshotTimer = window.setTimeout(() => {
+        snapshotTimer = null
+        if (rotaEmTransicao()) {
+          agendarSnapshot(SNAPSHOT_AFTER_ROUTE_MS)
+          return
+        }
+        void salvarSnapshot()
+      }, delay)
+    }
+
     async function enviarItem(item: QueueItem) {
       if (item.tipo === "atraso") {
         const response = await fetch("/api/ranking", {
@@ -222,7 +250,7 @@ export function AndroidOfflineSnapshotRuntime() {
     }
 
     async function drenarFila(items: QueueItem[]) {
-      if (encerrado || drenando || !navigator.onLine || !Array.isArray(items) || !items.length) return
+      if (encerrado || drenando || !navigator.onLine || !Array.isArray(items) || !items.length || rotaEmTransicao()) return
       drenando = true
       const restantes: QueueItem[] = []
       try {
@@ -247,7 +275,7 @@ export function AndroidOfflineSnapshotRuntime() {
         }
         if (restantes.length !== items.length) {
           window.dispatchEvent(new CustomEvent("santa-luzia:server-sync", { detail: { origem: "android-offline-queue", imediato: true } }))
-          await salvarSnapshot()
+          agendarSnapshot()
         }
       } finally {
         drenando = false
@@ -255,7 +283,7 @@ export function AndroidOfflineSnapshotRuntime() {
     }
 
     async function pedirFila() {
-      if (!navigator.onLine) return
+      if (!navigator.onLine || rotaEmTransicao()) return
       if (usaNativo) {
         await migrarFilasLegadasParaNativa()
         void drenarFila(await lerFila())
@@ -267,23 +295,25 @@ export function AndroidOfflineSnapshotRuntime() {
       const data = event.data || {}
       if (data.type === "SL_OFFLINE_BRIDGE_READY") {
         bridgePronto = true
-        void salvarSnapshot()
+        agendarSnapshot()
         void pedirFila()
       } else if (data.type === "SL_OFFLINE_QUEUE") {
         void drenarFila(Array.isArray(data.items) ? data.items : [])
       }
     }
 
-    const aoOnline = () => { void salvarSnapshot(); void pedirFila() }
-    const aoSincronizar = () => { void salvarSnapshot(); void pedirFila() }
+    const aoOnline = () => { agendarSnapshot(); void pedirFila() }
+    const aoSincronizar = () => { agendarSnapshot(); void pedirFila() }
     const aoFilaOffline = () => { void pedirFila() }
     const aoLimpar = () => { void limparPersistente() }
-    const aoVisibilidade = () => { if (document.visibilityState === "visible") { void salvarSnapshot(); void pedirFila() } }
+    const aoVisibilidade = () => { if (document.visibilityState === "visible") { agendarSnapshot(); void pedirFila() } }
+    const aoRotaEstabilizada = () => { agendarSnapshot(); window.setTimeout(() => { void pedirFila() }, SNAPSHOT_AFTER_ROUTE_MS) }
 
     window.addEventListener("message", aoMensagem)
     window.addEventListener("online", aoOnline)
     window.addEventListener("santa-luzia:server-sync", aoSincronizar)
     window.addEventListener("santa-luzia:offline-snapshot-sync", aoSincronizar)
+    window.addEventListener("santa-luzia:route-settled", aoRotaEstabilizada)
     window.addEventListener(OFFLINE_DATA_EVENT, aoFilaOffline)
     window.addEventListener("santa-luzia:offline-clear", aoLimpar)
     document.addEventListener("visibilitychange", aoVisibilidade)
@@ -296,19 +326,21 @@ export function AndroidOfflineSnapshotRuntime() {
       iframe.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;border:0"
       document.body.appendChild(iframe)
     } else {
-      void salvarSnapshot()
-      void pedirFila()
+      agendarSnapshot()
+      window.setTimeout(() => { void pedirFila() }, SNAPSHOT_AFTER_ROUTE_MS)
     }
 
-    const timer = window.setInterval(() => { void salvarSnapshot(); void pedirFila() }, INTERVALO_SNAPSHOT)
+    const timer = window.setInterval(() => { agendarSnapshot(); void pedirFila() }, INTERVALO_SNAPSHOT)
 
     return () => {
       encerrado = true
       window.clearInterval(timer)
+      if (snapshotTimer !== null) window.clearTimeout(snapshotTimer)
       window.removeEventListener("message", aoMensagem)
       window.removeEventListener("online", aoOnline)
       window.removeEventListener("santa-luzia:server-sync", aoSincronizar)
       window.removeEventListener("santa-luzia:offline-snapshot-sync", aoSincronizar)
+      window.removeEventListener("santa-luzia:route-settled", aoRotaEstabilizada)
       window.removeEventListener(OFFLINE_DATA_EVENT, aoFilaOffline)
       window.removeEventListener("santa-luzia:offline-clear", aoLimpar)
       document.removeEventListener("visibilitychange", aoVisibilidade)
