@@ -171,8 +171,8 @@ jobs:
           unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'KEYBOARD_MIN_DROP_PX'
           unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'auditorPersistScheduled'
           unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'QUIZZES_CACHE_KEY'
-          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'AUTH_ME_RECENT_MS'
-          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'MIN_GAP_NOTIFICACOES'
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-ranking-windowed'
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-login-layout-stable'
           mkdir -p dist
           cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk
           sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk.sha256
