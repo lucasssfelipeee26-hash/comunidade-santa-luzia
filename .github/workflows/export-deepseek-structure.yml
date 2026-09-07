@@ -1,0 +1,136 @@
+name: Exportar codigo estrutural DeepSeek
+
+on:
+  push:
+    branches:
+      - ops/export-deepseek-structure-e1da29c
+
+permissions:
+  contents: read
+
+jobs:
+  export-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout da revisao exata
+        uses: actions/checkout@v4
+        with:
+          ref: e1da29c172f5136af5ffdcb09da18951d5d1d82a
+
+      - name: Gerar arquivo estrutural unico
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os
+
+          root = Path('.')
+          out = Path('Santa-Luzia-Motion-Beta21-Codigo-Estrutural-DeepSeek.md')
+          commit = 'e1da29c172f5136af5ffdcb09da18951d5d1d82a'
+
+          excluded_dirs = {
+              '.git', 'node_modules', '.next', 'out', 'dist', 'build', '.gradle',
+              '.idea', '.vscode', 'coverage', '.turbo', '.cache'
+          }
+          text_exts = {
+              '.ts','.tsx','.js','.jsx','.cjs','.mjs','.json','.md','.txt','.html',
+              '.css','.scss','.xml','.gradle','.kts','.properties','.yml','.yaml',
+              '.toml','.env','.bat','.cmd','.ps1','.sh','.py','.java','.kt','.pro',
+              '.cfg','.ini','.conf','.sql','.graphql','.gql'
+          }
+          root_text_names = {
+              'package.json','package-lock.json','tsconfig.json','next.config.mjs',
+              'capacitor.config.ts','middleware.ts','eslint.config.mjs','postcss.config.mjs',
+              'tailwind.config.ts','.env.example','.gitignore','README.md','AGENTS.md','CLAUDE.md'
+          }
+          binary_exts = {
+              '.png','.jpg','.jpeg','.gif','.webp','.svgz','.ico','.mp3','.wav','.ogg',
+              '.mp4','.webm','.apk','.aab','.jar','.zip','.gz','.7z','.pdf','.woff',
+              '.woff2','.ttf','.otf','.so','.dll','.exe','.bin','.keystore','.jks'
+          }
+
+          files = []
+          for p in root.rglob('*'):
+              if not p.is_file():
+                  continue
+              rel = p.relative_to(root)
+              if any(part in excluded_dirs for part in rel.parts):
+                  continue
+              if rel.as_posix() == out.name:
+                  continue
+              files.append(p)
+          files.sort(key=lambda p: p.relative_to(root).as_posix().lower())
+
+          text_files = []
+          binary_files = []
+          for p in files:
+              rel = p.relative_to(root)
+              if p.name in root_text_names or p.suffix.lower() in text_exts:
+                  try:
+                      p.read_text(encoding='utf-8')
+                      text_files.append(p)
+                      continue
+                  except UnicodeDecodeError:
+                      pass
+              binary_files.append(p)
+
+          with out.open('w', encoding='utf-8', newline='\n') as f:
+              f.write('# Santa Luzia Motion Beta 21 — Código Estrutural para DeepSeek\n\n')
+              f.write('Este arquivo foi gerado para análise por IA. Ele reúne a estrutura do projeto e o conteúdo textual integral dos arquivos de código/configuração da revisão indicada. Assets/binários são inventariados, mas não convertidos para Base64 para manter o arquivo legível.\n\n')
+              f.write(f'- Repositório: `lucasssfelipeee26-hash/comunidade-santa-luzia`\n')
+              f.write(f'- Branch de origem: `fix/beta21-login`\n')
+              f.write(f'- Commit exato: `{commit}`\n')
+              f.write('- Aplicativo: Motion Beta 21\n\n')
+
+              f.write('## 1. Árvore estrutural\n\n```text\n')
+              for p in files:
+                  f.write(p.relative_to(root).as_posix() + '\n')
+              f.write('```\n\n')
+
+              f.write('## 2. Inventário de arquivos não textuais\n\n')
+              if not binary_files:
+                  f.write('_Nenhum arquivo binário encontrado._\n\n')
+              else:
+                  f.write('| Caminho | Tamanho | SHA-256 |\n|---|---:|---|\n')
+                  for p in binary_files:
+                      data = p.read_bytes()
+                      sha = hashlib.sha256(data).hexdigest()
+                      f.write(f'| `{p.relative_to(root).as_posix()}` | {len(data)} | `{sha}` |\n')
+                  f.write('\n')
+
+              f.write('## 3. Conteúdo integral dos arquivos textuais\n\n')
+              for idx, p in enumerate(text_files, 1):
+                  rel = p.relative_to(root).as_posix()
+                  content = p.read_text(encoding='utf-8')
+                  lang = p.suffix.lower().lstrip('.') or 'text'
+                  lang_map = {
+                      'tsx':'tsx','ts':'ts','jsx':'jsx','js':'javascript','cjs':'javascript',
+                      'mjs':'javascript','json':'json','md':'markdown','html':'html','css':'css',
+                      'scss':'scss','xml':'xml','yml':'yaml','yaml':'yaml','sh':'bash','py':'python',
+                      'java':'java','kt':'kotlin','kts':'kotlin','gradle':'groovy','properties':'properties',
+                      'txt':'text','bat':'bat','cmd':'bat','ps1':'powershell','env':'text'
+                  }
+                  fence = lang_map.get(lang, 'text')
+                  f.write(f'### {idx}. `{rel}`\n\n')
+                  f.write(f'```{fence}\n')
+                  f.write(content)
+                  if content and not content.endswith('\n'):
+                      f.write('\n')
+                  f.write('```\n\n')
+
+              f.write('## 4. Nota para análise por IA\n\n')
+              f.write('Analise este material como um projeto híbrido Next.js + Capacitor. Não assuma React Native/Expo apenas por haver arquivos `.tsx`. Preserve o requisito da Motion Beta de acessar o servidor local HTTP durante testes Android. Diferencie problemas confirmados no código de hipóteses ou recomendações genéricas.\n')
+
+          print(out)
+          print('text_files=', len(text_files))
+          print('binary_files=', len(binary_files))
+          print('size=', out.stat().st_size)
+          print('sha256=', hashlib.sha256(out.read_bytes()).hexdigest())
+          PY
+
+      - name: Publicar arquivo estrutural
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta21-codigo-estrutural-deepseek
+          path: Santa-Luzia-Motion-Beta21-Codigo-Estrutural-DeepSeek.md
+          retention-days: 14
