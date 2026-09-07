@@ -20,12 +20,12 @@ export function AuthShell({
   children: React.ReactNode
 }) {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white px-4 py-10 text-foreground sm:py-14">
+    <main data-auth-layout-stable="true" className="sl-auth-shell relative flex h-[100svh] min-h-[100svh] items-center justify-center overflow-x-hidden overflow-y-auto overscroll-none bg-white px-4 py-6 text-foreground sm:py-10">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-[linear-gradient(90deg,#7b1326_0%,#b7354b_48%,#d4af37_100%)]" />
       <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-20 size-80 rounded-full bg-primary/5 blur-3xl" />
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -right-16 size-96 rounded-full bg-accent/10 blur-3xl" />
 
-      <div className="relative w-full max-w-md">
+      <div className="sl-auth-card relative w-full max-w-md">
         {voltarHref && (
           <Link
             href={voltarHref}

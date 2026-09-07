@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { memo, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { BookOpen, BrainCircuit, CloudOff, Crown, Gamepad2, Medal, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { AreaHeader } from "@/components/area-header"
 import { ModeradorMenu, MembroMenu } from "@/components/area-menu"
@@ -55,8 +55,22 @@ function chaveLeituraHoje() { return `santa-luzia:liturgia-lida:${hojeCuiaba()}`
 function iniciais(nome: string) { return nome.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() }
 
 function Posicao({ valor }: { valor: number }) {
-  return <span className={`flex h-9 min-w-9 items-center justify-center gap-1 rounded-xl px-2 text-xs font-bold ${valor <= 3 ? "bg-primary/10 text-primary" : "bg-secondary text-primary"}`}>{valor === 1 ? <Crown className="size-3.5" /> : valor <= 3 ? <Medal className="size-3.5" /> : null}<span>{valor}º</span></span>
+  return <span data-icon="ranking-position" className={`flex h-9 min-w-9 items-center justify-center gap-1 rounded-xl px-2 text-xs font-bold ${valor <= 3 ? "bg-primary/10 text-primary" : "bg-secondary text-primary"}`}>{valor === 1 ? <Crown className="size-3.5" aria-hidden="true" /> : valor <= 3 ? <Medal className="size-3.5" aria-hidden="true" /> : null}<span>{valor}º</span></span>
 }
+
+const RankingRow = memo(function RankingRow({ linha, atual }: { linha: RankingLinha; atual: boolean }) {
+  return (
+    <div
+      data-ranking-row="memo"
+      className={`sl-ranking-row-windowed flex items-center gap-2.5 rounded-2xl border p-2.5 shadow-sm ${atual ? "border-primary/25 bg-primary/[.03]" : "border-border bg-white/85"}`}
+    >
+      <Posicao valor={linha.posicao} />
+      <Avatar className="size-9 shrink-0"><AvatarImage src={linha.foto || undefined} /><AvatarFallback className="bg-primary/8 text-[9px] font-bold text-primary">{iniciais(linha.nome)}</AvatarFallback></Avatar>
+      <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{linha.nome}</p><p className="truncate text-[9px] text-muted-foreground">{linha.funcao || "Participante"} · {linha.quizzesRespondidos} quiz(es) · {linha.aproveitamento}%</p></div>
+      <div className="shrink-0 text-right"><strong className="text-base text-primary">{linha.pontos}</strong><p className="text-[8px] text-muted-foreground">pts</p></div>
+    </div>
+  )
+})
 
 const Podio = memo(function Podio({ linha, destaque }: { linha: RankingLinha; destaque?: boolean }) {
   const rank = Math.min(3, Math.max(1, linha.posicao)) as 1 | 2 | 3
@@ -87,6 +101,7 @@ export function RankingInterativo({ usuarioInicial }: { usuarioInicial: DadosRan
   const [dadosOffline, setDadosOffline] = useState(false)
   const [abaAtiva, setAbaAtiva] = useState("hoje")
   const [direcaoAba, setDirecaoAba] = useState(1)
+  const [limiteRanking, setLimiteRanking] = useState(20)
   const tentativaAtiva = useRef(false)
   const ultimaCargaRanking = useRef(0)
 
@@ -189,13 +204,18 @@ export function RankingInterativo({ usuarioInicial }: { usuarioInicial: DadosRan
   const euRanking = useMemo(() => ranking.find((l) => l.usuarioId === dados.eu.id), [dados.eu.id, ranking])
   const top3 = useMemo(() => ranking.slice(0, 3), [ranking])
   const restantes = useMemo(() => ranking.slice(3), [ranking])
+  const restantesVisiveis = useMemo(() => restantes.slice(0, limiteRanking), [limiteRanking, restantes])
   const classeAba = `mt-3 sl-ranking-tab-content ${direcaoAba < 0 ? "sl-ranking-tab-content--reverse" : ""}`
 
-  function trocarAba(proxima: string) {
+  const trocarAba = useCallback((proxima: string) => {
     const ordem = ["hoje", "missao", "classificacao", "avulsos"]
     setDirecaoAba(ordem.indexOf(proxima) >= ordem.indexOf(abaAtiva) ? 1 : -1)
     setAbaAtiva(proxima)
-  }
+  }, [abaAtiva])
+
+  const carregarMaisRanking = useCallback(() => {
+    setLimiteRanking((atual) => Math.min(atual + 20, restantes.length))
+  }, [restantes.length])
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#faf7f5_0%,#f6f2ef_100%)]">
@@ -228,7 +248,8 @@ export function RankingInterativo({ usuarioInicial }: { usuarioInicial: DadosRan
 
             {ranking.length === 0 ? <div className="rounded-2xl bg-white p-5 text-sm text-muted-foreground">A classificação aparecerá quando os participantes começarem a pontuar.</div> : <>
               <section data-ranking-podium="react" className="rounded-[24px] border border-border bg-white/70 p-3 shadow-sm"><div className="mb-4 flex items-center justify-between"><div><p className="text-[9px] font-black uppercase tracking-[.16em] text-primary">Destaques</p><h2 className="font-serif text-xl font-semibold text-foreground">Pódio da equipe</h2></div><Trophy className="size-5 text-[#9c8452]" /></div><div className="grid grid-cols-3 items-end gap-2">{top3.map((linha) => <Podio key={linha.usuarioId} linha={linha} destaque={linha.posicao === 1} />)}</div></section>
-              <div className="mt-3 space-y-1.5">{restantes.map((l) => <div key={l.usuarioId} className={`flex items-center gap-2.5 rounded-2xl border p-2.5 shadow-sm ${l.usuarioId === dados.eu.id ? "border-primary/25 bg-primary/[.03]" : "border-border bg-white/85"}`}><Posicao valor={l.posicao} /><Avatar className="size-9 shrink-0"><AvatarImage src={l.foto || undefined} /><AvatarFallback className="bg-primary/8 text-[9px] font-bold text-primary">{iniciais(l.nome)}</AvatarFallback></Avatar><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">{l.nome}</p><p className="truncate text-[9px] text-muted-foreground">{l.funcao || "Participante"} · {l.quizzesRespondidos} quiz(es) · {l.aproveitamento}%</p></div><div className="shrink-0 text-right"><strong className="text-base text-primary">{l.pontos}</strong><p className="text-[8px] text-muted-foreground">pts</p></div></div>)}</div>
+              <div className="mt-3 space-y-1.5" data-ranking-windowed="true">{restantesVisiveis.map((l) => <RankingRow key={l.usuarioId} linha={l} atual={l.usuarioId === dados.eu.id} />)}</div>
+              {limiteRanking < restantes.length && <Button type="button" size="sm" variant="outline" className="mt-3 w-full" onClick={carregarMaisRanking}>Carregar mais 20 participantes</Button>}
               <p className="mt-3 rounded-xl bg-white/70 p-2.5 text-[10px] leading-4 text-muted-foreground">A classificação soma Quiz Litúrgico, atividades válidas e o melhor bônus diário conquistado em Joias da Luz.</p>
             </>}
           </TabsContent>

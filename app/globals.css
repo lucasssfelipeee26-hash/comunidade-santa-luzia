@@ -735,3 +735,33 @@ html[data-native-platform="android"] [data-native-installed-only] {
 @keyframes slRankingTabEnterReverse { from{opacity:0;transform:translateY(-10px) translateZ(0)} to{opacity:1;transform:translateY(0) translateZ(0)} }
 .sl-presencas-stability-zone { min-height:min(46rem,80svh); overflow-anchor:none; }
 @media (prefers-reduced-motion:reduce) { .sl-ranking-trophy,.sl-ranking-trophy--1::after,.sl-ranking-tab-content { animation:none!important; transform:none!important; will-change:auto!important; } }
+
+
+/* ==========================================================
+   BETA 21 — PERFORMANCE DEEPSEEK
+   Ranking progressivo, layout de login estável e primeira
+   pintura sem salto de elementos exclusivos da Web.
+   ========================================================== */
+.sl-ranking-row-windowed {
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: 64px;
+}
+.sl-auth-shell {
+  contain: layout paint;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
+}
+.sl-auth-card {
+  contain: layout style;
+  min-height: min(700px, calc(100svh - 32px));
+}
+.sl-login-form {
+  contain: layout style;
+}
+html[data-native-platform="android"] [data-web-download-only] {
+  display: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sl-ranking-row-windowed { content-visibility: auto; }
+}

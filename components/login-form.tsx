@@ -66,7 +66,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" data-login-standard-icon="true">
+    <form onSubmit={handleSubmit} className="sl-login-form space-y-5" data-login-standard-icon="true" data-login-layout-stable="true">
       <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-3 text-sm text-muted-foreground">
         Entre com seu <strong className="text-foreground">nome de usuário ou e-mail</strong>. A senha diferencia letras maiúsculas e minúsculas.
       </div>
@@ -91,7 +91,7 @@ export function LoginForm() {
         <p className="text-right text-xs"><Link href="/area-restrita/recuperar-senha" className="font-semibold text-primary hover:underline">Esqueci minha senha</Link></p>
       </div>
 
-      {erro && <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><span>{erro}</span></div>}
+      <div className="min-h-[50px]" aria-live="polite" data-login-error-slot="stable">{erro ? <div role="alert" className="flex min-h-[50px] items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><span>{erro}</span></div> : <span className="sr-only">Nenhum erro de autenticação.</span>}</div>
 
       <Button type="submit" className="w-full" disabled={loading} aria-busy={loading}>
         {loading ? <><Loader2 className="size-4 animate-spin" />Entrando…</> : <><LogIn className="size-4" /><span>Entrar</span></>}

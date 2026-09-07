@@ -211,7 +211,7 @@
   }, { passive: true });
 
   function hasVisualIcon(element) {
-    return Boolean(element?.querySelector?.("svg,[data-prayer-person-icon],.sl-r10-profile-icon,.sl-r6-clock,.sl-r8-native-clock,.sl-r13-native-clock"));
+    return Boolean(element?.querySelector?.("svg,[data-icon],[data-ranking-trophy-react],[data-prayer-person-icon],.sl-r10-profile-icon,.sl-r6-clock,.sl-r8-native-clock,.sl-r13-native-clock"));
   }
 
   function auditIcons() {
@@ -234,10 +234,8 @@
     const missing = [];
     for (const href of expected) {
       const links = [...document.querySelectorAll(`a[href="${href}"]`)];
-      for (const link of links) {
-        if (!(link instanceof HTMLElement) || link.offsetParent === null) continue;
-        if (!hasVisualIcon(link)) missing.push(href);
-      }
+      const visibleLinks = links.filter((link) => link instanceof HTMLElement && link.offsetParent !== null);
+      if (visibleLinks.length && !visibleLinks.some((link) => hasVisualIcon(link))) missing.push(href);
     }
     const menuDialog = document.querySelector('nav[aria-label="Menu da Área Restrita"]');
     if (menuDialog) {

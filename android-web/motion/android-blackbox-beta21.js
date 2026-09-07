@@ -7,7 +7,7 @@
   const RUNTIME_KEY = "santa-luzia:blackbox:runtime:v1";
   const LAST_EXIT_KEY = "santa-luzia:blackbox:last-exit:v1";
   const LAST_FATAL_KEY = "santa-luzia:blackbox:last-fatal:v1";
-  const MAX_EVENTS = 500;
+  const MAX_EVENTS = 200;
   const FIVE_MINUTES = 5 * 60 * 1000;
   const SLOW_FETCH_MS = 1200;
   if (document.documentElement.dataset[FLAG] === VERSION) return;
@@ -63,8 +63,17 @@
     } catch { return []; }
   }
 
-  function persist() {
+  let persistScheduled = false;
+  function flushPersist() {
+    persistScheduled = false;
     try { localStorage.setItem(EVENTS_KEY, JSON.stringify({ version: VERSION, updatedAt: Date.now(), runId, events: events.slice(-MAX_EVENTS) })); } catch {}
+  }
+  function persist() {
+    if (persistScheduled) return;
+    persistScheduled = true;
+    const run = () => flushPersist();
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 1200 });
+    else window.setTimeout(run, 250);
   }
 
   function writeRuntime(cleanShutdown = false) {
@@ -152,10 +161,11 @@
   writeRuntime(false);
   record("blackbox-start", "info", { version: VERSION, runId, wasDiscarded: Boolean(document.wasDiscarded) }, "Caixa-preta iniciada.");
 
-  const heartbeat = window.setInterval(() => writeRuntime(false), 5000);
+  const heartbeat = window.setInterval(() => writeRuntime(false), 10000);
 
   function cleanShutdown(kind) {
     record("runtime-shutdown", "info", { kind }, "Encerramento do runtime observado.");
+    flushPersist();
     writeRuntime(true);
   }
   window.addEventListener("pagehide", () => cleanShutdown("pagehide"));

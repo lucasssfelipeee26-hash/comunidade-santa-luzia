@@ -18,6 +18,7 @@ export const RankingTrophy = memo(function RankingTrophy({ rank }: { rank: Rank 
     <span
       className={`sl-ranking-trophy sl-ranking-trophy--${rank}`}
       data-ranking-trophy-react="true"
+      data-icon="ranking-trophy"
       data-rank={rank}
       role="img"
       aria-label={visual.label}
