@@ -2,8 +2,9 @@
 
 import { createContext, useCallback, useContext, useMemo } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
-import { authJson, loginConfirmed, validSession } from "@/lib/auth-client"
-import { carregarSessaoOffline, limparDadosPrivadosOffline, salvarSessaoOffline } from "@/lib/offline-data"
+import { loginConfirmed } from "@/lib/auth-client"
+import { limparDadosPrivadosOffline, salvarSessaoOffline } from "@/lib/offline-data"
+import { useAuthSession } from "@/components/auth-session-runtime"
 
 export type Registro = {
   id: string
@@ -32,40 +33,6 @@ export type Membro = {
 }
 
 export type Sessao = { tipo: "moderador"; nome: string } | { tipo: "membro"; id: string } | null
-
-type UsuarioSessao = {
-  id: string
-  nome: string
-  usuario?: string
-  email: string
-  funcao: string | null
-  desde: string | null
-  status: StatusMembro
-}
-
-type MeResponse = {
-  sessao: null | { tipo: "moderador" | "membro"; usuario: UsuarioSessao }
-}
-
-const fetcher = async (url: string) => {
-  try {
-    const response = url === "/api/auth/me" ? null : await fetch(url, { credentials: "same-origin" })
-    if (response && !response.ok) throw new Error(`HTTP ${response.status}`)
-    const json = response ? await response.json() : await authJson(url)
-    if (url === "/api/auth/me" && !validSession(json)) throw new Error("Resposta de sessão inválida.")
-    if (url === "/api/auth/me") {
-      if (json?.sessao) salvarSessaoOffline(json)
-      else limparDadosPrivadosOffline()
-    }
-    return json
-  } catch (error) {
-    if (url === "/api/auth/me") {
-      const cache = carregarSessaoOffline<MeResponse>()
-      if (cache?.dados?.sessao) return cache.dados
-    }
-    throw error
-  }
-}
 
 type ResultadoAcao = { ok: boolean; erro?: string; destino?: string; mensagem?: string }
 
@@ -112,12 +79,16 @@ type Ctx = {
 
 const StoreContext = createContext<Ctx | null>(null)
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const { data: meData, isLoading: meLoading } = useSWR<MeResponse>("/api/auth/me", fetcher)
+const fetcher = async (url: string) => {
+  const response = await fetch(url, { credentials: "same-origin" })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.json()
+}
 
-  const sessaoInfo = meData?.sessao ?? null
-  const isModerador = sessaoInfo?.tipo === "moderador"
-  const isMembro = sessaoInfo?.tipo === "membro"
+export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const { ready: authReady, liveAuthenticated, sessao: sessaoInfo } = useAuthSession()
+  const isModerador = Boolean(liveAuthenticated && sessaoInfo?.tipo === "moderador")
+  const isMembro = Boolean(liveAuthenticated && sessaoInfo?.tipo === "membro")
 
   const { data: membrosData, isLoading: membrosLoading } = useSWR<{ membros: Membro[] }>(
     isModerador ? "/api/membros" : null,
@@ -128,16 +99,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     fetcher,
   )
   const { data: membroData } = useSWR<{ membro: Membro }>(
-    isMembro ? `/api/membros/${sessaoInfo!.usuario.id}` : null,
+    isMembro && sessaoInfo?.usuario?.id ? `/api/membros/${sessaoInfo.usuario.id}` : null,
     fetcher,
   )
 
-  const ready = !meLoading
+  const ready = authReady
 
-  const sessao: Sessao = isModerador
-    ? { tipo: "moderador", nome: sessaoInfo!.usuario.nome }
-    : isMembro
-      ? { tipo: "membro", id: sessaoInfo!.usuario.id }
+  const sessao: Sessao = sessaoInfo?.tipo === "moderador"
+    ? { tipo: "moderador", nome: sessaoInfo.usuario.nome }
+    : sessaoInfo?.tipo === "membro"
+      ? { tipo: "membro", id: sessaoInfo.usuario.id }
       : null
 
   const cadastrar = useCallback<Ctx["cadastrar"]>(async (dados) => {
@@ -159,9 +130,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" })
-    limparDadosPrivadosOffline()
-    await globalMutate("/api/auth/me")
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
+    } finally {
+      limparDadosPrivadosOffline()
+      await globalMutate("/api/auth/me", { sessao: null }, { revalidate: false })
+    }
   }, [])
 
   const aprovarMembro = useCallback((id: string) => {
