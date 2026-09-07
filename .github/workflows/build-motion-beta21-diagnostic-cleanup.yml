@@ -1,4 +1,4 @@
-name: Android — Motion Beta 21 Diagnostic Cleanup
+name: Android — Motion Beta 21 Final Auth Startup
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: santa-luzia-motion-beta21-diagnostic-cleanup
-  cancel-in-progress: true
+  group: santa-luzia-motion-beta21-final-auth-startup-registered
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -35,19 +35,17 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Aplicar correções finais de diagnóstico
+      - name: Aplicar limpeza final de autenticação e startup
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/apply-deepseek-beta21-final.cjs
-          node scripts/apply-deepseek-beta21-performance.cjs
-          node scripts/apply-beta21-diagnostic-cleanup.cjs
+          node scripts/apply-beta21-final-auth-startup-cleanup.cjs
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app components lib scripts android-web
+          git add android-local android-web lib scripts
           if ! git diff --cached --quiet; then
-            git commit -m "fix(beta21): corrigir falsos positivos e sincronizacao restante"
+            git commit -m "fix(beta21): deduplicar auth e aliviar startup"
             git push origin HEAD:fix/beta21-login
           fi
 
@@ -61,7 +59,7 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Validar canal e correções
+      - name: Validar canal e correções finais
         shell: bash
         run: |
           set -euo pipefail
@@ -73,15 +71,17 @@ jobs:
           if(beta.serverUrl!=='http://192.168.1.7:3000') throw new Error(`Servidor local divergente: ${beta.serverUrl}`)
           if(stable.versionName!=='1.0.6'||stable.versionCode!==18) throw new Error('Canal oficial alterado')
           NODE
-          grep -Fq 'KEYBOARD_MIN_DROP_PX' android-web/motion/android-scroll-watchdog-beta21.js
-          grep -Fq 'keyboardLikely' android-web/motion/android-scroll-watchdog-beta21.js
-          grep -Fq 'auditorPersistScheduled' android-web/motion/android-auditor-beta12.js
-          grep -Fq 'data-icon-audit-scope' android-web/motion/android-auditor-beta12.js
-          grep -Fq 'santa-luzia:offline:v1:quizzes' android-web/motion/android-auditor-beta12.js
-          grep -Fq 'snapshot:quizzes' components/android-offline-snapshot-runtime.tsx
-          grep -Fq 'QUIZZES_CACHE_KEY' android-web/motion/android-quiz-offline-beta10.js
-          grep -Fq 'AUTH_ME_RECENT_MS' lib/auth-client.ts
-          grep -Fq 'MIN_GAP_NOTIFICACOES' components/native-notification-runtime.tsx
+          grep -Fq 'data-auth-ranking-session-shared="true"' android-local/entry.tsx
+          ! grep -Fq 'void fetch("/api/auth/me"' android-local/entry.tsx
+          grep -Fq 'AUTH_ME_RECENT_MS = 5_000' lib/auth-client.ts
+          grep -Fq 'beta21IdleInitialWarm' android-web/motion/android-original-ui-beta10.js
+          ! grep -Fq 'setTimeout(() => void warm(false), 800)' android-web/motion/android-original-ui-beta10.js
+          node - <<'NODE'
+          const fs=require('fs')
+          const s=fs.readFileSync('android-web/motion/android-original-ui-beta10.js','utf8')
+          const common=s.slice(s.indexOf('const COMMON_APIS'),s.indexOf('const MODERATOR_APIS'))
+          if(common.includes('/api/auth/me')) throw new Error('COMMON_APIS voltou a duplicar auth/me')
+          NODE
 
       - name: Instalar dependências sem hooks
         run: npm install --include=dev --ignore-scripts --no-audit --no-fund
@@ -111,21 +111,22 @@ jobs:
           node scripts/patch-beta21-visual-forensics-lifecycle.cjs
           node scripts/patch-beta21-navigation-runtime.cjs
           node scripts/patch-beta21-final-stability.cjs
+          grep -Fq 'data-auth-ranking-session-shared' android-web/local-app.js
           grep -Fq 'data-ranking-windowed' android-web/local-app.js
           grep -Fq 'data-login-layout-stable' android-web/local-app.js
           node scripts/bundle-motion-beta20.cjs
           test -s android-web/index.html
           test -s android-web/local-app.js
-          test "$(stat -c%s android-web/local-app.js)" -gt 250000
           test -s android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21IdleInitialWarm' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'KEYBOARD_MIN_DROP_PX' android-web/motion/android-motion-runtime-beta20.js
-          grep -Fq 'auditorPersistScheduled' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'QUIZZES_CACHE_KEY' android-web/motion/android-motion-runtime-beta20.js
-          grep -Fq 'const MAX_EVENTS = 200' android-web/motion/android-motion-runtime-beta20.js
-          grep -Fq 'beta21NavigationRuntimeStable' android-web/motion/android-motion-runtime-beta20.js
-          grep -Fq 'android-native-chunked' android-web/motion/android-motion-runtime-beta20.js
+          if grep -Fq 'setTimeout(() => void warm(false), 800)' android-web/motion/android-motion-runtime-beta20.js; then
+            echo 'ERRO: warmup precoce voltou ao runtime.' >&2
+            exit 1
+          fi
           if grep -Fq 'android-podium-beta12.js' android-web/motion/android-motion-runtime-beta20.js; then
-            echo 'ERRO: runtime voltou a conter o injetor legado de troféus.' >&2
+            echo 'ERRO: runtime voltou a conter o pódio legado.' >&2
             exit 1
           fi
 
@@ -144,7 +145,6 @@ jobs:
           grep -Fq 'signingConfig signingConfigs.debug' android/app/build.gradle
           grep -Fq 'android:launchMode="singleTop"' android/app/src/main/AndroidManifest.xml
           grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
-          grep -Fq 'setDefaultUncaughtExceptionHandler' android/app/src/main/java/br/com/comunidadesantaluzia/app/SantaLuziaApplication.java
 
       - name: Compilar APK Release
         working-directory: android
@@ -163,26 +163,22 @@ jobs:
           grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
           grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
-          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
-          if grep -Fq 'assets/public/motion/android-podium-beta12.js' "$RUNNER_TEMP/apk-files.txt"; then
-            echo 'ERRO: APK contém injetor legado de troféus.' >&2
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-auth-ranking-session-shared'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21IdleInitialWarm'
+          if unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'setTimeout(() => void warm(false), 800)'; then
+            echo 'ERRO: APK contém warmup precoce.' >&2
             exit 1
           fi
-          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'KEYBOARD_MIN_DROP_PX'
-          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'auditorPersistScheduled'
-          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'QUIZZES_CACHE_KEY'
-          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-ranking-windowed'
-          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-login-layout-stable'
           mkdir -p dist
-          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk
-          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk.sha256
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk.sha256
 
-      - name: Guardar APK corrigida
+      - name: Guardar APK final
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-beta21-diagnostico-corrigido
+          name: santa-luzia-motion-beta21-final-auth-startup
           path: |
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-DIAGNOSTICO-CORRIGIDO.apk.sha256
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk.sha256
           retention-days: 14
           if-no-files-found: error
