@@ -1,4 +1,4 @@
-name: Android — Motion Beta 21 Final Auth Startup
+name: Android — Motion Beta 21 Final Stability
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: santa-luzia-motion-beta21-final-auth-startup-registered
+  group: santa-luzia-motion-beta21-final-stability
   cancel-in-progress: false
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Aplicar limpeza final de autenticação e startup
+      - name: Aplicar e travar estabilidade final
         shell: bash
         run: |
           set -euo pipefail
@@ -43,9 +43,9 @@ jobs:
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add android-local android-web lib scripts
+          git add android-local android-web components lib scripts tests
           if ! git diff --cached --quiet; then
-            git commit -m "fix(beta21): deduplicar auth e aliviar startup"
+            git commit -m "fix(beta21): travar auth em voo e lifecycle de notificacoes"
             git push origin HEAD:fix/beta21-login
           fi
 
@@ -73,7 +73,17 @@ jobs:
           NODE
           grep -Fq 'data-auth-ranking-session-shared="true"' android-local/entry.tsx
           ! grep -Fq 'void fetch("/api/auth/me"' android-local/entry.tsx
-          grep -Fq 'AUTH_ME_RECENT_MS = 5_000' lib/auth-client.ts
+          grep -Fq 'authMeInFlight?.generation === generation' lib/auth-client.ts
+          grep -Fq 'let authGeneration = 0' lib/auth-client.ts
+          ! grep -Fq 'AUTH_ME_RECENT_MS' lib/auth-client.ts
+          ! grep -Fq 'authMeRecent' lib/auth-client.ts
+          grep -Fq 'AUTH_ME_PATH = "/api/auth/me"' android-web/motion/android-native-fetch-beta10.js
+          grep -Fq 'key === AUTH_ME_PATH' android-web/motion/android-native-fetch-beta10.js
+          grep -Fq 'nativeRequestWithAbort' android-web/motion/android-native-fetch-beta10.js
+          grep -Fq 'App.addListener("appStateChange"' components/native-notification-runtime.tsx
+          grep -Fq 'pausarSincronizacaoNotificacoes' components/native-notification-runtime.tsx
+          grep -Fq 'retomarSincronizacaoNotificacoes' components/native-notification-runtime.tsx
+          grep -Fq 'sincronizacaoAtiva?.controller.abort()' components/native-notification-runtime.tsx
           grep -Fq 'beta21IdleInitialWarm' android-web/motion/android-original-ui-beta10.js
           ! grep -Fq 'setTimeout(() => void warm(false), 800)' android-web/motion/android-original-ui-beta10.js
           node - <<'NODE'
@@ -115,6 +125,7 @@ jobs:
           grep -Fq 'data-auth-ranking-session-shared' android-web/local-app.js
           grep -Fq 'data-ranking-windowed' android-web/local-app.js
           grep -Fq 'data-login-layout-stable' android-web/local-app.js
+          grep -Fq 'appStateChange' android-web/local-app.js
           node scripts/bundle-motion-beta20.cjs
           test -s android-web/index.html
           test -s android-web/local-app.js
@@ -122,6 +133,8 @@ jobs:
           grep -Fq 'prewarm massivo desligado' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'KEYBOARD_MIN_DROP_PX' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'QUIZZES_CACHE_KEY' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'AUTH_ME_PATH = "/api/auth/me"' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'nativeRequestWithAbort' android-web/motion/android-motion-runtime-beta20.js
           if grep -Fq 'setTimeout(() => void warm(false), 800)' android-web/motion/android-motion-runtime-beta20.js; then
             echo 'ERRO: warmup precoce voltou ao runtime.' >&2
             exit 1
@@ -169,7 +182,10 @@ jobs:
           grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-auth-ranking-session-shared'
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'appStateChange'
           unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'prewarm massivo desligado'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'AUTH_ME_PATH = "/api/auth/me"'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'nativeRequestWithAbort'
           if unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'setTimeout(() => void warm(false), 800)'; then
             echo 'ERRO: APK contém warmup precoce.' >&2
             exit 1
@@ -179,15 +195,15 @@ jobs:
             exit 1
           fi
           mkdir -p dist
-          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk
-          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk.sha256
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-STABILITY.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-STABILITY.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-STABILITY.apk.sha256
 
       - name: Guardar APK final
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-beta21-final-auth-startup
+          name: santa-luzia-motion-beta21-final-stability
           path: |
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-AUTH-STARTUP.apk.sha256
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-STABILITY.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-FINAL-STABILITY.apk.sha256
           retention-days: 14
           if-no-files-found: error
