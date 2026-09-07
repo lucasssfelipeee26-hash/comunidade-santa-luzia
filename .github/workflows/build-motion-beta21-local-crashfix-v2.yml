@@ -1,4 +1,4 @@
-name: Android — Motion Beta 21 Local Crashfix V2
+name: Android — Motion Beta 21 Navigation Runtime Fix
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: santa-luzia-motion-beta21-local-crashfix-v2
+  group: santa-luzia-motion-beta21-navigation-runtime-fix
   cancel-in-progress: true
 
 jobs:
@@ -83,8 +83,14 @@ jobs:
           node scripts/patch-beta19-offline-pack.cjs
           node scripts/patch-beta19-android-web.cjs
           node scripts/patch-beta21-visual-forensics-lifecycle.cjs
+          node scripts/patch-beta21-navigation-runtime.cjs
           grep -Fq 'incident.finishReason = "visibility-hidden"' android-web/motion/android-visual-forensics-beta21.js
           grep -Fq 'baselineReset: true' android-web/motion/android-visual-forensics-beta21.js
+          grep -Fq 'beta21-deep-visual-opt-in' android-web/motion/android-visual-forensics-beta21.js
+          grep -Fq 'beta21NavigationRuntimeStable' android-web/motion/windows-behavior-fixes.js
+          grep -Fq 'beta21PageEntryStatic' android-web/motion/windows-preload-v5.js
+          grep -Fq 'prewarm massivo desligado' android-web/motion/android-original-ui-beta10.js
+          grep -Fq 'DSN lazy' android-web/motion/android-deep-auditor-beta16.js
           grep -Fq 'android-native-chunked' android-web/motion/android-auditor-patch-beta16.js
           grep -Fq 'appByteLimit: false' android-web/motion/android-auditor-patch-beta16.js
           node scripts/bundle-motion-beta20.cjs
@@ -92,6 +98,8 @@ jobs:
           test -s android-web/local-app.js
           test "$(stat -c%s android-web/local-app.js)" -gt 250000
           test -s android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21NavigationRuntimeStable' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21-deep-visual-opt-in' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'android-native-chunked' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
           grep -Fq '"beta": "2.0.0-beta.21"' android-web/offline/iliturgia/manifest.json
@@ -145,16 +153,18 @@ jobs:
           for file in assets/public/index.html assets/public/local-app.js assets/public/motion/android-motion-runtime-beta20.js assets/public/offline/iliturgia/oficio-01.html.json.bin assets/public/offline/iliturgia/lecionario.html.json.bin assets/public/offline/iliturgia/missal.html.json.bin assets/capacitor.config.json; do
             grep -Fq "$file" "$RUNNER_TEMP/apk-files.txt"
           done
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21NavigationRuntimeStable'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21-deep-visual-opt-in'
           mkdir -p dist
-          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-LOCAL-CRASHFIX.apk
-          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-LOCAL-CRASHFIX.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-LOCAL-CRASHFIX.apk.sha256
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk.sha256
 
       - name: Guardar APK para teste
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-beta21-local-crashfix-v2
+          name: santa-luzia-motion-beta21-nav-runtime-fix
           path: |
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-LOCAL-CRASHFIX.apk
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-LOCAL-CRASHFIX.apk.sha256
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk.sha256
           retention-days: 14
           if-no-files-found: error
