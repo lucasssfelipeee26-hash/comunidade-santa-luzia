@@ -1,4 +1,4 @@
-name: Android — Motion Beta 21 Navigation Runtime Fix
+name: Android — Motion Beta 21 Correção Integral
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: santa-luzia-motion-beta21-navigation-runtime-fix
+  group: santa-luzia-motion-beta21-correcao-integral
   cancel-in-progress: true
 
 jobs:
@@ -58,8 +58,11 @@ jobs:
           if(stable.versionName!=='1.0.6'||stable.versionCode!==18) throw new Error('Canal oficial alterado')
           NODE
 
-      - name: Instalar dependências
-        run: npm install --include=dev --no-audit --no-fund
+      - name: Instalar dependências sem hooks de ciclo de vida
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+
+      - name: Auditar segurança estática da fonte
+        run: node scripts/auditar-seguranca-beta21.cjs
 
       - name: Restaurar runtime e auditar
         shell: bash
@@ -84,11 +87,16 @@ jobs:
           node scripts/patch-beta19-android-web.cjs
           node scripts/patch-beta21-visual-forensics-lifecycle.cjs
           node scripts/patch-beta21-navigation-runtime.cjs
+          node scripts/patch-beta21-final-stability.cjs
           grep -Fq 'incident.finishReason = "visibility-hidden"' android-web/motion/android-visual-forensics-beta21.js
           grep -Fq 'baselineReset: true' android-web/motion/android-visual-forensics-beta21.js
           grep -Fq 'beta21-deep-visual-opt-in' android-web/motion/android-visual-forensics-beta21.js
           grep -Fq 'beta21NavigationRuntimeStable' android-web/motion/windows-behavior-fixes.js
           grep -Fq 'beta21PageEntryStatic' android-web/motion/windows-preload-v5.js
+          grep -Fq 'beta21PreloadStaticMotion' android-web/motion/windows-preload-v5.js
+          grep -Fq 'beta21BehaviorEventDriven' android-web/motion/windows-behavior-fixes.js
+          grep -Fq 'beta21PolishEventDriven' android-web/motion/windows-beta7-polish.js
+          grep -Fq 'beta21RuntimeEventDriven' android-web/motion/windows-beta-runtime.js
           grep -Fq 'prewarm massivo desligado' android-web/motion/android-original-ui-beta10.js
           grep -Fq 'DSN lazy' android-web/motion/android-deep-auditor-beta16.js
           grep -Fq 'android-native-chunked' android-web/motion/android-auditor-patch-beta16.js
@@ -99,6 +107,10 @@ jobs:
           test "$(stat -c%s android-web/local-app.js)" -gt 250000
           test -s android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'beta21NavigationRuntimeStable' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21PreloadStaticMotion' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21BehaviorEventDriven' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21PolishEventDriven' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21RuntimeEventDriven' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'beta21-deep-visual-opt-in' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq 'android-native-chunked' android-web/motion/android-motion-runtime-beta20.js
           grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
@@ -154,17 +166,21 @@ jobs:
             grep -Fq "$file" "$RUNNER_TEMP/apk-files.txt"
           done
           unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21NavigationRuntimeStable'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21PreloadStaticMotion'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21BehaviorEventDriven'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21PolishEventDriven'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21RuntimeEventDriven'
           unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21-deep-visual-opt-in'
           mkdir -p dist
-          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk
-          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk.sha256
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-CORRECAO-INTEGRAL.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-CORRECAO-INTEGRAL.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-CORRECAO-INTEGRAL.apk.sha256
 
       - name: Guardar APK para teste
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-beta21-nav-runtime-fix
+          name: santa-luzia-motion-beta21-correcao-integral
           path: |
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk
-            dist/Santa-Luzia-Motion-2.0.0-beta.21-NAV-RUNTIME-FIX.apk.sha256
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-CORRECAO-INTEGRAL.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-CORRECAO-INTEGRAL.apk.sha256
           retention-days: 14
           if-no-files-found: error
