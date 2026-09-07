@@ -15,6 +15,15 @@ const deepAuditorFile = path.join(root, "android-web", "motion", "android-deep-a
 const auditorPatchFile = path.join(root, "android-web", "motion", "android-auditor-patch-beta16.js");
 let source = fs.readFileSync(file, "utf8");
 
+// A auditoria física mostrou que o Sentinela Visual, embora útil, estava amostrando
+// a árvore a cada 250 ms e persistindo um payload grande com frequência suficiente
+// para competir com renderização, navegação e IndexedDB no WebView. Mantemos o
+// diagnóstico ativo na Beta, mas com granularidade mais saudável para uso real.
+source = source
+  .replace('const SAMPLE_MS = 250;', 'const SAMPLE_MS = 750;')
+  .replace('const MAX_TIMELINE = 4096;', 'const MAX_TIMELINE = 2048;')
+  .replace('persistTimer = window.setTimeout(persistNow, 2200);', 'persistTimer = window.setTimeout(persistNow, 5000);');
+
 const before = `  document.addEventListener("visibilitychange", () => {
     const now = Date.now();
     counters.visibilityChanges += 1;
@@ -64,16 +73,25 @@ if (source.includes(before)) {
   fs.writeFileSync(file, source);
 } else if (!source.includes('incident.finishReason = "visibility-hidden"')) {
   throw new Error("Bloco visibilitychange esperado não encontrado; patch não aplicado para evitar alteração insegura.");
+} else {
+  fs.writeFileSync(file, source);
 }
 
-if (!source.includes('incident.finishReason = "visibility-hidden"')) {
-  source = fs.readFileSync(file, "utf8");
-}
+source = fs.readFileSync(file, "utf8");
 if (!source.includes('incident.finishReason = "visibility-hidden"')) {
   throw new Error("Validação falhou: encerramento de incidente ao ocultar não foi instalado.");
 }
 if (!source.includes('baselineReset: true')) {
   throw new Error("Validação falhou: reset de baseline ao retomar não foi instalado.");
+}
+if (!source.includes('const SAMPLE_MS = 750;')) {
+  throw new Error("Validação falhou: frequência reduzida do Sentinela Visual não foi instalada.");
+}
+if (!source.includes('const MAX_TIMELINE = 2048;')) {
+  throw new Error("Validação falhou: limite de timeline otimizado não foi instalado.");
+}
+if (!source.includes('persistTimer = window.setTimeout(persistNow, 5000);')) {
+  throw new Error("Validação falhou: persistência desacelerada do Sentinela Visual não foi instalada.");
 }
 
 for (const required of [deepAuditorFile, auditorPatchFile]) {
@@ -97,4 +115,4 @@ if (!(html.indexOf(baseAuditorTag) < html.indexOf(deepTag) && html.indexOf(deepT
   throw new Error("Ordem das camadas do Auditor profundo ficou inválida.");
 }
 
-console.log("[beta21-visual-forensics] ciclo de vida corrigido e Auditor profundo/exportador sem limite garantidos na stack Android.");
+console.log("[beta21-visual-forensics] ciclo de vida corrigido; Sentinela reduzido para 750 ms e persistência aliviada; Auditor profundo/exportador sem limite mantidos.");
