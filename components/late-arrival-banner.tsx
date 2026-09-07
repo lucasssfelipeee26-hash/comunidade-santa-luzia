@@ -1,12 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { usePathname } from "next/navigation"
 import useSWR from "swr"
 import { ClockAlert, X } from "lucide-react"
+import { useAuthSession } from "@/components/auth-session-runtime"
 
 const emojis = ["⏰", "😅", "🙏", "✝️", "💛"]
+const authPaths = ["/area-restrita/login", "/area-restrita/cadastro", "/area-restrita/recuperar-senha"]
 const fetcher = async (url: string) => {
-  const r = await fetch(url, { cache: "no-store" })
+  const r = await fetch(url, { cache: "no-store", credentials: "same-origin" })
   if (r.status === 401 || r.status === 403) return null
   const j = await r.json()
   if (!r.ok) throw new Error(j.erro || "Erro")
@@ -14,7 +17,16 @@ const fetcher = async (url: string) => {
 }
 
 export function LateArrivalBanner() {
-  const { data, mutate } = useSWR("/api/ranking", fetcher, { revalidateOnFocus: true, dedupingInterval: 2_000, refreshInterval: 3_000 })
+  const pathname = usePathname()
+  const { liveAuthenticated } = useAuthSession()
+  const enabled = liveAuthenticated && !authPaths.some((path) => pathname.startsWith(path))
+  const { data, mutate } = useSWR(enabled ? "/api/ranking" : null, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    dedupingInterval: 60_000,
+    refreshInterval: enabled ? 60_000 : 0,
+    keepPreviousData: true,
+  })
   const [oculto, setOculto] = useState(false)
   const [windowsBeta, setWindowsBeta] = useState<boolean | null>(null)
   const ocorrencia = useMemo(() => {
@@ -27,6 +39,13 @@ export function LateArrivalBanner() {
   }, [])
 
   useEffect(() => {
+    if (!enabled) return
+    const refresh = () => void mutate()
+    window.addEventListener("sl:ranking-refresh", refresh)
+    return () => window.removeEventListener("sl:ranking-refresh", refresh)
+  }, [enabled, mutate])
+
+  useEffect(() => {
     if (!ocorrencia) return
     setOculto(localStorage.getItem(`santa-luzia:atraso-banner:${ocorrencia.id}`) === "1")
   }, [ocorrencia])
@@ -34,7 +53,7 @@ export function LateArrivalBanner() {
   if (windowsBeta !== false || !ocorrencia || oculto) return null
   const reacoes = data?.reacoes || []
   async function reagir(emoji: string) {
-    await fetch("/api/ranking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "reagir", ocorrenciaId: ocorrencia.id, emoji }) })
+    await fetch("/api/ranking", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "reagir", ocorrenciaId: ocorrencia.id, emoji }) })
     await mutate()
   }
   function fechar() { localStorage.setItem(`santa-luzia:atraso-banner:${ocorrencia.id}`, "1"); setOculto(true) }
