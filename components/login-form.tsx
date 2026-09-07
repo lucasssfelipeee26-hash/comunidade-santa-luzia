@@ -36,22 +36,31 @@ export function LoginForm() {
       if (!res.ok) {
         emitAppFeedback("error")
         setErro(res.erro ?? "Não foi possível entrar.")
+        setLoading(false)
         return
       }
 
       emitAppFeedback("success")
-      navigator.serviceWorker?.controller?.postMessage({ tipo: "AQUECER_CACHE_PRIVADO" })
-      window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync"))
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync")), 900)
-
       const solicitado = searchParams.get("destino")
       const destinoSeguro = solicitado && solicitado.startsWith("/") && !solicitado.startsWith("//") ? solicitado : null
+
+      // A sessão já foi confirmada e colocada no cache compartilhado por login().
+      // Não usamos router.refresh() aqui: no WebView ele provocava uma segunda montagem
+      // exatamente durante a saída do login, gerando piscada e trabalho duplicado.
       router.replace(destinoSeguro ?? res.destino ?? "/area-restrita")
-      router.refresh()
+
+      // Cache e snapshot são importantes, mas não precisam disputar a troca de tela.
+      // O aquecimento é adiado para depois da primeira pintura do painel.
+      window.setTimeout(() => {
+        navigator.serviceWorker?.controller?.postMessage({ tipo: "AQUECER_CACHE_PRIVADO" })
+        window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync"))
+      }, 1800)
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("santa-luzia:offline-snapshot-sync"))
+      }, 4200)
     } catch {
       emitAppFeedback("error")
       setErro("Não foi possível conectar ao servidor. Verifique a conexão do aplicativo e tente novamente.")
-    } finally {
       setLoading(false)
     }
   }
