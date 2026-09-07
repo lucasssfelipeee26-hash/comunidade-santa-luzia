@@ -1,9 +1,8 @@
-// Authentication must never accept a cached anonymous response after login.
+// Authentication must never accept a stale anonymous response after login.
 export type AuthSession = { sessao: null | { tipo: "moderador" | "membro"; usuario: { id: string; nome: string } } }
 const unavailable = "O servidor de acesso está indisponível. Tente novamente mais tarde."
-let authMeInFlight: Promise<unknown> | null = null
-let authMeRecent: { at: number; value: unknown } | null = null
-const AUTH_ME_RECENT_MS = 5_000
+let authMeInFlight: { generation: number; promise: Promise<unknown> } | null = null
+let authGeneration = 0
 
 function transport(): typeof fetch {
   const native = typeof window !== "undefined" && (window as unknown as {
@@ -23,15 +22,25 @@ async function requestJson(path: string, init: RequestInit = {}) {
 export async function authJson(path: string, init: RequestInit = {}) {
   const method = String(init.method || "GET").toUpperCase()
   if (path === "/api/auth/me" && method === "GET") {
-    const recent = authMeRecent
-    if (recent && Date.now() - recent.at <= AUTH_ME_RECENT_MS) return recent.value
-    if (authMeInFlight) return authMeInFlight
-    authMeInFlight = requestJson(path, init)
-      .then((value) => { authMeRecent = { at: Date.now(), value }; return value })
-      .finally(() => { authMeInFlight = null })
-    return authMeInFlight
+    const generation = authGeneration
+    if (authMeInFlight?.generation === generation) return authMeInFlight.promise
+
+    const promise = requestJson(path, init)
+    authMeInFlight = { generation, promise }
+    try {
+      return await promise
+    } finally {
+      if (authMeInFlight?.promise === promise) authMeInFlight = null
+    }
   }
-  if (path.startsWith("/api/auth/") && method !== "GET") authMeRecent = null
+
+  // Authentication mutations invalidate only the in-flight generation. We do
+  // not cache a resolved /auth/me response, so the post-login confirmation is
+  // always a fresh server check while concurrent readers still share one call.
+  if (path.startsWith("/api/auth/") && method !== "GET") {
+    authGeneration += 1
+    authMeInFlight = null
+  }
   return requestJson(path, init)
 }
 
