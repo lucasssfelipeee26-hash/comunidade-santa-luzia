@@ -1,11 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import useSWR from "swr"
 import { BookOpenText, BrainCircuit, CalendarDays, GraduationCap, Home, Library, LogIn } from "lucide-react"
-import { carregarSessaoOffline } from "@/lib/offline-data"
+import { useAuthSession } from "@/components/auth-session-runtime"
 
 const publicItems = [
   { href: "/visitante", label: "Início", icon: Home },
@@ -21,11 +19,6 @@ const areaItems = [
   { href: "/area-restrita/ranking", label: "Quiz", icon: BrainCircuit },
 ]
 
-type MeNavResponse = { sessao: null | { tipo: "moderador" | "membro" } }
-const fetcher = (url: string) => fetch(url, { cache: "no-store", credentials: "same-origin" }).then(async (r) => {
-  if (!r.ok) throw new Error(`HTTP ${r.status}`)
-  return r.json()
-})
 const authPaths = ["/area-restrita/login", "/area-restrita/cadastro", "/area-restrita/recuperar-senha"]
 
 function ativo(pathname: string, href: string) {
@@ -37,23 +30,10 @@ function ativo(pathname: string, href: string) {
 
 export function MobileBottomNav() {
   const pathname = usePathname()
+  const { sessao } = useAuthSession()
   const ocultar = pathname === "/" || authPaths.some((p) => pathname.startsWith(p))
-  const [sessaoOffline, setSessaoOffline] = useState<MeNavResponse["sessao"] | undefined>(undefined)
-  const { data: me } = useSWR<MeNavResponse>(ocultar ? null : "/api/auth/me", fetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-    shouldRetryOnError: false,
-    dedupingInterval: 60_000,
-    keepPreviousData: true,
-  })
-
-  useEffect(() => {
-    const cache = carregarSessaoOffline<MeNavResponse>()
-    setSessaoOffline(cache?.dados?.sessao ?? null)
-  }, [])
 
   if (ocultar) return null
-  const sessao = me?.sessao ?? sessaoOffline ?? null
   const items = sessao ? areaItems : publicItems
   const colunas = sessao ? "grid-cols-4" : "grid-cols-5"
 
