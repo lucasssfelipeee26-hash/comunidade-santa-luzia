@@ -40,6 +40,7 @@ function RuntimeContent({ children }: { children: React.ReactNode }) {
   const [backgroundReady, setBackgroundReady] = useState(false)
   const authScreen = AUTH_SCREEN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
   const protectedRuntimeReady = Boolean(ready && liveAuthenticated && !authScreen)
+  const serverSyncAllowed = Boolean(ready && !authScreen)
 
   useEffect(() => {
     if (!protectedRuntimeReady) {
@@ -62,7 +63,7 @@ function RuntimeContent({ children }: { children: React.ReactNode }) {
       <AppChangelogRuntime />
       <AndroidUpdateTransitionGuard />
       <AndroidUpdateGithubRuntime />
-      {ready ? <ServerSyncRuntime authenticated={backgroundReady} /> : null}
+      {serverSyncAllowed ? <ServerSyncRuntime authenticated={backgroundReady} /> : null}
       <PullToRefresh />
     </>
   )
