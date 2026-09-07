@@ -49,25 +49,33 @@ function patchWarmup() {
   write(rel, s)
 }
 
-function patchAuthCacheWindow() {
-  const rel = 'lib/auth-client.ts'
-  let s = read(rel)
-  s = s.replace('const AUTH_ME_RECENT_MS = 1_200', 'const AUTH_ME_RECENT_MS = 5_000')
-  if (!s.includes('const AUTH_ME_RECENT_MS = 5_000')) throw new Error('[beta21-final] janela de deduplicação auth/me não aplicada')
-  write(rel, s)
+function assertAuthInFlightOnly() {
+  const s = read('lib/auth-client.ts')
+  if (!s.includes('let authMeInFlight: { generation: number; promise: Promise<unknown> } | null = null')) {
+    throw new Error('[beta21-final] coalescência auth/me em voo não encontrada')
+  }
+  if (!s.includes('let authGeneration = 0') || !s.includes('authMeInFlight?.generation === generation')) {
+    throw new Error('[beta21-final] geração global de auth/me não aplicada')
+  }
+  if (s.includes('AUTH_ME_RECENT_MS') || s.includes('authMeRecent')) {
+    throw new Error('[beta21-final] cache resolvido de auth/me não deve voltar')
+  }
 }
 
 function patchStructuralAudit() {
   const rel = 'scripts/auditar-beta20-estrutural.cjs'
   let s = read(rel)
-  if (s.includes('ranking Android reutiliza sessão central sem novo auth/me')) return
-  s += `\n\nconst androidEntryFinal = read("android-local/entry.tsx")\nok(androidEntryFinal.includes('data-auth-ranking-session-shared="true"'), "ranking Android reutiliza sessão central sem novo auth/me")\nok(androidEntryFinal.includes("useAuthSession") && !androidEntryFinal.includes('void fetch("/api/auth/me"'), "ranking Android não dispara fetch direto de auth/me")\nconst originalUiFinal = read("android-web/motion/android-original-ui-beta10.js")\nok(originalUiFinal.includes("beta21IdleInitialWarm"), "warmup inicial pesado foi adiado para período ocioso")\nok(!originalUiFinal.includes('setTimeout(() => void warm(false), 800)'), "warmup de 800 ms não voltou ao startup")\nconst commonBlock = originalUiFinal.slice(originalUiFinal.indexOf("const COMMON_APIS"), originalUiFinal.indexOf("const MODERATOR_APIS"))\nok(!commonBlock.includes('/api/auth/me'), "warmup não consulta auth/me duas vezes")\nconst authClientFinal = read("lib/auth-client.ts")\nok(authClientFinal.includes("AUTH_ME_RECENT_MS = 5_000"), "janela compartilhada de deduplicação auth/me ampliada")\n`
+  const old = 'ok(authClientFinal.includes("AUTH_ME_RECENT_MS = 5_000"), "janela compartilhada de deduplicação auth/me ampliada")'
+  const next = `ok(authClientFinal.includes("authGeneration") && authClientFinal.includes("authMeInFlight") && !authClientFinal.includes("AUTH_ME_RECENT_MS"), "auth/me compartilha somente a requisição em voo, sem cache resolvido")\nconst nativeFetchFinal = read("android-web/motion/android-native-fetch-beta10.js")\nok(nativeFetchFinal.includes('AUTH_ME_PATH = "/api/auth/me"') && nativeFetchFinal.includes("key === AUTH_ME_PATH"), "ponte nativa mantém auth/me coalescido até a chamada terminar")\nok(nativeFetchFinal.includes("nativeRequestWithAbort") && nativeFetchFinal.includes('new DOMException("The operation was aborted.", "AbortError")'), "ponte nativa encerra fetch sinalizado imediatamente como AbortError")\nconst notificationRuntimeFinal = read("components/native-notification-runtime.tsx")\nok(notificationRuntimeFinal.includes('App.addListener("appStateChange"') && notificationRuntimeFinal.includes("pausarSincronizacaoNotificacoes") && notificationRuntimeFinal.includes("retomarSincronizacaoNotificacoes"), "notificações acompanham lifecycle nativo background/resume")\nok(notificationRuntimeFinal.includes("geracaoSincronizacao") && notificationRuntimeFinal.includes("sincronizacaoAtiva?.controller.abort()") && notificationRuntimeFinal.includes("obsoleta()"), "notificações abortam e ignoram resultados obsoletos após background")`
+  if (s.includes(old)) s = s.replace(old, next)
+  if (!s.includes('auth/me compartilha somente a requisição em voo')) throw new Error('[beta21-final] auditoria auth in-flight não atualizada')
+  if (!s.includes('notificações acompanham lifecycle nativo background/resume')) throw new Error('[beta21-final] auditoria lifecycle de notificações ausente')
   write(rel, s)
 }
 
 patchAndroidEntry()
 patchWarmup()
-patchAuthCacheWindow()
+assertAuthInFlightOnly()
 patchStructuralAudit()
 
-console.log('[beta21-final] auth/me deduplicado e warmup inicial deferido.')
+console.log('[beta21-final] auth/me em voo e lifecycle de notificações preservados.')
