@@ -2,10 +2,12 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const root = path.resolve(__dirname, "..")
-const file = path.join(root, "android-web", "motion", "windows-beta7-polish.js")
-if (!fs.existsSync(file)) throw new Error("windows-beta7-polish.js ausente; execute fetch-windows-beta-stack antes.")
+const polishFile = path.join(root, "android-web", "motion", "windows-beta7-polish.js")
+const runtimeFile = path.join(root, "android-web", "motion", "windows-beta-runtime.js")
+if (!fs.existsSync(polishFile)) throw new Error("windows-beta7-polish.js ausente; execute fetch-windows-beta-stack antes.")
+if (!fs.existsSync(runtimeFile)) throw new Error("windows-beta-runtime.js ausente; execute fetch-windows-beta-stack antes.")
 
-let source = fs.readFileSync(file, "utf8")
+let source = fs.readFileSync(polishFile, "utf8")
 
 // A camada herdada da Windows Beta foi criada para uma janela desktop. No Android
 // ela estava escurecendo a tela inteira em cada clique e iniciando a nova rota com
@@ -93,6 +95,26 @@ if (/\bupdateBottomNav\s*\(/.test(source)) throw new Error("Referência updateBo
 if (!source.includes("restoreAndroidBottomNav()")) throw new Error("restoreAndroidBottomNav ausente após correção.")
 if (source.includes('{ opacity:.32, transform:"translate3d(0,6px,0) scale(.998)"')) throw new Error("Fade de rota ainda presente no runtime Android.")
 if (source.includes('animate(shield, [{opacity:0},{opacity:.72}]')) throw new Error("Route shield ainda anima no runtime Android.")
+fs.writeFileSync(polishFile, source)
 
-fs.writeFileSync(file, source)
-console.log("[beta21] Transições Android estabilizadas: sem route shield, sem fade do main e polling reduzido.")
+// A auditoria mostrou milhares de frames gastos em animações infinitas de ícones de
+// navegação. Elas não carregam estado nem informação; no Android são congeladas para
+// não competir com montagem de rota, fetch, layout e desenho do WebView.
+let runtime = fs.readFileSync(runtimeFile, "utf8")
+const motionAnchor = '    @media(prefers-reduced-motion:reduce){.sl-r7-books-icon i,.sl-r7-liturgy-icon::after,.sl-r7-panel-icon i,.sl-r7-animated-nav-source,[data-sl-nav-motion] svg{animation:none!important}}'
+const androidMotionOverride = `    .app-mobile-shell [data-sl-nav-motion] svg,
+    .app-mobile-shell .sl-r7-animated-nav-source,
+    .app-mobile-shell .sl-r7-animate-books,
+    .app-mobile-shell .sl-r7-animate-liturgy,
+    .app-mobile-shell .sl-r7-animate-panel,
+    .app-mobile-shell .sl-r7-animate-scale,
+    .app-mobile-shell .sl-home-shortcut-icon svg { animation:none !important; will-change:auto !important; }
+`
+if (!runtime.includes(androidMotionOverride.trim())) {
+  if (!runtime.includes(motionAnchor)) throw new Error("Âncora das animações do runtime Windows mudou; não vou aplicar override às cegas.")
+  runtime = runtime.replace(motionAnchor, `${androidMotionOverride}${motionAnchor}`)
+}
+if (!runtime.includes('.app-mobile-shell [data-sl-nav-motion] svg')) throw new Error("Override de animação Android ausente.")
+fs.writeFileSync(runtimeFile, runtime)
+
+console.log("[beta21] WebView estabilizado: sem route shield/fade, polling reduzido e animações infinitas de navegação congeladas no Android.")
