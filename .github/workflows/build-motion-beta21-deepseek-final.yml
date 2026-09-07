@@ -1,0 +1,188 @@
+name: Android — Motion Beta 21 DeepSeek Final
+
+on:
+  push:
+    branches:
+      - fix/beta21-login
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: santa-luzia-motion-beta21-deepseek-final
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      SANTA_LUZIA_MOTION_VERSION: "2.0.0-beta.21"
+      APP_VERSION_CODE: "20021"
+      APP_VERSION_NAME: "2.0.0-beta.21"
+      MOTION_APP_ID: br.com.comunidadesantaluzia.motionbeta
+
+    steps:
+      - name: Checkout Beta 21
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Aplicar correções finais DeepSeek
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/apply-deepseek-beta21-final.cjs
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app components scripts
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(beta21): aplicar correcoes finais DeepSeek"
+            git push origin HEAD:fix/beta21-login
+          fi
+
+      - name: Configurar ambiente CI
+        shell: bash
+        run: printf 'AUTH_SECRET=%040d\n' 0 >> "$GITHUB_ENV"
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Validar isolamento e servidor local
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const beta=require('./config/android-motion-beta.json')
+          const stable=require('./config/android-build.json')
+          if(beta.versionName!=='2.0.0-beta.21'||beta.versionCode!==20021) throw new Error('Fonte não é Beta 21')
+          if(beta.applicationId!=='br.com.comunidadesantaluzia.motionbeta') throw new Error('Pacote Motion alterado')
+          if(beta.serverUrl!=='http://192.168.1.7:3000') throw new Error(`Servidor local divergente: ${beta.serverUrl}`)
+          if(stable.versionName!=='1.0.6'||stable.versionCode!==18) throw new Error('Canal oficial alterado')
+          NODE
+
+      - name: Instalar dependências sem hooks
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+
+      - name: Auditar e compilar TypeScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/auditar-seguranca-beta21.cjs
+          node scripts/fetch-windows-beta-stack.cjs
+          node scripts/patch-windows-polish-android-beta18.cjs
+          node --test tests/auth-client.test.cjs
+          npx tsc --noEmit
+          node scripts/auditar-robustez.cjs
+          npm run audit:offline
+          node scripts/auditar-beta20-heranca-completa.cjs
+          node scripts/auditar-beta20-estrutural.cjs
+
+      - name: Compilar interface Android local
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/build-next.cjs
+          npm run build:android-local
+          node scripts/patch-beta19-offline-pack.cjs
+          node scripts/patch-beta19-android-web.cjs
+          node scripts/patch-beta21-visual-forensics-lifecycle.cjs
+          node scripts/patch-beta21-navigation-runtime.cjs
+          node scripts/patch-beta21-final-stability.cjs
+          grep -Fq 'data-ranking-trophy-react' android-web/local-app.js
+          grep -Fq 'data-menu-pruned-beta21' android-web/local-app.js
+          grep -Fq 'sl-ranking-tab-content' android-web/local-app.js
+          if grep -Fq 'android-podium-beta12.js' android-web/index.html; then
+            echo 'ERRO: injetor legado de troféus ainda referenciado.' >&2
+            exit 1
+          fi
+          node scripts/bundle-motion-beta20.cjs
+          test -s android-web/index.html
+          test -s android-web/local-app.js
+          test "$(stat -c%s android-web/local-app.js)" -gt 250000
+          test -s android-web/motion/android-motion-runtime-beta20.js
+          if grep -Fq 'android-podium-beta12.js' android-web/motion/android-motion-runtime-beta20.js; then
+            echo 'ERRO: injetor legado de troféus entrou no runtime consolidado.' >&2
+            exit 1
+          fi
+          grep -Fq 'beta21NavigationRuntimeStable' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21PreloadStaticMotion' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21BehaviorEventDriven' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21PolishEventDriven' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21RuntimeEventDriven' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'beta21-deep-visual-opt-in' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq 'android-native-chunked' android-web/motion/android-motion-runtime-beta20.js
+          grep -Fq '"androidAssetTransport": "binary-v1"' android-web/offline/iliturgia/manifest.json
+          grep -Fq '"beta": "2.0.0-beta.21"' android-web/offline/iliturgia/manifest.json
+
+      - name: Preparar Android e crashfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta20.cjs
+          node scripts/patch-local-notifications-beta21.cjs
+          node scripts/patch-beta21-deep-crash-recorder.cjs
+          grep -Fq 'debuggable false' android/app/build.gradle
+          grep -Fq 'signingConfig signingConfigs.debug' android/app/build.gradle
+          grep -Fq 'android:launchMode="singleTop"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:screenOrientation="portrait"' android/app/src/main/AndroidManifest.xml
+          grep -Fq 'setDefaultUncaughtExceptionHandler' android/app/src/main/java/br/com/comunidadesantaluzia/app/SantaLuziaApplication.java
+          grep -Fq 'fatalCrashes' android/app/src/main/java/br/com/comunidadesantaluzia/app/DeepDiagnosticsPlugin.java
+
+      - name: Compilar APK Release
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Auditar APK final
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 15000000
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -Fq "package: name='$MOTION_APP_ID' versionCode='$APP_VERSION_CODE' versionName='$APP_VERSION_NAME'" "$RUNNER_TEMP/badging.txt"
+          grep -Fq "application-label:'Santa Luzia Motion Beta'" "$RUNNER_TEMP/badging.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          unzip -l "$APK" > "$RUNNER_TEMP/apk-files.txt"
+          for file in assets/public/index.html assets/public/local-app.js assets/public/motion/android-motion-runtime-beta20.js assets/public/offline/iliturgia/oficio-01.html.json.bin assets/public/offline/iliturgia/lecionario.html.json.bin assets/public/offline/iliturgia/missal.html.json.bin assets/capacitor.config.json; do
+            grep -Fq "$file" "$RUNNER_TEMP/apk-files.txt"
+          done
+          if grep -Fq 'assets/public/motion/android-podium-beta12.js' "$RUNNER_TEMP/apk-files.txt"; then
+            echo 'ERRO: APK ainda contém o injetor legado de troféus.' >&2
+            exit 1
+          fi
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-ranking-trophy-react'
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'data-menu-pruned-beta21'
+          unzip -p "$APK" assets/public/local-app.js | grep -Fq 'sl-ranking-tab-content'
+          unzip -p "$APK" assets/public/motion/android-motion-runtime-beta20.js | grep -Fq 'beta21NavigationRuntimeStable'
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Motion-2.0.0-beta.21-DEEPSEEK-CORRIGIDA.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0.0-beta.21-DEEPSEEK-CORRIGIDA.apk > dist/Santa-Luzia-Motion-2.0.0-beta.21-DEEPSEEK-CORRIGIDA.apk.sha256
+
+      - name: Guardar APK corrigida
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta21-deepseek-corrigida
+          path: |
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-DEEPSEEK-CORRIGIDA.apk
+            dist/Santa-Luzia-Motion-2.0.0-beta.21-DEEPSEEK-CORRIGIDA.apk.sha256
+          retention-days: 14
+          if-no-files-found: error
