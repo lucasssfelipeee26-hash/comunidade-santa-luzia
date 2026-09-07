@@ -4,6 +4,7 @@ export const OFFLINE_DATA_EVENT = "santa-luzia:offline-data"
 
 const ESCALAS_KEY = "santa-luzia:offline:v1:escalas"
 const RANKING_KEY = "santa-luzia:offline:v1:ranking"
+const QUIZZES_KEY = "santa-luzia:offline:v1:quizzes"
 const SESSAO_KEY = "santa-luzia:offline:v1:sessao"
 const ATRASOS_KEY = "santa-luzia:offline:v1:atrasos-pendentes"
 const FORMACOES_KEY = "santa-luzia:offline:v1:formacoes"
@@ -131,6 +132,7 @@ export function limparDadosPrivadosOffline() {
   if (typeof window === "undefined") return
   try {
     window.localStorage.removeItem(RANKING_KEY)
+    window.localStorage.removeItem(QUIZZES_KEY)
     window.localStorage.removeItem(SESSAO_KEY)
     window.localStorage.removeItem(FORMACOES_KEY)
     window.localStorage.removeItem(ESCALAS_KEY)

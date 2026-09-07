@@ -24,6 +24,8 @@ const CHAVE_EXIBIDAS = "santa-luzia:notificacoes-nativas-exibidas:v2"
 const CHAVE_PERMISSAO = "santa-luzia:notificacoes-permissao-solicitada:v1"
 const TIMEOUT_NOTIFICACOES = 6_500
 const INTERVALO_NOTIFICACOES = 2 * 60_000
+const MIN_GAP_NOTIFICACOES = 45_000
+const STARTUP_GRACE_NOTIFICACOES = 2_500
 
 function idNumerico(texto: string) {
   let hash = 2166136261
@@ -64,7 +66,10 @@ export function NativeNotificationRuntime() {
     let sincronizando = false
     let removerListener: (() => Promise<void>) | undefined
     let timer: number | undefined
+    let initialTimer: number | undefined
     let canalPreparado = ""
+    let ultimaSincronizacao = 0
+    const startupGraceUntil = Date.now() + STARTUP_GRACE_NOTIFICACOES
     let usuarioAtualId = ultimoUsuarioNotificacoes()
 
     async function iniciar() {
@@ -103,8 +108,11 @@ export function NativeNotificationRuntime() {
         }
         removerListener = () => handle.remove()
 
-        async function sincronizar() {
+        async function sincronizar(forcar = false) {
+          const agora = Date.now()
           if (cancelado || sincronizando || !navigator.onLine) return
+          if (!forcar && (agora < startupGraceUntil || agora - ultimaSincronizacao < MIN_GAP_NOTIFICACOES)) return
+          ultimaSincronizacao = agora
           sincronizando = true
           try {
             const resposta = await fetchComTimeout("/api/notificacoes", { cache: "no-store", credentials: "same-origin" })
@@ -169,7 +177,7 @@ export function NativeNotificationRuntime() {
         window.addEventListener("santa-luzia:server-sync", aoSincronizarServidor)
         window.addEventListener("online", aoOnline)
         document.addEventListener("visibilitychange", aoVisibilidade)
-        void sincronizar()
+        initialTimer = window.setTimeout(() => void sincronizar(true), STARTUP_GRACE_NOTIFICACOES)
         timer = window.setInterval(() => void sincronizar(), INTERVALO_NOTIFICACOES)
 
         const removerBase = removerListener
@@ -178,6 +186,7 @@ export function NativeNotificationRuntime() {
           window.removeEventListener("online", aoOnline)
           document.removeEventListener("visibilitychange", aoVisibilidade)
           if (timer) window.clearInterval(timer)
+          if (initialTimer) window.clearTimeout(initialTimer)
           if (removerBase) await removerBase()
         }
       } catch (error) {
@@ -189,6 +198,7 @@ export function NativeNotificationRuntime() {
     return () => {
       cancelado = true
       if (timer) window.clearInterval(timer)
+      if (initialTimer) window.clearTimeout(initialTimer)
       if (removerListener) void removerListener()
     }
   }, [router])

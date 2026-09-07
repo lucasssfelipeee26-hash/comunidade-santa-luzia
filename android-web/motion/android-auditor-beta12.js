@@ -24,6 +24,7 @@
     "/api/biblioteca",
   ];
   const LOCAL_FALLBACKS = {
+    "/api/quizzes": ["santa-luzia:offline:v1:quizzes"],
     "/api/ranking": ["santa-luzia:offline:v1:ranking"],
     "/api/perfil": ["santa-luzia:offline:v1:meu-perfil"],
     "/api/perfis": ["santa-luzia:perfis-publicos:v1"],
@@ -66,10 +67,19 @@
     } catch { return []; }
   }
 
-  function persist() {
+  let auditorPersistScheduled = false;
+  function flushPersist() {
+    auditorPersistScheduled = false;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: VERSION, updatedAt: Date.now(), events: events.slice(-MAX_EVENTS) }));
     } catch {}
+  }
+  function persist() {
+    if (auditorPersistScheduled) return;
+    auditorPersistScheduled = true;
+    const run = () => flushPersist();
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(run, { timeout: 1200 });
+    else window.setTimeout(run, 220);
   }
 
   events = readStored();
@@ -235,7 +245,8 @@
     for (const href of expected) {
       const links = [...document.querySelectorAll(`a[href="${href}"]`)];
       const visibleLinks = links.filter((link) => link instanceof HTMLElement && link.offsetParent !== null);
-      if (visibleLinks.length && !visibleLinks.some((link) => hasVisualIcon(link))) missing.push(href);
+      const iconScopedLinks = visibleLinks.filter((link) => link.closest("nav,[role=\"navigation\"],.mobile-app-bottom-nav,.app-nav-panel,.app-mobile-menu-layer,[data-icon-audit-scope=\"true\"]"));
+      if (iconScopedLinks.length && !iconScopedLinks.some((link) => hasVisualIcon(link))) missing.push(href);
     }
     const menuDialog = document.querySelector('nav[aria-label="Menu da Área Restrita"]');
     if (menuDialog) {
@@ -566,6 +577,7 @@
     offlineReadinessAudit,
   };
 
+  window.addEventListener("pagehide", flushPersist);
   add("auditor-ready", "info", { version: VERSION, mode: "online-offline" });
-  setTimeout(() => { auditIcons(); measureFps(1200); void databaseHealth(); }, 1200);
+  setTimeout(() => { auditIcons(); measureFps(1200); void databaseHealth(); }, 2200);
 })();

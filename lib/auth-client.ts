@@ -2,6 +2,8 @@
 export type AuthSession = { sessao: null | { tipo: "moderador" | "membro"; usuario: { id: string; nome: string } } }
 const unavailable = "O servidor de acesso está indisponível. Tente novamente mais tarde."
 let authMeInFlight: Promise<unknown> | null = null
+let authMeRecent: { at: number; value: unknown } | null = null
+const AUTH_ME_RECENT_MS = 1_200
 
 function transport(): typeof fetch {
   const native = typeof window !== "undefined" && (window as unknown as {
@@ -21,10 +23,15 @@ async function requestJson(path: string, init: RequestInit = {}) {
 export async function authJson(path: string, init: RequestInit = {}) {
   const method = String(init.method || "GET").toUpperCase()
   if (path === "/api/auth/me" && method === "GET") {
+    const recent = authMeRecent
+    if (recent && Date.now() - recent.at <= AUTH_ME_RECENT_MS) return recent.value
     if (authMeInFlight) return authMeInFlight
-    authMeInFlight = requestJson(path, init).finally(() => { authMeInFlight = null })
+    authMeInFlight = requestJson(path, init)
+      .then((value) => { authMeRecent = { at: Date.now(), value }; return value })
+      .finally(() => { authMeInFlight = null })
     return authMeInFlight
   }
+  if (path.startsWith("/api/auth/") && method !== "GET") authMeRecent = null
   return requestJson(path, init)
 }
 

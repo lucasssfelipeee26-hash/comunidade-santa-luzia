@@ -12,6 +12,8 @@
   const RESIZE_MEANINGFUL_PX = 3;
   const RESIZE_LOOP_THRESHOLD = 18;
   const RESIZE_DIRECTION_THRESHOLD = 4;
+  const KEYBOARD_MIN_DROP_PX = 140;
+  const KEYBOARD_GRACE_MS = 1400;
 
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
@@ -29,6 +31,8 @@
   let observer = null;
   let resizeState = new WeakMap();
   const observed = new WeakSet();
+  let maxVisualViewportHeight = Math.max(Math.round(window.innerHeight || 0), Math.round(window.visualViewport?.height || 0));
+  let keyboardGraceUntil = 0;
 
   function blackBox() {
     return window.SantaLuziaBlackBox || null;
@@ -84,6 +88,33 @@
     };
   }
 
+  function activeEditable() {
+    const element = document.activeElement;
+    return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element?.getAttribute?.("contenteditable") === "true";
+  }
+
+  function currentVisualViewportHeight() {
+    return Math.round(window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight || 0);
+  }
+
+  function keyboardLikely(now = performance.now()) {
+    const current = currentVisualViewportHeight();
+    if (current > maxVisualViewportHeight) maxVisualViewportHeight = current;
+    const dropped = maxVisualViewportHeight - current >= KEYBOARD_MIN_DROP_PX;
+    return now < keyboardGraceUntil || (activeEditable() && dropped);
+  }
+
+  function noteViewportChange() {
+    const now = performance.now();
+    const current = currentVisualViewportHeight();
+    if (current > maxVisualViewportHeight) maxVisualViewportHeight = current;
+    if (activeEditable() && maxVisualViewportHeight - current >= KEYBOARD_MIN_DROP_PX) {
+      keyboardGraceUntil = now + KEYBOARD_GRACE_MS;
+      resetTransientBuckets();
+      lastSample = { ...geometry(), at: now };
+    }
+  }
+
   function clearTimer(timer) {
     if (timer) window.clearTimeout(timer);
   }
@@ -123,6 +154,7 @@
   }
 
   function flush(kind) {
+    if (keyboardLikely()) { resetTransientBuckets(); return; }
     if (!kind || kind === "scroll") {
       if (autoScrollBucket) {
         const bucket = autoScrollBucket;
@@ -174,6 +206,12 @@
     const now = performance.now();
     const current = geometry();
     const routeNow = currentRoute();
+
+    if (keyboardLikely(now)) {
+      resetTransientBuckets();
+      lastSample = { ...current, at: now };
+      return;
+    }
 
     if (routeNow !== lastRoute) {
       lastRoute = routeNow;
@@ -265,7 +303,7 @@
     if (typeof ResizeObserver === "undefined") return;
     observer = new ResizeObserver((entries) => {
       const now = performance.now();
-      if (document.visibilityState !== "visible" || now < routeGraceUntil) return;
+      if (document.visibilityState !== "visible" || now < routeGraceUntil || keyboardLikely(now)) return;
 
       for (const entry of entries) {
         const element = entry.target;
@@ -336,6 +374,10 @@
     });
     mutationObserver.observe(document.documentElement, { childList: true, subtree: true });
   }
+
+  window.visualViewport?.addEventListener("resize", noteViewportChange, { passive: true });
+  document.addEventListener("focusin", () => { window.setTimeout(noteViewportChange, 40); }, true);
+  document.addEventListener("focusout", () => { keyboardGraceUntil = performance.now() + 500; lastSample = geometry(); }, true);
 
   const interval = window.setInterval(sample, SAMPLE_MS);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", installResizeObserver, { once: true });

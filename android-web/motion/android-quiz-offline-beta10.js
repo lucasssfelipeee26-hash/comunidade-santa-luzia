@@ -9,6 +9,7 @@
   const previousFetch = window.fetch.bind(window);
   const TOKEN_PREFIX = "santa-luzia:beta10:quiz-token:";
   const DONE_PREFIX = "santa-luzia:beta10:quiz-done:";
+  const QUIZZES_CACHE_KEY = "santa-luzia:offline:v1:quizzes";
 
   function json(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } }); }
   function dateCuiaba() {
@@ -23,6 +24,12 @@
       if (network?.getStatus) return !!(await network.getStatus())?.connected;
     } catch {}
     return false;
+  }
+  function cachedQuizList() {
+    try {
+      const envelope = JSON.parse(localStorage.getItem(QUIZZES_CACHE_KEY) || "null");
+      return envelope?.dados || null;
+    } catch { return null; }
   }
   function options(correct, others, rotate) {
     const base = [correct, ...others.filter((x) => x && x !== correct)].slice(0, 3);
@@ -127,10 +134,19 @@
     if (parsed.origin !== location.origin) return previousFetch(input, init);
     const method = String(init?.method || request?.method || "GET").toUpperCase();
     const connected = await online();
+    if (!connected && method === "GET" && parsed.pathname === "/api/quizzes") {
+      const cached = cachedQuizList();
+      return cached ? json({ ...cached, offline: true }) : json({ quizzes: [], offline: true, indisponivel: true }, 503);
+    }
     if (!connected && method === "GET" && parsed.pathname === "/api/quizzes/liturgia") return localQuiz();
     if (!connected && method === "POST" && parsed.pathname === "/api/quizzes/liturgia/responder") return answerOffline(request, init);
 
     const response = await previousFetch(input, init);
+    if (connected && method === "GET" && parsed.pathname === "/api/quizzes" && response.ok) {
+      void response.clone().json().then((payload) => {
+        try { localStorage.setItem(QUIZZES_CACHE_KEY, JSON.stringify({ atualizadoEm: Date.now(), dados: payload })); } catch {}
+      }).catch(() => undefined);
+    }
     // Quizzes avulsos não carregam a chave de correção no cliente. Eles podem ser
     // respondidos offline e enviados depois, mas o placar final só é confirmado
     // pelo servidor para não expor respostas corretas no aplicativo.

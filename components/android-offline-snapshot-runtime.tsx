@@ -89,6 +89,7 @@ export function AndroidOfflineSnapshotRuntime() {
           ["snapshot:perfis", snapshot.perfis ?? []],
           ["snapshot:formacoes", snapshot.formacoes ?? { formacoes: [] }],
           ["snapshot:ranking", snapshot.ranking ?? { ranking: [], membros: [], ocorrencias: [] }],
+          ["snapshot:quizzes", snapshot.quizzes ?? { quizzes: [] }],
           ["snapshot:escalas", snapshot.escalas ?? { escalas: [] }],
           ["snapshot:biblioteca", snapshot.biblioteca ?? { livros: [] }],
         ]
@@ -103,6 +104,7 @@ export function AndroidOfflineSnapshotRuntime() {
       else enviarBridge({ type: "SL_OFFLINE_CLEAR" })
       removerLocal(SNAPSHOT_REVISION_KEY)
       removerLocal(SNAPSHOT_USER_KEY)
+      removerLocal("santa-luzia:offline:v1:quizzes")
     }
 
     async function lerFila(): Promise<QueueItem[]> {
@@ -144,9 +146,10 @@ export function AndroidOfflineSnapshotRuntime() {
           jsonComTimeout("/api/escalas"),
         ])
         if (encerrado || rotaEmTransicao()) return
-        const [ranking, biblioteca] = await Promise.all([
+        const [ranking, biblioteca, quizzes] = await Promise.all([
           jsonComTimeout("/api/ranking"),
           jsonComTimeout("/api/biblioteca"),
+          jsonComTimeout("/api/quizzes"),
         ])
         if (encerrado || rotaEmTransicao()) return
 
@@ -185,10 +188,12 @@ export function AndroidOfflineSnapshotRuntime() {
             ocorrencias: ranking.ocorrencias || [],
           } : { ranking: [], membros: [], ocorrencias: [] },
           escalas: escalas || { escalas: [] },
+          quizzes: quizzes || { quizzes: [] },
           biblioteca: biblioteca || { livros: [] },
         }
 
         await salvarSnapshotPersistente(snapshot)
+        salvarLocal("santa-luzia:offline:v1:quizzes", JSON.stringify({ atualizadoEm: Date.now(), dados: quizzes || { quizzes: [] } }))
         if (revisaoDados) salvarLocal(SNAPSHOT_REVISION_KEY, revisaoDados)
         salvarLocal(SNAPSHOT_USER_KEY, usuarioId)
       } finally {
