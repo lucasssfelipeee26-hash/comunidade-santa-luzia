@@ -1,0 +1,43 @@
+name: Exportar fonte Motion Beta 21
+
+on:
+  push:
+    branches:
+      - ops/export-beta21-source-d2dac4e
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do commit exato da Motion Beta 21
+        uses: actions/checkout@v4
+        with:
+          ref: d2dac4ebad2d809aa4fe01f27e6dc4cca522a969
+          fetch-depth: 1
+
+      - name: Validar revisão e gerar ZIP do código-fonte
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=d2dac4ebad2d809aa4fe01f27e6dc4cca522a969
+          ACTUAL="$(git rev-parse HEAD)"
+          test "$ACTUAL" = "$EXPECTED"
+          mkdir -p dist
+          git archive --format=zip --prefix=Santa-Luzia-Motion-Beta21-Fonte/ "$EXPECTED" > dist/Santa-Luzia-Motion-Beta21-Fonte-d2dac4e.zip
+          sha256sum dist/Santa-Luzia-Motion-Beta21-Fonte-d2dac4e.zip > dist/Santa-Luzia-Motion-Beta21-Fonte-d2dac4e.zip.sha256
+          printf 'Branch original: fix/beta21-login\nCommit: %s\n' "$EXPECTED" > dist/SOURCE-INFO.txt
+
+      - name: Publicar fonte para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta21-source-d2dac4e
+          path: |
+            dist/Santa-Luzia-Motion-Beta21-Fonte-d2dac4e.zip
+            dist/Santa-Luzia-Motion-Beta21-Fonte-d2dac4e.zip.sha256
+            dist/SOURCE-INFO.txt
+          retention-days: 14
+          if-no-files-found: error
