@@ -31,10 +31,6 @@ export function AppChangelogRuntime() {
 
     const aoStatus = (event: Event) => avaliar((event as CustomEvent<Status>).detail?.novidades)
     window.addEventListener(EVENTO_STATUS, aoStatus)
-    fetch("/api/app/status", { cache: "no-store", credentials: "same-origin" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((status) => avaliar(status?.novidades))
-      .catch(() => undefined)
     return () => window.removeEventListener(EVENTO_STATUS, aoStatus)
   }, [])
 
