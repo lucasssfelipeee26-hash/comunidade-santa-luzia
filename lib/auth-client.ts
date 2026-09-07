@@ -1,6 +1,7 @@
 // Authentication must never accept a cached anonymous response after login.
 export type AuthSession = { sessao: null | { tipo: "moderador" | "membro"; usuario: { id: string; nome: string } } }
 const unavailable = "O servidor de acesso está indisponível. Tente novamente mais tarde."
+let authMeInFlight: Promise<unknown> | null = null
 
 function transport(): typeof fetch {
   const native = typeof window !== "undefined" && (window as unknown as {
@@ -9,12 +10,22 @@ function transport(): typeof fetch {
   return native || fetch
 }
 
-export async function authJson(path: string, init: RequestInit = {}) {
+async function requestJson(path: string, init: RequestInit = {}) {
   const response = await transport()(path, { ...init, cache: "no-store", credentials: "same-origin" })
   const json = await response.json().catch(() => null)
   if (!json || response.status === 404 || response.status >= 500) throw new Error(unavailable)
   if (!response.ok) throw new Error(typeof json.erro === "string" ? json.erro : "Não foi possível confirmar o acesso.")
   return json
+}
+
+export async function authJson(path: string, init: RequestInit = {}) {
+  const method = String(init.method || "GET").toUpperCase()
+  if (path === "/api/auth/me" && method === "GET") {
+    if (authMeInFlight) return authMeInFlight
+    authMeInFlight = requestJson(path, init).finally(() => { authMeInFlight = null })
+    return authMeInFlight
+  }
+  return requestJson(path, init)
 }
 
 export function validSession(value: unknown): value is AuthSession {
