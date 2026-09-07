@@ -36,6 +36,7 @@ const ULTIMA_COMPLETA_KEY = "santa-luzia:ultima-sincronizacao-completa"
 const INTERVALO_STATUS = 120_000
 const INTERVALO_COMPLETO = 15 * 60_000
 const TIMEOUT_REQUISICAO = 6_500
+const ROUTE_SETTLE_DELAY = 650
 
 function lerLocal(chave: string) {
   try { return window.localStorage.getItem(chave) } catch { return null }
@@ -47,6 +48,10 @@ function salvarLocal(chave: string, valor: string) {
 
 function definirEstado(estado: "online" | "offline" | "sincronizando") {
   document.documentElement.dataset.syncState = estado
+}
+
+function rotaEmTransicao() {
+  return document.documentElement.dataset.slRouteTransition === "running"
 }
 
 async function fetchComTimeout(input: RequestInfo | URL, init?: RequestInit) {
@@ -81,12 +86,26 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
     let emAndamento = false
     let ultimaCompleta = Number(lerLocal(ULTIMA_COMPLETA_KEY) || 0)
     let redeNativa: boolean | null = null
+    let retryRota: number | null = null
     const listenersNativos: Array<{ remove: () => Promise<void> }> = []
 
     const estaConectado = () => redeNativa ?? navigator.onLine
 
+    function agendarAposRota(forcarRevalidacao = false) {
+      if (encerrado) return
+      if (retryRota !== null) window.clearTimeout(retryRota)
+      retryRota = window.setTimeout(() => {
+        retryRota = null
+        void sincronizar(forcarRevalidacao)
+      }, ROUTE_SETTLE_DELAY)
+    }
+
     async function sincronizar(forcarRevalidacao = false) {
       if (encerrado || emAndamento) return
+      if (rotaEmTransicao()) {
+        agendarAposRota(forcarRevalidacao)
+        return
+      }
 
       if (!estaConectado()) {
         definirEstado("offline")
@@ -105,6 +124,10 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
 
         const status = (await response.json()) as ServerStatus
         if (!status.ok || !status.revisaoDados) throw new Error("Status inválido")
+        if (rotaEmTransicao()) {
+          agendarAposRota(forcarRevalidacao)
+          return
+        }
 
         const anterior = lerLocal(REVISAO_KEY)
         const temaAnterior = lerLocal(TEMA_KEY)
@@ -130,7 +153,7 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
         let relatos = { enviados: 0, restantes: 0 }
         let presencasFormacao = { enviados: 0, restantes: 0 }
 
-        if (precisaCompleta) {
+        if (precisaCompleta && !rotaEmTransicao()) {
           ultimaCompleta = agora
           salvarLocal(ULTIMA_COMPLETA_KEY, String(agora))
 
@@ -160,6 +183,11 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
           } else {
             await escalasTask
           }
+        }
+
+        if (rotaEmTransicao()) {
+          agendarAposRota(forcarRevalidacao)
+          return
         }
 
         const releaseMudou = Boolean(releaseAnterior && releaseAnterior !== status.appRelease)
@@ -196,10 +224,12 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
       if (Date.now() - ultima > INTERVALO_STATUS) void sincronizar(true)
     }
     const aoSincronizacaoManual = () => { void sincronizar(true) }
+    const aoRotaEstabilizada = () => { agendarAposRota(false) }
 
     window.addEventListener("online", aoVoltarInternet)
     window.addEventListener("offline", aoPerderInternet)
     window.addEventListener("santa-luzia:manual-sync", aoSincronizacaoManual)
+    window.addEventListener("santa-luzia:route-settled", aoRotaEstabilizada)
     document.addEventListener("visibilitychange", aoVisibilidade)
 
     if (Capacitor.isNativePlatform()) {
@@ -239,7 +269,7 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
       })()
     }
 
-    void sincronizar(true)
+    agendarAposRota(true)
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void sincronizar(false)
     }, INTERVALO_STATUS)
@@ -247,9 +277,11 @@ export function ServerSyncRuntime({ authenticated }: { authenticated: boolean })
     return () => {
       encerrado = true
       window.clearInterval(timer)
+      if (retryRota !== null) window.clearTimeout(retryRota)
       window.removeEventListener("online", aoVoltarInternet)
       window.removeEventListener("offline", aoPerderInternet)
       window.removeEventListener("santa-luzia:manual-sync", aoSincronizacaoManual)
+      window.removeEventListener("santa-luzia:route-settled", aoRotaEstabilizada)
       document.removeEventListener("visibilitychange", aoVisibilidade)
       listenersNativos.forEach((handle) => { void handle.remove() })
     }
