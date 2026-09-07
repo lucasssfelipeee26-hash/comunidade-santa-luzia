@@ -4,6 +4,7 @@
   const VERSION = "2.0.0-beta.10";
   const FLAG = "motionNativeFetchBeta10";
   const GET_COALESCE_MS = 300;
+  const AUTH_ME_PATH = "/api/auth/me";
   if (document.documentElement.dataset[FLAG] === VERSION) return;
   document.documentElement.dataset[FLAG] = VERSION;
 
@@ -109,11 +110,24 @@
     return new Response([204, 205, 304].includes(status) ? null : body, { status: Math.min(599, Math.max(200, status)), headers });
   }
 
+  function abortError() { return new DOMException("The operation was aborted.", "AbortError"); }
+  function nativeRequestWithAbort(promise, signal) {
+    if (!signal) return promise;
+    if (signal.aborted) return Promise.reject(abortError());
+    return new Promise((resolve, reject) => {
+      const onAbort = () => reject(abortError());
+      signal.addEventListener("abort", onAbort, { once: true });
+      promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+    });
+  }
+
   async function executeNativeRequest(input, init, request, parsed, method, native) {
-    if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    const signal = init?.signal || request?.signal;
+    if (signal?.aborted) throw abortError();
     const descriptor = await bodyDescriptor(input, init, request);
-    const result = await native.request({ path: `${parsed.pathname}${parsed.search}`, method, headersJson: safeHeaders(input, init, request), ...descriptor });
-    if (init?.signal?.aborted || request?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    if (signal?.aborted) throw abortError();
+    const result = await nativeRequestWithAbort(native.request({ path: `${parsed.pathname}${parsed.search}`, method, headersJson: safeHeaders(input, init, request), ...descriptor }), signal);
+    if (signal?.aborted) throw abortError();
     return localAcervoFallback(parsed, method, responseFromNative(result));
   }
 
@@ -133,12 +147,14 @@
     const native = plugin();
     if (!native?.request) throw new TypeError("Sincronizador nativo indisponível.");
 
+    if (method !== "GET" && parsed.pathname.startsWith("/api/auth/")) inflightGets.delete(AUTH_ME_PATH);
+
     const hasSignal = Boolean(init?.signal || request?.signal);
     if (method === "GET" && !hasSignal) {
       const key = `${parsed.pathname}${parsed.search}`;
       const now = clockNow();
       const previous = inflightGets.get(key);
-      if (previous && now - previous.at <= GET_COALESCE_MS) {
+      if (previous && (key === AUTH_ME_PATH || now - previous.at <= GET_COALESCE_MS)) {
         return (await previous.promise).clone();
       }
 
