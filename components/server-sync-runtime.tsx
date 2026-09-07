@@ -33,7 +33,7 @@ const ULTIMA_SYNC_KEY = "santa-luzia:ultima-sincronizacao"
 const TEMA_KEY = "santa-luzia:ultima-revisao-tema"
 const RELEASE_KEY = "santa-luzia:release-visto"
 const ULTIMA_COMPLETA_KEY = "santa-luzia:ultima-sincronizacao-completa"
-const INTERVALO_STATUS = 60_000
+const INTERVALO_STATUS = 120_000
 const INTERVALO_COMPLETO = 15 * 60_000
 const TIMEOUT_REQUISICAO = 6_500
 
@@ -73,13 +73,12 @@ async function comLimite<T>(promessa: Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-export function ServerSyncRuntime() {
+export function ServerSyncRuntime({ authenticated }: { authenticated: boolean }) {
   const { mutate } = useSWRConfig()
 
   useEffect(() => {
     let encerrado = false
     let emAndamento = false
-    let forcarPendente = false
     let ultimaCompleta = Number(lerLocal(ULTIMA_COMPLETA_KEY) || 0)
     let redeNativa: boolean | null = null
     const listenersNativos: Array<{ remove: () => Promise<void> }> = []
@@ -87,11 +86,7 @@ export function ServerSyncRuntime() {
     const estaConectado = () => redeNativa ?? navigator.onLine
 
     async function sincronizar(forcarRevalidacao = false) {
-      if (encerrado) return
-      if (emAndamento) {
-        forcarPendente ||= forcarRevalidacao
-        return
-      }
+      if (encerrado || emAndamento) return
 
       if (!estaConectado()) {
         definirEstado("offline")
@@ -118,10 +113,7 @@ export function ServerSyncRuntime() {
         const mudou = Boolean(anterior && anterior !== status.revisaoDados)
         const temaMudou = Boolean(status.revisaoTema && temaAnterior && temaAnterior !== status.revisaoTema)
         const agora = Date.now()
-        const precisaCompleta =
-          primeiraSincronizacao ||
-          mudou ||
-          agora - ultimaCompleta >= INTERVALO_COMPLETO
+        const precisaCompleta = primeiraSincronizacao || mudou || agora - ultimaCompleta >= INTERVALO_COMPLETO
 
         salvarLocal(REVISAO_KEY, status.revisaoDados)
         if (status.revisaoTema) salvarLocal(TEMA_KEY, status.revisaoTema)
@@ -141,44 +133,46 @@ export function ServerSyncRuntime() {
         if (precisaCompleta) {
           ultimaCompleta = agora
           salvarLocal(ULTIMA_COMPLETA_KEY, String(agora))
-          const resultados = await Promise.all([
-            comLimite(sincronizarRelatosAtrasoPendentes(), relatos),
-            comLimite(sincronizarPresencasFormacaoPendentes(), presencasFormacao),
-            fetchComTimeout("/api/escalas", { cache: "no-store", credentials: "same-origin" })
-              .then(async (res) => {
-                if (!res.ok) return false
-                const json = await res.json()
-                return json?.ok ? salvarCacheEscalas(json) : false
-              })
-              .catch(() => false),
-            fetchComTimeout("/api/formacoes", { cache: "no-store", credentials: "same-origin" })
-              .then(async (res) => {
-                if (!res.ok) return false
-                const json = await res.json()
-                return Array.isArray(json?.formacoes) ? salvarCacheFormacoes(json) : false
-              })
-              .catch(() => false),
-          ])
-          relatos = resultados[0]
-          presencasFormacao = resultados[1]
+
+          const escalasTask = fetchComTimeout("/api/escalas", { cache: "no-store", credentials: "same-origin" })
+            .then(async (res) => {
+              if (!res.ok) return false
+              const json = await res.json()
+              return json?.ok ? salvarCacheEscalas(json) : false
+            })
+            .catch(() => false)
+
+          if (authenticated) {
+            const resultados = await Promise.all([
+              comLimite(sincronizarRelatosAtrasoPendentes(), relatos),
+              comLimite(sincronizarPresencasFormacaoPendentes(), presencasFormacao),
+              escalasTask,
+              fetchComTimeout("/api/formacoes", { cache: "no-store", credentials: "same-origin" })
+                .then(async (res) => {
+                  if (!res.ok) return false
+                  const json = await res.json()
+                  return Array.isArray(json?.formacoes) ? salvarCacheFormacoes(json) : false
+                })
+                .catch(() => false),
+            ])
+            relatos = resultados[0]
+            presencasFormacao = resultados[1]
+          } else {
+            await escalasTask
+          }
         }
 
         const releaseMudou = Boolean(releaseAnterior && releaseAnterior !== status.appRelease)
-        if (
-          mudou ||
-          primeiraSincronizacao ||
-          relatos.enviados > 0 ||
-          presencasFormacao.enviados > 0 ||
-          releaseMudou
-        ) {
-          void mutate(
-            (key) =>
-              typeof key === "string" &&
-              key.startsWith("/api/") &&
-              key !== "/api/app/status",
-            undefined,
-            { revalidate: true },
-          )
+        if (mudou || primeiraSincronizacao || relatos.enviados > 0 || presencasFormacao.enviados > 0 || releaseMudou) {
+          if (authenticated) {
+            void mutate(
+              (key) => typeof key === "string" && key.startsWith("/api/") && key !== "/api/app/status" && key !== "/api/auth/me",
+              undefined,
+              { revalidate: true },
+            )
+          } else {
+            void mutate("/api/escalas")
+          }
           window.dispatchEvent(new CustomEvent("santa-luzia:server-sync", {
             detail: { revisaoDados: status.revisaoDados, mudou, forcarRevalidacao },
           }))
@@ -187,10 +181,6 @@ export function ServerSyncRuntime() {
         definirEstado("offline")
       } finally {
         emAndamento = false
-        if (forcarPendente && !encerrado) {
-          forcarPendente = false
-          window.setTimeout(() => void sincronizar(true), 80)
-        }
       }
     }
 
@@ -203,9 +193,8 @@ export function ServerSyncRuntime() {
     const aoVisibilidade = () => {
       if (document.visibilityState !== "visible") return
       const ultima = Number(lerLocal(ULTIMA_SYNC_KEY) || 0)
-      void sincronizar(Date.now() - ultima > INTERVALO_STATUS)
+      if (Date.now() - ultima > INTERVALO_STATUS) void sincronizar(true)
     }
-
     const aoSincronizacaoManual = () => { void sincronizar(true) }
 
     window.addEventListener("online", aoVoltarInternet)
@@ -221,12 +210,12 @@ export function ServerSyncRuntime() {
           if (encerrado) return
           redeNativa = inicial.connected
           definirEstado(inicial.connected ? "online" : "offline")
-          if (inicial.connected) void sincronizar(true)
           const networkHandle = await Network.addListener("networkStatusChange", (status) => {
             if (encerrado) return
+            const mudouConexao = redeNativa !== status.connected
             redeNativa = status.connected
             definirEstado(status.connected ? "online" : "offline")
-            if (status.connected) void sincronizar(true)
+            if (status.connected && mudouConexao) void sincronizar(true)
           })
           if (encerrado) await networkHandle.remove()
           else listenersNativos.push(networkHandle)
@@ -237,7 +226,10 @@ export function ServerSyncRuntime() {
         try {
           const { App } = await import("@capacitor/app")
           const appHandle = await App.addListener("appStateChange", ({ isActive }) => {
-            if (!encerrado && isActive) void sincronizar(true)
+            if (!encerrado && isActive) {
+              const ultima = Number(lerLocal(ULTIMA_SYNC_KEY) || 0)
+              if (Date.now() - ultima > INTERVALO_STATUS) void sincronizar(true)
+            }
           })
           if (encerrado) await appHandle.remove()
           else listenersNativos.push(appHandle)
@@ -261,7 +253,7 @@ export function ServerSyncRuntime() {
       document.removeEventListener("visibilitychange", aoVisibilidade)
       listenersNativos.forEach((handle) => { void handle.remove() })
     }
-  }, [mutate])
+  }, [authenticated, mutate])
 
   return null
 }
