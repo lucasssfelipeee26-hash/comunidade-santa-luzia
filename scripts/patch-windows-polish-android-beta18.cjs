@@ -97,24 +97,26 @@ if (source.includes('{ opacity:.32, transform:"translate3d(0,6px,0) scale(.998)"
 if (source.includes('animate(shield, [{opacity:0},{opacity:.72}]')) throw new Error("Route shield ainda anima no runtime Android.")
 fs.writeFileSync(polishFile, source)
 
-// A auditoria mostrou milhares de frames gastos em animações infinitas de ícones de
-// navegação. Elas não carregam estado nem informação; no Android são congeladas para
-// não competir com montagem de rota, fetch, layout e desenho do WebView.
+// Apenas os ícones da barra inferior devem permanecer estáticos. As animações do
+// painel, ferramentas, atalhos e conteúdo interno continuam herdadas normalmente.
 let runtime = fs.readFileSync(runtimeFile, "utf8")
 const motionAnchor = '    @media(prefers-reduced-motion:reduce){.sl-r7-books-icon i,.sl-r7-liturgy-icon::after,.sl-r7-panel-icon i,.sl-r7-animated-nav-source,[data-sl-nav-motion] svg{animation:none!important}}'
-const androidMotionOverride = `    .app-mobile-shell [data-sl-nav-motion] svg,
-    .app-mobile-shell .sl-r7-animated-nav-source,
-    .app-mobile-shell .sl-r7-animate-books,
-    .app-mobile-shell .sl-r7-animate-liturgy,
-    .app-mobile-shell .sl-r7-animate-panel,
-    .app-mobile-shell .sl-r7-animate-scale,
-    .app-mobile-shell .sl-home-shortcut-icon svg { animation:none !important; will-change:auto !important; }
+const androidBottomNavOverride = `    .mobile-app-bottom-nav [data-bottom-nav-static-icon="true"],
+    .mobile-app-bottom-nav [data-bottom-nav-static-icon="true"] svg {
+      animation:none !important;
+      transform:none !important;
+      filter:none !important;
+      will-change:auto !important;
+    }
 `
-if (!runtime.includes(androidMotionOverride.trim())) {
+if (!runtime.includes(androidBottomNavOverride.trim())) {
   if (!runtime.includes(motionAnchor)) throw new Error("Âncora das animações do runtime Windows mudou; não vou aplicar override às cegas.")
-  runtime = runtime.replace(motionAnchor, `${androidMotionOverride}${motionAnchor}`)
+  runtime = runtime.replace(motionAnchor, `${androidBottomNavOverride}${motionAnchor}`)
 }
-if (!runtime.includes('.app-mobile-shell [data-sl-nav-motion] svg')) throw new Error("Override de animação Android ausente.")
+if (!runtime.includes('.mobile-app-bottom-nav [data-bottom-nav-static-icon="true"]')) throw new Error("Override estático da barra inferior ausente.")
+if (runtime.includes('.app-mobile-shell .sl-r7-animate-panel,') || runtime.includes('.app-mobile-shell .sl-home-shortcut-icon svg { animation:none')) {
+  throw new Error("Override amplo de animações internas reapareceu no Android.")
+}
 fs.writeFileSync(runtimeFile, runtime)
 
-console.log("[beta21] WebView estabilizado: sem route shield/fade, polling reduzido e animações infinitas de navegação congeladas no Android.")
+console.log("[beta21] WebView estabilizado: sem route shield/fade; barra inferior estática e animações internas preservadas.")
