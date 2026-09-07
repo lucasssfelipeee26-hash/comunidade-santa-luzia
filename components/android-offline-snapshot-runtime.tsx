@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core"
 import { OfflineStore } from "@/lib/native-offline-store"
 import { OFFLINE_DATA_EVENT } from "@/lib/offline-data"
 import { migrarFilasLegadasParaNativa, removerEspelhosLegados } from "@/lib/local-first-queue"
+import { useAuthSession } from "@/components/auth-session-runtime"
 
 type QueueItem = {
   id: string
@@ -20,6 +21,7 @@ const BRIDGE_URL = `${BRIDGE_ORIGIN}/offline-bridge.html`
 const TIMEOUT = 7_000
 const SNAPSHOT_REVISION_KEY = "santa-luzia:local-first:snapshot-revision"
 const SNAPSHOT_USER_KEY = "santa-luzia:local-first:snapshot-user"
+const SERVER_REVISION_KEY = "santa-luzia:ultima-revisao-servidor"
 const INTERVALO_SNAPSHOT = 5 * 60_000
 
 function lerLocal(chave: string) {
@@ -49,9 +51,13 @@ async function jsonComTimeout(url: string) {
 }
 
 export function AndroidOfflineSnapshotRuntime() {
+  const { liveSession } = useAuthSession()
+
   useEffect(() => {
+    if (!liveSession?.usuario?.id || !liveSession?.tipo) return
     if (!navigator.userAgent.includes("SantaLuziaAndroid") && !Capacitor.isNativePlatform()) return
 
+    const sessao = liveSession
     let encerrado = false
     let iframe: HTMLIFrameElement | null = null
     let bridgePronto = false
@@ -60,9 +66,6 @@ export function AndroidOfflineSnapshotRuntime() {
     const usaNativo = Capacitor.isPluginAvailable("OfflineStore")
     const beta10Local = navigator.userAgent.includes("SantaLuziaOriginalUIOffline/2")
 
-    // Na Beta 10 a interface alternativa offline foi removida de propósito.
-    // Se o plugin nativo não estiver disponível, não tentamos ressuscitar o
-    // antigo offline-bridge.html; as demais camadas locais continuam isoladas.
     if (beta10Local && !usaNativo) return
 
     function enviarBridge(message: Record<string, unknown>) {
@@ -117,16 +120,8 @@ export function AndroidOfflineSnapshotRuntime() {
       if (!usaNativo && !bridgePronto) return
       salvando = true
       try {
-        const auth = await jsonComTimeout("/api/auth/me")
-        const sessao = auth?.sessao
-        if (!sessao?.usuario?.id || !sessao?.tipo) {
-          await limparPersistente()
-          return
-        }
-
         const usuarioId = String(sessao.usuario.id)
-        const status = await jsonComTimeout(`/api/app/status?snapshot=${Date.now()}`)
-        const revisaoDados = String(status?.revisaoDados || "")
+        const revisaoDados = String(lerLocal(SERVER_REVISION_KEY) || "")
         const mesmaRevisao = Boolean(revisaoDados && lerLocal(SNAPSHOT_REVISION_KEY) === revisaoDados)
         const mesmoUsuario = lerLocal(SNAPSHOT_USER_KEY) === usuarioId
         if (mesmaRevisao && mesmoUsuario) return
@@ -154,7 +149,7 @@ export function AndroidOfflineSnapshotRuntime() {
                 nome: usuario.nome,
                 funcao: usuario.funcao ?? null,
                 desde: usuario.desde ?? null,
-                foto: usuario.foto ?? null,
+                foto: (usuario as typeof usuario & { foto?: string | null }).foto ?? null,
               },
             },
           },
@@ -231,9 +226,7 @@ export function AndroidOfflineSnapshotRuntime() {
       drenando = true
       const restantes: QueueItem[] = []
       try {
-        const auth = await jsonComTimeout("/api/auth/me")
-        const usuarioAtual = String(auth?.sessao?.usuario?.id || "")
-        if (!usuarioAtual) return
+        const usuarioAtual = String(sessao.usuario.id)
         for (const item of items) {
           if (item.ownerId && String(item.ownerId) !== usuarioAtual) {
             restantes.push(item)
@@ -321,7 +314,7 @@ export function AndroidOfflineSnapshotRuntime() {
       document.removeEventListener("visibilitychange", aoVisibilidade)
       iframe?.remove()
     }
-  }, [])
+  }, [liveSession])
 
   return null
 }
