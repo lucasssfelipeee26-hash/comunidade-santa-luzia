@@ -1,0 +1,145 @@
+name: Export — Motion Beta 21 Fonte DeepSeek
+
+on:
+  push:
+    branches:
+      - ops/export-deepseek-beta21-b44910b
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout fonte exata
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Gerar arquivo estrutural legível por IA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess, hashlib, os
+
+          root = Path.cwd()
+          out = root / "Santa-Luzia-Motion-Beta21-Fonte-Atualizada-DeepSeek.md"
+          commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          files = subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8", "replace").split("\0")
+          files = [f for f in files if f]
+
+          sensitive_parts = (
+              ".env.local", ".env.production", ".env.development", "signing-password",
+              ".jks", ".keystore", ".p12", ".pfx", ".pem", ".key", "google-services.json"
+          )
+          generated_prefixes = (
+              ".next/", "node_modules/", "android/app/build/", "android/build/",
+              "android/.gradle/", "dist/", "coverage/"
+          )
+          source_prefixes = (
+              "app/", "components/", "lib/", "scripts/", "android-local/", "config/",
+              "tests/", "docs/", "android-web/motion/", ".github/workflows/"
+          )
+          top_level_names = {
+              "package.json", "package-lock.json", "next.config.ts", "next.config.js",
+              "capacitor.config.ts", "tsconfig.json", "postcss.config.mjs", "eslint.config.mjs",
+              "components.json", "README.md", ".gitignore"
+          }
+          text_exts = {
+              ".ts", ".tsx", ".js", ".jsx", ".cjs", ".mjs", ".json", ".md", ".txt",
+              ".css", ".scss", ".html", ".xml", ".yml", ".yaml", ".toml", ".properties",
+              ".gradle", ".kts", ".py", ".sh", ".bat", ".cmd"
+          }
+
+          def wanted(path: str) -> bool:
+              if any(path.startswith(p) for p in generated_prefixes):
+                  return False
+              if any(part.lower() in path.lower() for part in sensitive_parts):
+                  return False
+              return path in top_level_names or any(path.startswith(p) for p in source_prefixes)
+
+          def looks_text(p: Path) -> bool:
+              if p.suffix.lower() in text_exts or p.name in top_level_names:
+                  try:
+                      b = p.read_bytes()[:8192]
+                      return b"\x00" not in b
+                  except OSError:
+                      return False
+              return False
+
+          selected = [f for f in files if wanted(f)]
+          textual, binary = [], []
+          for rel in selected:
+              p = root / rel
+              if not p.is_file():
+                  continue
+              if looks_text(p):
+                  textual.append(rel)
+              else:
+                  binary.append(rel)
+
+          def fence_for(path: str) -> str:
+              ext = Path(path).suffix.lower()
+              return {
+                  ".ts": "ts", ".tsx": "tsx", ".js": "js", ".jsx": "jsx", ".cjs": "js",
+                  ".mjs": "js", ".json": "json", ".md": "md", ".css": "css", ".scss": "scss",
+                  ".html": "html", ".xml": "xml", ".yml": "yaml", ".yaml": "yaml", ".py": "python",
+                  ".sh": "bash", ".gradle": "gradle", ".kts": "kotlin", ".properties": "properties"
+              }.get(ext, "text")
+
+          with out.open("w", encoding="utf-8", newline="\n") as w:
+              w.write("# Santa Luzia Motion Beta 21 — Código-fonte estrutural atualizado para DeepSeek\n\n")
+              w.write(f"- **Commit exato:** `{commit}`\n")
+              w.write("- **Branch de origem:** `fix/beta21-login` (snapshot exportado após a correção DeepSeek final)\n")
+              w.write("- **Aplicativo alvo:** Motion Beta 21 (`br.com.comunidadesantaluzia.motionbeta`)\n")
+              w.write("- **Formato:** arquivos textuais integrais concatenados, com caminhos preservados.\n")
+              w.write("- **Segredos/credenciais:** deliberadamente excluídos.\n\n")
+              w.write("## Árvore dos arquivos incluídos\n\n```text\n")
+              for rel in textual:
+                  w.write(rel + "\n")
+              w.write("```\n\n")
+
+              if binary:
+                  w.write("## Arquivos não textuais / não incorporados\n\n")
+                  w.write("Estes itens são listados para contexto estrutural, mas o conteúdo binário não foi inserido no Markdown.\n\n```text\n")
+                  for rel in binary:
+                      p = root / rel
+                      w.write(f"{rel} ({p.stat().st_size} bytes)\n")
+                  w.write("```\n\n")
+
+              w.write("## Código-fonte integral\n\n")
+              for idx, rel in enumerate(textual, 1):
+                  p = root / rel
+                  try:
+                      text = p.read_text(encoding="utf-8", errors="replace")
+                  except Exception as exc:
+                      text = f"[ERRO AO LER ARQUIVO: {exc}]"
+                  w.write(f"\n### {idx}. `{rel}`\n\n")
+                  w.write(f"```{fence_for(rel)}\n")
+                  w.write(text)
+                  if not text.endswith("\n"):
+                      w.write("\n")
+                  w.write("```\n")
+
+          digest = hashlib.sha256(out.read_bytes()).hexdigest()
+          Path(str(out) + ".sha256").write_text(f"{digest}  {out.name}\n", encoding="utf-8")
+          print(f"Gerado: {out.name}")
+          print(f"Arquivos textuais incorporados: {len(textual)}")
+          print(f"Tamanho: {out.stat().st_size} bytes")
+          print(f"SHA-256: {digest}")
+          PY
+
+      - name: Publicar arquivo fonte para DeepSeek
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-beta21-fonte-atualizada-deepseek
+          path: |
+            Santa-Luzia-Motion-Beta21-Fonte-Atualizada-DeepSeek.md
+            Santa-Luzia-Motion-Beta21-Fonte-Atualizada-DeepSeek.md.sha256
+          retention-days: 14
+          if-no-files-found: error
