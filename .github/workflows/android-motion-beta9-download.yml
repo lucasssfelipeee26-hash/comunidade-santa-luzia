@@ -1,0 +1,103 @@
+name: Android Motion Beta 9 — APK de teste
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-motion-beta9-download-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-beta9:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      SANTA_LUZIA_MOTION_BETA: "1"
+      AUTH_SECRET: ci-motion-beta-santa-luzia-12345678901234567890
+
+    steps:
+      - name: Checkout Beta 9
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Configurar versão
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const c = require('./config/android-motion-beta.json')
+          if (c.versionName !== '2.0.0-beta.9' || c.versionCode !== 20009) throw new Error('Beta 9/code20009 esperada')
+          fs.appendFileSync(process.env.GITHUB_ENV, `APP_VERSION_CODE=${c.versionCode}\nAPP_VERSION_NAME=${c.versionName}\nMOTION_APP_ID=${c.applicationId}\n`)
+          NODE
+
+      - name: Instalar dependências
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validar shell local
+        run: |
+          node --check android-web/app.js
+          node --check android-web/quiz-local.js
+          node --check android-web/game-local.js
+          node scripts/validate-android-web.cjs
+          node scripts/auditar-motion-beta.cjs
+
+      - name: Build web
+        run: npm run build
+
+      - name: Criar Android Beta 9
+        run: |
+          npx cap add android
+          npx cap sync android
+          APP_VERSION_CODE="$APP_VERSION_CODE" APP_VERSION_NAME="$APP_VERSION_NAME" node scripts/prepare-android.cjs
+          node scripts/prepare-motion-beta.cjs
+          test -s android/app/src/main/assets/public/index.html
+          test -s android/app/src/main/assets/public/app.js
+          test -s android/app/src/main/assets/public/quiz-local.js
+          test -s android/app/src/main/assets/public/game-local.js
+          test ! -e android/app/src/main/assets/public/offline.html
+          node <<'NODE'
+          const fs = require('fs')
+          const c = JSON.parse(fs.readFileSync('android/app/src/main/assets/capacitor.config.json','utf8'))
+          if (c.server?.url) throw new Error('Beta 9 não pode conter server.url')
+          NODE
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Preparar artefato
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/debug -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          mkdir -p dist
+          cp "$APK" dist/Santa-Luzia-Motion-2.0-beta9.apk
+          sha256sum dist/Santa-Luzia-Motion-2.0-beta9.apk | tee dist/SHA256-BETA9.txt
+
+      - name: Enviar APK Beta 9
+        uses: actions/upload-artifact@v4
+        with:
+          name: santa-luzia-motion-2.0-beta9-download
+          path: |
+            dist/Santa-Luzia-Motion-2.0-beta9.apk
+            dist/SHA256-BETA9.txt
+          if-no-files-found: error
+          retention-days: 14
