@@ -9,20 +9,20 @@ jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact project tree
+      - name: Checkout repository history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Create exact source archive
+      - name: Archive exact Motion Beta 21 source commit
         run: |
-          git archive --format=zip --prefix=Santa-Luzia-Motion-Beta21/ HEAD > Santa-Luzia-Motion-Beta21-Projeto-Completo.zip
+          git archive --format=zip --prefix=Santa-Luzia-Motion-Beta21/ ce6b3cd89e27acb607678b884b3f29d4f0b86022 > Santa-Luzia-Motion-Beta21-Projeto-Completo.zip
           sha256sum Santa-Luzia-Motion-Beta21-Projeto-Completo.zip
 
       - name: Upload project source
         uses: actions/upload-artifact@v4
         with:
-          name: santa-luzia-motion-beta21-projeto-completo
+          name: santa-luzia-motion-beta21-projeto-exato-ce6b3cd
           path: Santa-Luzia-Motion-Beta21-Projeto-Completo.zip
           if-no-files-found: error
           retention-days: 7
